@@ -2,7 +2,6 @@
 from fastapi import HTTPException
 from schemas.checkout_schemas import CheckoutRequest
 from repositories import ProductRepository, OrderRepository, DiscountPolicyRepository
-from repositories.audit_log_repository import AuditLogRepository
 from models import Order
 
 
@@ -11,7 +10,7 @@ class CheckoutController:
         self.product_repo = ProductRepository()
         self.order_repo = OrderRepository()
         self.discount_repo = DiscountPolicyRepository()
-        self.audit_repo = AuditLogRepository()
+    
 
     async def checkout(self, payload: CheckoutRequest, user_id: int):
         product = await self.product_repo.get_by_id(payload.product_id)
