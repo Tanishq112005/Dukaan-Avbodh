@@ -1,4 +1,4 @@
-from mcp.server import mcp
+from mcp_server.server import mcp
 from config.database import db_connection
 import asyncio
 

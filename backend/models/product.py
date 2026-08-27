@@ -7,12 +7,11 @@ if TYPE_CHECKING:
 
 
 class ProductType(str, Enum):
-    CLOTHING = "clothing"
-    ELECTRONICS = "electronics"
-    FOOTWEAR = "footwear"
-    ACCESSORIES = "accessories"
-    GROCERY = "grocery"
-    OTHER = "other"
+    T_SHIRT = "t-shirt"
+    SHORT = "short"
+    SHIRT = "shirt"
+    HOODIE = "hoodie"
+    JEANS = "jeans"
 
 
 class Product(SQLModel, table=True):
@@ -20,6 +19,12 @@ class Product(SQLModel, table=True):
     name: str
     price: float
     stock: int
-    type: ProductType = ProductType.OTHER
+    type: ProductType = ProductType.T_SHIRT
+    brand: Optional[str] = None
+    description: Optional[str] = None
+    sizes: Optional[str] = None  # e.g., "S,M,L,XL"
+    rating: float = 4.5
+    discount: int = 0
+    image_url: Optional[str] = None
 
     orders: List["Order"] = Relationship(back_populates="product")

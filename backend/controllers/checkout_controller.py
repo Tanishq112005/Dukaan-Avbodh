@@ -3,13 +3,14 @@ from fastapi import HTTPException
 from schemas.checkout_schemas import CheckoutRequest
 from repositories import ProductRepository, OrderRepository, DiscountPolicyRepository
 from models import Order
-
+from services.audit_logger import audit_logger
 
 class CheckoutController:
     def __init__(self):
         self.product_repo = ProductRepository()
         self.order_repo = OrderRepository()
         self.discount_repo = DiscountPolicyRepository()
+        self.audit_logger = audit_logger
     
 
     async def checkout(self, payload: CheckoutRequest, user_id: int):
@@ -29,7 +30,7 @@ class CheckoutController:
         )
         created = await self.order_repo.create(order)
 
-        await self.audit_repo.log_action(
+        await self.audit_logger.log_action(
             action="checkout_completed",
             reason=f"user {user_id} checked out product {product.id}, requested {payload.requested_discount}%",
             result=f"applied={final_discount}%, capped={payload.requested_discount > max_discount}"

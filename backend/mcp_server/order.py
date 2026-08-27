@@ -1,5 +1,5 @@
 # mcp/order.py
-from mcp.server import mcp
+from mcp_server.server import mcp
 from repositories import OrderRepository, UserRepository, ProductRepository, DiscountPolicyRepository
 from models import Order
 
@@ -23,10 +23,10 @@ async def get_discount_policy_info(product_id: int) -> dict:
 
 
 @mcp.tool()
-async def create_order(product_id: int, buyer_identifier: str, buyer_type: str, requested_discount: float = 0.0) -> dict:
+async def create_order(product_id: int, buyer_identifier: str, buyer_role: str, requested_discount: float = 0.0) -> dict:
     """Naya order banata hai — discount ko policy ke against bound/gate karta hai."""
     user = await user_repo.get_or_create(
-        name=buyer_identifier, agent_type=buyer_type, identifier=buyer_identifier
+        name=buyer_identifier, role=buyer_role, identifier=buyer_identifier
     )
     product = await product_repo.get_by_id(product_id)
     if not product or product.stock <= 0:

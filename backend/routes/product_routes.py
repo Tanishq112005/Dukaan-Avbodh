@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from controllers.product_controller import ProductController
 from schemas.product_schemas import AddProductRequest
 from middleware.auth_middleware import auth_middleware
-from middleware.role_middleware import RoleMiddleware
+from middleware.role_middleware import require_role
 from models.user import UserRole
 
 router = APIRouter(prefix="/product", tags=["Product"])
@@ -13,7 +13,7 @@ controller = ProductController()
 # Sirf merchant access kar sakta hai
 async def add_product_route(
     payload: AddProductRequest,
-    current_user: dict = Depends(RoleMiddleware(UserRole.MERCHANT))
+    current_user: dict = Depends(require_role(UserRole.MERCHANT))
 ):
     return await controller.add_product(payload, merchant_id=current_user["user_id"])
 

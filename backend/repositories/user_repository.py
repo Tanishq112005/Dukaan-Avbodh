@@ -1,7 +1,7 @@
 # repositories/user_repository.py
 from typing import Optional
 from sqlmodel import select
-from db import async_session
+from config.database import db_connection
 from models import User
 from .base_repository import BaseRepository
 
@@ -11,7 +11,7 @@ class UserRepository(BaseRepository[User]):
         super().__init__(User)
 
     async def get_by_identifier(self, identifier: str) -> Optional[User]:
-        async with async_session() as session:
+        async with db_connection.get_session() as session:
             try:
                 result = await session.exec(
                     select(User).where(User.identifier == identifier)
@@ -25,7 +25,7 @@ class UserRepository(BaseRepository[User]):
     async def get_or_create(
         self,
         name: str,
-        agent_type: str,
+        role: str,
         identifier: str,
         address: Optional[str] = None
     ) -> User:
@@ -34,14 +34,14 @@ class UserRepository(BaseRepository[User]):
             return existing
         new_user = User(
             name=name,
-            agent_type=agent_type,
+            role=role,
             identifier=identifier,
             address=address
         )
         return await self.create(new_user)
 
     async def update_address(self, user_id: int, address: str) -> Optional[User]:
-        async with async_session() as session:
+        async with db_connection.get_session() as session:
             try:
                 result = await session.exec(
                     select(User).where(User.id == user_id)

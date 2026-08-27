@@ -1,5 +1,5 @@
 # mcp/product.py
-from mcp.server import mcp
+from mcp_server.server import mcp
 from repositories import ProductRepository
 from models.product import ProductType
 
