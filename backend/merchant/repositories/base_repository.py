@@ -1,8 +1,7 @@
 # repositories/base_repository.py
 from typing import TypeVar, Generic, Type, Optional, List
 from sqlmodel import SQLModel, select
-from sqlalchemy.ext.asyncio import AsyncSession
-from db import async_session
+from config.database import db_connection
 
 ModelType = TypeVar("ModelType", bound=SQLModel)
 
@@ -12,7 +11,7 @@ class BaseRepository(Generic[ModelType]):
         self.model = model
 
     async def create(self, obj: ModelType) -> ModelType:
-        async with async_session() as session:
+        async with db_connection.get_session() as session:
             try:
                 session.add(obj)
                 await session.commit()
@@ -25,7 +24,7 @@ class BaseRepository(Generic[ModelType]):
                 await session.close()
 
     async def get_by_id(self, obj_id: int) -> Optional[ModelType]:
-        async with async_session() as session:
+        async with db_connection.get_session() as session:
             try:
                 result = await session.exec(
                     select(self.model).where(self.model.id == obj_id)
@@ -37,7 +36,7 @@ class BaseRepository(Generic[ModelType]):
                 await session.close()
 
     async def get_all(self) -> List[ModelType]:
-        async with async_session() as session:
+        async with db_connection.get_session() as session:
             try:
                 result = await session.exec(select(self.model))
                 return result.all()
@@ -47,7 +46,7 @@ class BaseRepository(Generic[ModelType]):
                 await session.close()
 
     async def update(self, obj: ModelType) -> ModelType:
-        async with async_session() as session:
+        async with db_connection.get_session() as session:
             try:
                 session.add(obj)
                 await session.commit()
@@ -60,7 +59,7 @@ class BaseRepository(Generic[ModelType]):
                 await session.close()
 
     async def delete(self, obj_id: int) -> bool:
-        async with async_session() as session:
+        async with db_connection.get_session() as session:
             try:
                 result = await session.exec(
                     select(self.model).where(self.model.id == obj_id)
