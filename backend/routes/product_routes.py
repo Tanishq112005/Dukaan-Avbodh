@@ -1,4 +1,3 @@
-# routes/product_routes.py
 from fastapi import APIRouter, Depends
 from controllers.product_controller import ProductController
 from schemas.product_schemas import AddProductRequest
