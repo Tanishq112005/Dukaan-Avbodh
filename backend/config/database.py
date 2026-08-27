@@ -28,6 +28,15 @@ class DatabaseConnection:
             database_url = os.getenv("DATABASE_URL")
             if not database_url:
                 raise ValueError("DATABASE_URL .env file mein set nahi hai")
+            
+            if database_url.startswith("postgresql://"):
+                database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            elif database_url.startswith("postgres://"):
+                database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+
+            # Remove unsupported query parameters like sslmode or channel_binding
+            if "?" in database_url:
+                database_url = database_url.split("?")[0]
 
             self._engine = create_async_engine(
                 database_url,
@@ -49,7 +58,7 @@ class DatabaseConnection:
 
     async def init_db(self):
         """Saari models ke tables create karta hai (agar exist nahi karti)."""
-        from models import User, Product, Order, DiscountPolicy, AuditLog
+        from models import User, Product, Order, DiscountPolicy
 
         async with self._engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.create_all)
