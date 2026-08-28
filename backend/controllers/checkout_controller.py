@@ -4,6 +4,9 @@ from schemas.checkout_schemas import CheckoutRequest
 from repositories import ProductRepository, OrderRepository, DiscountPolicyRepository
 from models import Order
 from services.audit_logger import audit_logger
+from models import UserEvent
+from models.user_event import EventType
+from repositories.user_event_repository import UserEventRepository
 
 class CheckoutController:
     def __init__(self):
@@ -20,7 +23,7 @@ class CheckoutController:
 
         policy = await self.discount_repo.get_for_product(payload.product_id)
         max_discount = policy.max_discount_percent if policy else 0.0
-        final_discount = min(payload.requested_discount, max_discount)   # bounded logic
+        final_discount = min(payload.requested_discount, max_discount)
 
         order = Order(
             product_id=product.id,
@@ -30,6 +33,14 @@ class CheckoutController:
         )
         created = await self.order_repo.create(order)
 
+        # naya — purchase event track karo
+        await self.event_repo.create(UserEvent(
+            user_id=user_id,
+            product_id=product.id,
+            event_type=EventType.PURCHASED,
+            category=product.type.value
+        ))
+        
         await self.audit_logger.log_action(
             action="checkout_completed",
             reason=f"user {user_id} checked out product {product.id}, requested {payload.requested_discount}%",
