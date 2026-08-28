@@ -1,0 +1,38 @@
+# mcp_server/behavior.py
+from mcp_server.server import mcp
+from services.behavior_scorer import behavior_scorer
+from repositories.user_event_repository import UserEventRepository
+
+event_repo = UserEventRepository()
+
+@mcp.tool()
+async def get_user_affinity(user_id: int) -> dict:
+    """User ke events ke hisaab se uski category preferences (affinity score) return karta hai.
+    Agent isse padhkar recommend kar sakta hai ki user ko kya pasand aayega."""
+    try:
+        scores = await behavior_scorer.get_category_affinity(user_id)
+        if not scores:
+            return {"success": True, "message": "User ka abhi tak koi behavior data nahi hai.", "scores": {}}
+        
+        # Sabse zyada pasand aane wali categories pehle (Descending order)
+        sorted_scores = dict(sorted(scores.items(), key=lambda item: item[1], reverse=True))
+        return {"success": True, "scores": sorted_scores}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@mcp.tool()
+async def get_recent_events(user_id: int, limit: int = 5) -> list[dict]:
+    """User ke hal hi (recent) ke events fetch karta hai, jaise usne kya VIEWED ya PURCHASED kiya."""
+    events = await event_repo.get_events_for_user(user_id)
+    
+    # Latest events pehle
+    recent_events = sorted(events, key=lambda x: x.timestamp, reverse=True)[:limit]
+    
+    return [
+        {
+            "event_type": e.event_type.value,
+            "product_id": e.product_id,
+            "category": e.category,
+            "timestamp": e.timestamp.isoformat()
+        } for e in recent_events
+    ]
