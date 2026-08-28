@@ -2,7 +2,7 @@ from agentState import AgentState
 from typing import  Literal
 from pydantic import BaseModel
 from agentState import AgentState
-
+from ..config.chatModel import chatModel 
 
 
 class RouterOutput(BaseModel):
@@ -11,6 +11,8 @@ class RouterOutput(BaseModel):
 
 
 def router_node(state: AgentState):
+    
+    llm = chatModel.get_chat_model() 
     """Analyzes the latest user message and decides the route."""
     
     if not state.get("messages") or not state["messages"][-1].content:
@@ -27,7 +29,6 @@ def router_node(state: AgentState):
     
     User Message: {last_message}
     """
-    
     structured_llm = llm.with_structured_output(RouterOutput)
     result = structured_llm.invoke(prompt)
     

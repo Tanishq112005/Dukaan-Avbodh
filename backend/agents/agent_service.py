@@ -11,13 +11,9 @@ from searchNode import search_node
 from ..config.chatModel import chatModel
 from langgraph.checkpoint import memory
 from generalNode import general_node 
+from negotiateNode import negotiate_node 
+from recomededNode import recommend_node 
 
-
-
-
-
-
-# --- RECOMMENDATION PIPELINE (Candidate Gen + Stylist + Pricing combined for low latency) ---
 
 
 
