@@ -3,8 +3,6 @@ from typing import TypedDict, Annotated, Sequence, Literal
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langgraph.graph import StateGraph, END
 from pydantic import BaseModel
-import operator
-import os
 from agentState import AgentState
 from routerNode import router_node , route_decision 
 from searchNode import search_node
