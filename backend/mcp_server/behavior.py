@@ -20,6 +20,7 @@ async def get_user_affinity(user_id: int) -> dict:
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+
 @mcp.tool()
 async def get_recent_events(user_id: int, limit: int = 5) -> list[dict]:
     """User ke hal hi (recent) ke events fetch karta hai, jaise usne kya VIEWED ya PURCHASED kiya."""

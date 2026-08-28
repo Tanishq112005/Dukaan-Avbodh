@@ -20,3 +20,15 @@ class UserEventRepository(BaseRepository[UserEvent]):
                 raise e
             finally:
                 await session.close()
+
+    async def get_recent_global_events(self, limit: int = 500) -> list[UserEvent]:
+        async with db_connection.get_session() as session:
+            try:
+                result = await session.exec(
+                    select(UserEvent).order_by(UserEvent.timestamp.desc()).limit(limit)
+                )
+                return result.all()
+            except Exception as e:
+                raise e
+            finally:
+                await session.close()

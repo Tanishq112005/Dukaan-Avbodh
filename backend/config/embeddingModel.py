@@ -15,3 +15,6 @@ class EmbeddingModel:
             })
             
         return self._model
+    
+    
+embeddingModel = EmbeddingModel()   
