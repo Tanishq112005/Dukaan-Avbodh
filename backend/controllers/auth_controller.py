@@ -12,6 +12,7 @@ from models.user_event import EventType
 class AuthController:
     def __init__(self):
         self.user_repo = UserRepository()
+        self.event_repo = UserEventRepository()
 
     async def signup(self, payload: SignupRequest):
         existing = await self.user_repo.get_by_identifier(payload.identifier)
@@ -38,7 +39,6 @@ class AuthController:
 
         token = AuthHandler.create_access_token(user.id, user.role.value)
 
-        # naya — session-start event, fail-safe
         try:
             await self.event_repo.create(UserEvent(
                 user_id=user.id,
