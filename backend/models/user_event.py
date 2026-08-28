@@ -1,4 +1,4 @@
-# models/user_event.py
+# models/user_event.py — poora file
 from sqlmodel import SQLModel, Field
 from typing import Optional
 from datetime import datetime
@@ -10,13 +10,13 @@ class EventType(str, Enum):
     PURCHASED = "purchased"
     SUGGESTION_ACCEPTED = "suggestion_accepted"
     SUGGESTION_SKIPPED = "suggestion_skipped"
-    # baad mein cart banega toh "added_to_cart" yahan add kar dena
+    SESSION_START = "session_start"
 
 
 class UserEvent(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id")
-    product_id: int = Field(foreign_key="product.id")
+    product_id: Optional[int] = Field(default=None, foreign_key="product.id")   # Optional — session events ke liye product nahi hota
     event_type: EventType
-    category: str                        # Product.type ki value — fast querying ke liye denormalized
+    category: str = "session"                        # session events ke liye default "session"
     timestamp: datetime = Field(default_factory=datetime.utcnow)

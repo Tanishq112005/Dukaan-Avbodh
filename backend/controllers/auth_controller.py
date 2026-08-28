@@ -4,6 +4,9 @@ from schemas.auth_schemas import SignupRequest, LoginRequest
 from repositories import UserRepository
 from auth.auth_handler import AuthHandler
 from models import User
+from repositories.user_event_repository import UserEventRepository
+from models import UserEvent
+from models.user_event import EventType
 
 
 class AuthController:
@@ -30,9 +33,19 @@ class AuthController:
         user = await self.user_repo.get_by_identifier(payload.identifier)
         if not user or not user.password_hash:
             raise HTTPException(status_code=401, detail="Galat credentials")
-
         if not AuthHandler.verify_password(payload.password, user.password_hash):
             raise HTTPException(status_code=401, detail="Galat credentials")
 
         token = AuthHandler.create_access_token(user.id, user.role.value)
+
+        # naya — session-start event, fail-safe
+        try:
+            await self.event_repo.create(UserEvent(
+                user_id=user.id,
+                event_type=EventType.SESSION_START,
+                category="session"
+            ))
+        except Exception as e:
+            print(f"[WARN] Session event tracking fail hui: {e}")
+
         return {"access_token": token, "user_id": user.id, "role": user.role.value}
