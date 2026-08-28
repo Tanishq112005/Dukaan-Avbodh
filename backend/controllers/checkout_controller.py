@@ -13,6 +13,7 @@ class CheckoutController:
         self.product_repo = ProductRepository()
         self.order_repo = OrderRepository()
         self.discount_repo = DiscountPolicyRepository()
+        self.event_repo = UserEventRepository() 
         self.audit_logger = audit_logger
     
 
