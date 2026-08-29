@@ -25,14 +25,11 @@ export function AgentWidget() {
   
   const messagesEndRef = useRef(null);
 
-  // Auto connect when user logs in
+  // Always connect, even for guests
   useEffect(() => {
-    if (user) {
-      connectAgent();
-    } else {
-      disconnectAgent();
-    }
-  }, [user, connectAgent, disconnectAgent]);
+    connectAgent();
+    return () => disconnectAgent();
+  }, [connectAgent, disconnectAgent, user]);
 
   // Auto scroll to bottom
   useEffect(() => {

@@ -8,12 +8,8 @@ class ChatModel:
     def get_chat_model(self):
      
         if self._chat_model is None:
-         
             api_key = os.getenv("GROQ_API_KEY") 
-            
-            self._chat_model = ChatModelFactory.get_method("groq", {
-               "access_key": api_key
-            })
+            self._chat_model = ChatModelFactory.get_method("groq", api_key)
             
         return self._chat_model
     

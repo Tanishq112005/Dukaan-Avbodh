@@ -70,12 +70,14 @@ export const useStore = create((set, get) => ({
   comboOffer: null,
   isAiConnected: false,
   ws: null,
+  guestId: Math.floor(Math.random() * 1000000) + 10000, // For users who are not logged in
 
   connectAgent: () => {
-    const { user, ws } = get();
-    if (!user || !user.id || ws) return;
+    const { user, guestId, ws } = get();
+    if (ws) return; // Already connected
 
-    const socket = new WebSocket(`ws://localhost:8000/ws/chat/${user.id}`);
+    const connectId = user?.id || guestId;
+    const socket = new WebSocket(`ws://localhost:8000/ws/chat/${connectId}`);
     
     socket.onopen = () => set({ isAiConnected: true, ws: socket });
     
