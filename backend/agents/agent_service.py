@@ -3,14 +3,14 @@ from typing import TypedDict, Annotated, Sequence, Literal
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langgraph.graph import StateGraph, END
 from pydantic import BaseModel
-from agentState import AgentState
-from routerNode import router_node , route_decision 
-from searchNode import search_node
-from ..config.chatModel import chatModel
+from agents.agentState import AgentState
+from agents.routerNode import router_node, route_decision 
+from agents.searchNode import search_node
+from config.chatModel import chatModel
 from langgraph.checkpoint.memory import MemorySaver
-from .generalNode import general_node 
-from .negotiateNode import negotiate_node 
-from .recomededNode import recommend_node 
+from agents.generalNode import general_node 
+from agents.negotiateNode import negotiate_node 
+from agents.recomededNode import recommend_node
 
 workflow = StateGraph(AgentState)
 

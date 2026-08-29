@@ -1,5 +1,5 @@
-from agentState import AgentState
-from config.chatModel import ChatModel
+from agents.agentState import AgentState
+from config.chatModel import chatModel
 from services.upsell_service import upsell_service
 
 async def recommend_node(state: AgentState):
@@ -25,7 +25,7 @@ async def recommend_node(state: AgentState):
     Write 2 short, enthusiastic sentences in Hinglish pitching this item and the discount. 
     Make it sound like a personal stylist recommendation. Do not use markdown or emojis heavily."""
     
-    fast_llm = ChatModel().get_chat_model()
+    fast_llm = chatModel.get_chat_model()
     try:
         stylist_response = fast_llm.invoke(prompt).content
     except Exception:

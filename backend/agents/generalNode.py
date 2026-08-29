@@ -1,5 +1,5 @@
-from agentState import AgentState 
-from ..config.chatModel import chatModel 
+from agents.agentState import AgentState 
+from config.chatModel import chatModel 
 
 
 def general_node(state: AgentState):

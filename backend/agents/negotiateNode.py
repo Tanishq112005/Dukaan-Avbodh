@@ -1,4 +1,4 @@
-from agentState import AgentState
+from agents.agentState import AgentState
 from config.chatModel import chatModel
 from services.negotiation_service import negotiation_service
 from repositories.product_repository import ProductRepository
@@ -17,7 +17,7 @@ async def negotiate_node(state: AgentState):
     last_message = state["messages"][-1].content
     
     # 1. Use Fast LLM to extract Intent and Mood
-    fast_llm = chatModel().get_chat_model()
+    fast_llm = chatModel.get_chat_model()
     extraction_prompt = f"""
     Analyze this message from a customer bargaining on an e-commerce store: "{last_message}"
     1. Extract the requested discount percentage (float). If they just say "give me a discount", assume 5.0. If they don't specify, return 5.0.

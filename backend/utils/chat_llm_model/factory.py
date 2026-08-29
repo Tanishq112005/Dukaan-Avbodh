@@ -10,7 +10,10 @@ class ChatModelFactory:
 
         if model_type == "groq":
             model = Groq()
-            model.setModel(uri=access_key)
+            model.setModel(
+                uri=access_key , 
+                
+               )
             
             return model.getModel()
         
