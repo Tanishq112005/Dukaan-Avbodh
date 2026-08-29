@@ -14,6 +14,6 @@ class EmbeddingModelFactory:
             api_key = config.get("api_key", getattr(validated_data, "api_key", None))
             
             embeddingModel.set_model(model_name=validated_data.model_name, api_key=api_key)
-            return embeddingModel.__model ;
+            return embeddingModel.get_model()
             
     
