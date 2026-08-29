@@ -7,14 +7,10 @@ from agentState import AgentState
 from routerNode import router_node , route_decision 
 from searchNode import search_node
 from ..config.chatModel import chatModel
-from langgraph.checkpoint import memory
-from generalNode import general_node 
-from negotiateNode import negotiate_node 
-from recomededNode import recommend_node 
-
-
-
-
+from langgraph.checkpoint.memory import MemorySaver
+from .generalNode import general_node 
+from .negotiateNode import negotiate_node 
+from .recomededNode import recommend_node 
 
 workflow = StateGraph(AgentState)
 
@@ -42,6 +38,6 @@ workflow.add_edge("negotiate", END)
 workflow.add_edge("recommend", END)
 workflow.add_edge("general", END)
 
-# Compile the graph
-checkout_agent = workflow.compile(memory()) 
-
+# Compile the graph with MemorySaver for persistence across WebSocket turns
+memory = MemorySaver()
+checkout_agent = workflow.compile(checkpointer=memory)

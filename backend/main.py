@@ -5,12 +5,16 @@ from routes import auth_routes, product_routes, user_routes, order_routes, check
 
 app = FastAPI(title="Sauda API")
 
+# Global WebSocket Manager (Imported from utils to prevent circular dependencies)
+from utils.websocket_manager import manager
 app.include_router(auth_routes.router)
 app.include_router(product_routes.router)
 app.include_router(user_routes.router)
 app.include_router(order_routes.router)
 app.include_router(checkout_routes.router)
 
+from routes import chat_routes
+app.include_router(chat_routes.router)
 
 @app.on_event("startup")
 async def startup():

@@ -1,6 +1,6 @@
 from agentState import AgentState
-from config.chatModel import ChatModel
-from config.embeddingModel import EmbeddingModel
+from config.chatModel import chatModel
+from config.embeddingModel import embeddingModel
 from config.vectorDatabase import vectorDB
 from services.behavior_scorer import behavior_scorer
 from repositories.product_repository import ProductRepository
@@ -14,7 +14,7 @@ async def search_node(state: AgentState):
     last_message = state["messages"][-1].content
     user_id = state["user_id"]
     
-    fast_llm = ChatModel().get_chat_model()
+    fast_llm = chatModel().get_chat_model()
     
     # 1. Get Behavior Profile (Implicit Suggestions)
     scores = await behavior_scorer.get_category_affinity(user_id)
@@ -41,7 +41,7 @@ async def search_node(state: AgentState):
     enhanced_query = f"{user_query}. {preferences_text}".strip()
     
     # 4. Generate Embeddings and Search Pinecone
-    embedder = EmbeddingModel().getModel()
+    embedder = embeddingModel().getModel()
     query_vector = embedder.embed_query(enhanced_query)
     
     index = vectorDB.get_index("dukaan-products")
