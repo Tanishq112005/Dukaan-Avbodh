@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useAgent } from '../../hooks/useAgent';
+import { useStore } from '../../store/useStore';
 import { MessageCircle, X, Send, Bot, User } from 'lucide-react';
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -12,18 +12,37 @@ function cn(...inputs) {
 export function AgentWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
-  const { messages, sendMessage, isConnected, comboOffer } = useAgent();
+  
+  const { 
+    user,
+    aiMessages, 
+    sendAiMessage, 
+    isAiConnected, 
+    comboOffer,
+    connectAgent,
+    disconnectAgent
+  } = useStore();
+  
   const messagesEndRef = useRef(null);
+
+  // Auto connect when user logs in
+  useEffect(() => {
+    if (user) {
+      connectAgent();
+    } else {
+      disconnectAgent();
+    }
+  }, [user, connectAgent, disconnectAgent]);
 
   // Auto scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isOpen]);
+  }, [aiMessages, isOpen]);
 
   const handleSend = (e) => {
     e.preventDefault();
     if (input.trim()) {
-      sendMessage(input);
+      sendAiMessage(input);
       setInput('');
     }
   };
@@ -43,9 +62,9 @@ export function AgentWidget() {
               <div>
                 <h3 className="font-semibold text-slate-800 text-sm">Dukaan AI Agent</h3>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <div className={cn("w-2 h-2 rounded-full", isConnected ? "bg-green-500" : "bg-red-500")} />
+                  <div className={cn("w-2 h-2 rounded-full", isAiConnected ? "bg-green-500" : "bg-red-500")} />
                   <p className="text-[10px] uppercase font-medium tracking-wide text-slate-500">
-                    {isConnected ? 'Online (Proactive)' : 'Offline'}
+                    {isAiConnected ? 'Online (Proactive)' : 'Offline'}
                   </p>
                 </div>
               </div>
@@ -60,7 +79,7 @@ export function AgentWidget() {
 
           {/* Messages Area */}
           <div className="flex-1 h-[350px] overflow-y-auto p-4 space-y-4 bg-white/50">
-            {messages.length === 0 ? (
+            {aiMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-3">
                 <div className="bg-slate-50 p-4 rounded-full">
                   <MessageCircle size={32} className="text-slate-300" />
@@ -70,7 +89,7 @@ export function AgentWidget() {
                 </p>
               </div>
             ) : (
-              messages.map((msg, idx) => (
+              aiMessages.map((msg, idx) => (
                 <div key={idx} className={cn("flex gap-2", msg.sender === 'user' ? "flex-row-reverse" : "")}>
                   <div className={cn(
                     "flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1",
@@ -111,13 +130,13 @@ export function AgentWidget() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              disabled={!isConnected}
+              disabled={!isAiConnected}
               placeholder="Ask for a discount..."
               className="flex-1 bg-slate-50 border border-slate-200 rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
             />
             <button 
               type="submit" 
-              disabled={!isConnected || !input.trim()}
+              disabled={!isAiConnected || !input.trim()}
               className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white p-2.5 rounded-full shadow-sm transition-all flex-shrink-0"
             >
               <Send size={16} className="ml-0.5" />

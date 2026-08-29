@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export const useStore = create((set) => ({
+export const useStore = create((set, get) => ({
   // --- Auth State ---
   user: null,
   token: null,
@@ -43,4 +43,59 @@ export const useStore = create((set) => ({
     )
   })),
   clearCart: () => set({ cart: [] }),
+
+  // --- AI Agent / WebSocket State ---
+  aiMessages: [],
+  comboOffer: null,
+  isAiConnected: false,
+  ws: null,
+
+  connectAgent: () => {
+    const { user, ws } = get();
+    if (!user || !user.id || ws) return;
+
+    const socket = new WebSocket(`ws://localhost:8000/ws/chat/${user.id}`);
+    
+    socket.onopen = () => set({ isAiConnected: true, ws: socket });
+    
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'chat_reply' || data.type === 'proactive_suggestion') {
+          set(state => ({ aiMessages: [...state.aiMessages, { sender: 'ai', text: data.message }] }));
+          if (data.combo_offer) {
+            set({ comboOffer: data.combo_offer });
+          }
+        }
+      } catch (err) { console.error(err) }
+    };
+    
+    socket.onclose = () => set({ isAiConnected: false, ws: null });
+  },
+
+  disconnectAgent: () => {
+    const { ws } = get();
+    if (ws) {
+      ws.close();
+      set({ ws: null, isAiConnected: false, aiMessages: [], comboOffer: null });
+    }
+  },
+
+  sendAiMessage: (text) => {
+    const { ws } = get();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(text);
+      set(state => ({ aiMessages: [...state.aiMessages, { sender: 'user', text }] }));
+    }
+  },
+
+  sendAiEvent: (eventName) => {
+    const { ws, cart } = get();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const payload = { type: 'monitoring_event', event: eventName, cart: cart };
+      ws.send(JSON.stringify(payload));
+    }
+  },
+  
+  clearComboOffer: () => set({ comboOffer: null })
 }))

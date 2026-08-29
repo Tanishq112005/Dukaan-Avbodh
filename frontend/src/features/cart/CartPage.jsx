@@ -1,8 +1,18 @@
+import { useEffect } from "react";
 import { ChevronRight } from "lucide-react";
 import { CartItemList } from "./CartItemList";
 import { CartSummary } from "./CartSummary";
+import { useStore } from "../../store/useStore";
 
 export function CartPage() {
+  const sendAiEvent = useStore(state => state.sendAiEvent);
+
+  useEffect(() => {
+    // Background event: let the AI agent know user is on the cart/checkout page
+    // so it can proactively calculate combinations and pop up a deal!
+    sendAiEvent("viewed_checkout");
+  }, [sendAiEvent]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
