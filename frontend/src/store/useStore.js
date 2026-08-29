@@ -14,7 +14,7 @@ export const useStore = create((set, get) => ({
   setSearchQuery: (query) => set({ searchQuery: query }),
   selectedType: "",
   setSelectedType: (type) => set({ selectedType: type }),
-  maxPrice: 200,
+  maxPrice: 3000,
   setMaxPrice: (price) => set({ maxPrice: price }),
 
   // --- Cart State ---

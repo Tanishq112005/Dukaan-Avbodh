@@ -3,7 +3,17 @@ from fastapi import FastAPI
 from config.database import db_connection
 from routes import auth_routes, product_routes, user_routes, order_routes, checkout_routes
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Sauda API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Global WebSocket Manager (Imported from utils to prevent circular dependencies)
 from utils.websocket_manager import manager

@@ -27,14 +27,6 @@ export function ProductInfo({ product, addToCart }) {
       <p className="text-gray-500 mb-6">{product.description}</p>
       <hr className="my-6" />
       <div className="mb-6">
-        <p className="text-gray-500 mb-3">Select Colors</p>
-        <div className="flex gap-3">
-          <div onClick={() => setSelColor('Dark')} className={`w-9 h-9 rounded-full bg-[#314F4A] cursor-pointer ${selColor === 'Dark' ? 'ring-2 ring-offset-2 ring-black' : ''}`}></div>
-          <div onClick={() => setSelColor('Navy')} className={`w-9 h-9 rounded-full bg-[#31344F] cursor-pointer ${selColor === 'Navy' ? 'ring-2 ring-offset-2 ring-black' : ''}`}></div>
-        </div>
-      </div>
-      <hr className="my-6" />
-      <div className="mb-6">
         <p className="text-gray-500 mb-3">Choose Size</p>
         <div className="flex flex-wrap gap-3">
           {productSizes.map(size => (

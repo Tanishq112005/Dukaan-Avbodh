@@ -23,7 +23,7 @@ export function ProductListPage() {
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = selectedType === "" || p.type === selectedType;
+    const matchesType = selectedType === "" || p.type?.toLowerCase() === selectedType.toLowerCase();
     const matchesPrice = p.price <= maxPrice;
     return matchesSearch && matchesType && matchesPrice;
   });

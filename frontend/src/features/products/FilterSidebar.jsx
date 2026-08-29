@@ -38,13 +38,13 @@ export function FilterSidebar() {
           type="range" 
           className="w-full accent-black mb-2" 
           min="0" 
-          max="500" 
+          max="3000" 
           value={maxPrice}
           onChange={(e) => setMaxPrice(Number(e.target.value))}
         />
         <div className="flex justify-between font-medium"><span className="text-sm">₹0</span><span className="text-sm">₹{maxPrice}</span></div>
         <hr className="my-6" />
-        <Button className="w-full rounded-full bg-black text-white py-6" onClick={() => { setSelectedType(""); setMaxPrice(500); }}>Clear Filters</Button>
+        <Button className="w-full rounded-full bg-black text-white py-6" onClick={() => { setSelectedType(""); setMaxPrice(3000); }}>Clear Filters</Button>
       </div>
     </div>
   );
