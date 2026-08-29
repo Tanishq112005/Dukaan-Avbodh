@@ -19,22 +19,43 @@ export const useStore = create((set, get) => ({
 
   // --- Cart State ---
   cart: [],
-  addToCart: (product, qty, size, color) => set((state) => {
-    const existing = state.cart.find(item => item.id === product.id && item.size === size && item.color === color)
-    if (existing) {
-      return {
-        cart: state.cart.map(item => 
-          (item.id === product.id && item.size === size && item.color === color)
-            ? { ...item, qty: item.qty + qty } 
-            : item
-        )
-      }
+  activityCount: 0,
+  
+  trackActivity: () => {
+    const { activityCount, sendAiEvent } = get();
+    const newCount = activityCount + 1;
+    if (newCount >= 3) {
+      sendAiEvent("activity_threshold_reached");
+      set({ activityCount: 0 });
+    } else {
+      set({ activityCount: newCount });
     }
-    return { cart: [...state.cart, { ...product, qty, size, color }] }
-  }),
-  removeFromCart: (id, size, color) => set((state) => ({
-    cart: state.cart.filter(item => !(item.id === id && item.size === size && item.color === color))
-  })),
+  },
+
+  addToCart: (product, qty, size, color) => {
+    get().trackActivity();
+    set((state) => {
+      const existing = state.cart.find(item => item.id === product.id && item.size === size && item.color === color)
+      if (existing) {
+        return {
+          cart: state.cart.map(item => 
+            (item.id === product.id && item.size === size && item.color === color)
+              ? { ...item, qty: item.qty + qty } 
+              : item
+          )
+        }
+      }
+      return { cart: [...state.cart, { ...product, qty, size, color }] }
+    });
+  },
+  
+  removeFromCart: (id, size, color) => {
+    get().trackActivity();
+    set((state) => ({
+      cart: state.cart.filter(item => !(item.id === id && item.size === size && item.color === color))
+    }));
+  },
+  
   updateCartQty: (id, size, color, qty) => set((state) => ({
     cart: state.cart.map(item => 
       (item.id === id && item.size === size && item.color === color)

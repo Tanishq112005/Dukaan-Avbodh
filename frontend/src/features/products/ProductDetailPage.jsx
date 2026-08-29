@@ -9,11 +9,12 @@ import { ProductInfo } from "./ProductInfo";
 export function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { products, addToCart: addToZustandCart, token } = useStore();
+  const { products, addToCart: addToZustandCart, token, trackActivity } = useStore();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    trackActivity();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     axios.get(`http://localhost:8000/product/detail/${id}`, { headers })
       .then(res => {
@@ -30,7 +31,7 @@ export function ProductDetailPage() {
         setProduct(fallback);
         setLoading(false);
       });
-  }, [id, products, token]);
+  }, [id, products, token, trackActivity]);
 
   if (loading || !product) return <div>Loading...</div>;
 

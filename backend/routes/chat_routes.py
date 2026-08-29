@@ -29,8 +29,8 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
                     event_name = parsed_data.get("event")
                     cart_data = parsed_data.get("cart", [])
                     
-                    # Agar user ne kuch time se interact nahi kiya ya naya page khola:
-                    if event_name == "idle_timeout" or event_name == "viewed_multiple_products":
+                    # Agar user ne kuch time se interact nahi kiya ya naya page khola ya checkout/activity limit pahunchi:
+                    if event_name in ["idle_timeout", "viewed_multiple_products", "viewed_checkout", "activity_threshold_reached"]:
                         # Hidden trigger to graph to run 'recommendNode' proactively
                         hidden_msg = HumanMessage(content="PROACTIVE_SUGGESTION_TRIGGER")
                         
