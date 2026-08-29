@@ -10,7 +10,7 @@ class AgentState(TypedDict):
     cart: list[dict]
     intent: str
     recommended_product_id: int | None
+    combo_offer: dict | None
     final_response: str
-    
 
     

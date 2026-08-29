@@ -116,9 +116,28 @@ export function AgentWidget() {
                   <span className="text-lg">🎉</span>
                   <strong className="font-semibold tracking-tight">Limited Combo Offer!</strong>
                 </div>
-                <p className="opacity-90">
-                  Buy {comboOffer.products.join(" + ")} together for a <span className="font-bold">{comboOffer.effective_discount_percent}%</span> discount!
+                <p className="opacity-90 mb-2">
+                  Buy {comboOffer.products.map(p => p.name).join(" + ")} together for a <span className="font-bold">{comboOffer.effective_discount_percent}%</span> discount!
                 </p>
+                
+                {/* Product Images Row */}
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                  {comboOffer.products.map(p => (
+                    <a 
+                      key={p.id} 
+                      href={`/product/${p.id}`} 
+                      title={p.name}
+                      className="flex-shrink-0 relative group block"
+                    >
+                      <img 
+                        src={p.image || `https://via.placeholder.com/60?text=${p.name.charAt(0)}`} 
+                        alt={p.name} 
+                        className="w-12 h-12 rounded-md object-cover border border-emerald-200 bg-white" 
+                      />
+                      <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-md" />
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
             <div ref={messagesEndRef} />

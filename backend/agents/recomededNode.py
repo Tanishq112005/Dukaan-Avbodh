@@ -1,24 +1,38 @@
 from agentState import AgentState
-from ..config.chatModel import chatModel 
+from config.chatModel import ChatModel
+from services.upsell_service import upsell_service
 
-
-def recommend_node(state: AgentState):
+async def recommend_node(state: AgentState):
     """End-to-end recommendation node to minimize state transitions."""
-    # 1. Fetch Candidates (Pure DB/Vector Logic)
-    # TODO: Call MCP `get_user_affinity` and DB `get_vector_recommendation`
-    mock_candidates = [{"id": 10, "name": "Grey Skinny Jeans", "match_score": 92}]
+    user_id = state.get("user_id")
+    cart = state.get("cart", [])
+    
+    # 1. Fetch Candidates (Pure DB/Vector Logic via Upsell Service)
+    result = await upsell_service.generate_upsell_offer(user_id, cart)
+    
+    if not result.get("success"):
+        return {"final_response": "Abhi aapke cart ke liye koi perfect match nahi hai, please kuch aur try karein!"}
+        
+    suggested_item = result["suggested_product"]
+    combo_offer = result["combo_offer"]
     
     # 2. Stylist LLM Call
-    prompt = f"""You are a fashion stylist. 
-    The user has these items in their cart: {state.get('cart', [])}.
-    The database recommends these complementary items: {mock_candidates}.
-    Pick the best item and explain to the user in 1-2 friendly sentences why it matches perfectly. 
-    Write in Roman Hindi/Hinglish."""
+    prompt = f"""You are a friendly AI fashion stylist on an e-commerce store. 
+    The user is checking out with these items: {[c.get('name') for c in cart]}.
+    You analyzed their style and found this perfect match: {suggested_item['name']}.
+    The store is offering a {combo_offer['effective_discount_percent']}% discount if they add it right now.
     
-    stylist_response = chatModel.get_chat_model().invoke(prompt)
+    Write 2 short, enthusiastic sentences in Hinglish pitching this item and the discount. 
+    Make it sound like a personal stylist recommendation. Do not use markdown or emojis heavily."""
     
-    # 3. Pricing Safety Check (Pure Python)
-    # TODO: Call MCP `calculate_combo_offer`
-    final_text = stylist_response.content + "\n(Add this now for a special 15% combo discount!)"
+    fast_llm = ChatModel().get_chat_model()
+    try:
+        stylist_response = fast_llm.invoke(prompt).content
+    except Exception:
+        stylist_response = f"Aapke cart items ke saath {suggested_item['name']} perfect lagega! Abhi add karein aur {combo_offer['effective_discount_percent']}% discount payein."
     
-    return {"recommended_product_id": 10, "final_response": final_text}
+    return {
+        "recommended_product_id": suggested_item["id"], 
+        "combo_offer": combo_offer,
+        "final_response": stylist_response
+    }

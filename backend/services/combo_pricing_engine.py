@@ -41,7 +41,7 @@ class ComboPricingEngine:
             "floor_protected": was_floor_capped,
             "merchant_profit": round(actual_profit, 2),
             "merchant_profit_percent": round(actual_profit_percent, 2),
-            "products": [p.name for p in products]
+            "products": [{"id": p.id, "name": p.name, "image": p.image_url} for p in products]
         }
         
     def get_negotiation_limits(self, products: list[Product]) -> dict:
