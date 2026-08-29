@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
+import { AgentWidget } from "./components/layout/AgentWidget";
 import { HomePage } from "./features/home/HomePage";
 import { ProductListPage } from "./features/products/ProductListPage";
 import { ProductDetailPage } from "./features/products/ProductDetailPage";
@@ -12,7 +13,7 @@ import { MerchantDashboard } from "./features/merchant/MerchantDashboard";
 function App() {
   return (
     <Router>
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col relative">
         <Navbar />
         <main className="flex-grow">
           <Routes>
@@ -26,6 +27,7 @@ function App() {
           </Routes>
         </main>
         <Footer />
+        <AgentWidget />
       </div>
     </Router>
   );
