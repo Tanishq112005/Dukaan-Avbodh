@@ -106,8 +106,16 @@ class RecommendationService:
         # --- 3. Generate Vector Embedding using HuggingFace ---
         query_vector = self.embedding_model.embed_query(search_query)
         
+        # Determine Gender from cart
+        cart_genders = [item.get("gender") for item in cart_items if item.get("gender")]
+        target_gender = max(set(cart_genders), key=cart_genders.count) if cart_genders else None
         
-        filter_dict = {"category": target_category} if target_category else {}
+        filter_dict = {}
+        if target_category:
+            filter_dict["category"] = target_category
+        if target_gender and target_gender != "unisex":
+            filter_dict["gender"] = {"$in": [target_gender, "unisex"]}
+
         
         try:
             search_results = self.vector_index.query(

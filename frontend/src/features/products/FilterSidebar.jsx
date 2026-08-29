@@ -8,7 +8,7 @@ export function FilterSidebar() {
   const types = ["t-shirt", "short", "shirt", "hoodie", "jeans"];
 
   return (
-    <div className="hidden md:block w-64 flex-shrink-0">
+    <div className="hidden md:block w-64 flex-shrink-0 sticky top-[110px] self-start max-h-[calc(100vh-120px)] overflow-y-auto">
       <div className="border border-gray-200 rounded-[20px] p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="font-bold text-lg">Filters</h2>

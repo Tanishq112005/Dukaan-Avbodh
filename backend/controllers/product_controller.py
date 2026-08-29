@@ -17,7 +17,8 @@ class ProductController:
     async def add_product(self, payload: AddProductRequest, merchant_id: int):
         product = Product(
             name=payload.name, price=payload.price,
-            stock=payload.stock, type=payload.type
+            stock=payload.stock, type=payload.type,
+            gender=payload.gender
         )
         created = await self.product_repo.create(product)
 

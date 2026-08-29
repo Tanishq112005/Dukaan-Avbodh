@@ -23,6 +23,7 @@ class Product(SQLModel, table=True):
     stock: int
     type: ProductType = ProductType.T_SHIRT
     brand: Optional[str] = None
+    gender: Optional[str] = None
     description: Optional[str] = None
     sizes: Optional[str] = None  # e.g., "S,M,L,XL"
     rating: float = 4.5

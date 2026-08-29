@@ -36,7 +36,7 @@ export function ProductListPage() {
       <div className="flex flex-col md:flex-row gap-8">
         <FilterSidebar />
         <div className="flex-1">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center sticky top-[96px] bg-white z-10 py-4 pb-6">
             <h1 className="text-3xl font-bold capitalize">{selectedType || "All Products"}</h1>
             <p className="text-gray-500 text-sm">Showing {filteredProducts.length} Products</p>
           </div>
