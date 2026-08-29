@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
+import axios from "axios";
 import { useStore } from "../../store/useStore";
 import { ProductGallery } from "./ProductGallery";
 import { ProductInfo } from "./ProductInfo";
@@ -7,13 +9,30 @@ import { ProductInfo } from "./ProductInfo";
 export function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { products, addToCart: addToZustandCart } = useStore();
-  
-  const product = products.find(p => p.id == id) || {
-    id, name: "ONE LIFE GRAPHIC T-SHIRT", price: 260, discount: 40, rating: 4.5, brand: "ZARA",
-    description: "This graphic t-shirt which is perfect for any occasion. Crafted from a soft and breathable fabric, it offers superior comfort and style.",
-    sizes: "Small,Medium,Large,X-Large"
-  };
+  const { products, addToCart: addToZustandCart, token } = useStore();
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    axios.get(`http://localhost:8000/product/detail/${id}`, { headers })
+      .then(res => {
+        setProduct(res.data);
+        setLoading(false);
+      })
+      .catch(() => {
+        // Fallback if API fails
+        const fallback = products.find(p => p.id == id) || {
+          id, name: "ONE LIFE GRAPHIC T-SHIRT", price: 260, discount: 40, rating: 4.5, brand: "ZARA",
+          description: "This graphic t-shirt which is perfect for any occasion. Crafted from a soft and breathable fabric, it offers superior comfort and style.",
+          sizes: "Small,Medium,Large,X-Large"
+        };
+        setProduct(fallback);
+        setLoading(false);
+      });
+  }, [id, products, token]);
+
+  if (loading || !product) return <div>Loading...</div>;
 
   const handleAddToCart = (qty, selSize, selColor) => {
     addToZustandCart(product, qty, selSize, selColor);

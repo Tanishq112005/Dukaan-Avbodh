@@ -1,5 +1,6 @@
 import { Search, ShoppingCart, User } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
 import { Input } from "../ui/input";
 import { useStore } from "../../store/useStore";
 
@@ -12,7 +13,7 @@ function NavSearch({ searchQuery, setSearchQuery, handleSearch }) {
   );
 }
 
-function NavActions({ cartCount, handleAuth, user }) {
+function NavActions({ cartCount }) {
   return (
     <div className="flex items-center space-x-4">
       <Search className="h-6 w-6 md:hidden" />
@@ -20,9 +21,18 @@ function NavActions({ cartCount, handleAuth, user }) {
         <ShoppingCart className="h-6 w-6" />
         {cartCount > 0 && <span className="absolute -top-2 -right-2 bg-black text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">{cartCount}</span>}
       </Link>
-      <div className="flex items-center gap-2 cursor-pointer" onClick={handleAuth}>
-        <User className="h-6 w-6" />
-        {user && <span className="text-sm hidden md:block">Logout</span>}
+      <div className="flex items-center gap-2">
+        <SignedOut>
+          <SignInButton mode="modal">
+            <span className="text-sm cursor-pointer font-bold">Login</span>
+          </SignInButton>
+          <SignUpButton mode="modal">
+            <span className="text-sm cursor-pointer font-bold ml-2">Sign Up</span>
+          </SignUpButton>
+        </SignedOut>
+        <SignedIn>
+          <UserButton />
+        </SignedIn>
       </div>
     </div>
   );
@@ -59,7 +69,7 @@ export function Navbar() {
             </div>
           </div>
           <NavSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} />
-          <NavActions cartCount={cartCount} handleAuth={handleAuth} user={user} />
+          <NavActions cartCount={cartCount} />
         </div>
       </div>
     </nav>
