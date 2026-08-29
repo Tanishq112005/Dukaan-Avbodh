@@ -72,4 +72,87 @@ class NegotiationService:
             "agent_internal_reasoning": "Requested discount is within safe margins and loyalty limits. Accept."
         }
 
+    async def evaluate_combo_negotiation(self, user_id: int, cart_products: list[Product], requested_discount: float, current_discount: float) -> dict:
+        """
+        Negotiation logic when the user is trying to bargain on the ENTIRE cart/combo.
+        """
+        if not cart_products:
+            return {"accepted": False, "counter_offer_percent": 0.0, "agent_internal_reasoning": "Cart is empty."}
+            
+        # 1. Fetch Mathematical Limits from ComboPricingEngine
+        from services.combo_pricing_engine import combo_pricing_engine
+        limits = combo_pricing_engine.get_negotiation_limits(cart_products)
+        
+        if limits["total_price"] == 0:
+            return {"accepted": False, "counter_offer_percent": 0.0, "agent_internal_reasoning": "Total price is 0."}
+            
+        absolute_max = limits["absolute_max_discount_percent"]
+        
+        # 2. Fetch Aggregated Policies for Haggling Rules
+        avg_base_discount = 0.0
+        avg_agent_step = 0.0
+        avg_min_loyalty = 0.0
+        valid_policies = 0
+        
+        for p in cart_products:
+            try:
+                policy = await policy_repo.get_by_product_id(p.id)
+                if policy:
+                    avg_base_discount += policy.base_discount_percent
+                    avg_agent_step += policy.agent_step_percent
+                    avg_min_loyalty += policy.min_loyalty_score
+                    valid_policies += 1
+            except AttributeError:
+                pass
+                
+        if valid_policies > 0:
+            avg_base_discount /= valid_policies
+            avg_agent_step /= valid_policies
+            avg_min_loyalty /= valid_policies
+        else:
+            avg_base_discount = 0.0
+            avg_agent_step = 2.0
+            avg_min_loyalty = 5.0
+            
+        # 3. Loyalty Check
+        scores = await behavior_scorer.get_category_affinity(user_id)
+        user_loyalty_score = sum(scores.values()) if scores else 0.0
+        
+        # Agar user bilkul naya hai ya loyalty kam hai, usko ye max pool pura nahi denge
+        if user_loyalty_score < avg_min_loyalty:
+            absolute_max = absolute_max * 0.70  # Only loyal users get to push to the absolute max
+            
+        absolute_max = round(absolute_max, 2)
+        
+        # 3. Haggling Logic (Using Average Agent Step)
+        if requested_discount <= current_discount:
+            return {
+                "accepted": True, 
+                "counter_offer_percent": current_discount, 
+                "agent_internal_reasoning": "User asked for less/same on combo. Accept."
+            }
+            
+        if requested_discount > absolute_max:
+            next_offer = min(current_discount + avg_agent_step, absolute_max)
+            next_offer = round(next_offer, 2)
+            
+            if next_offer <= current_discount:
+                return {
+                    "accepted": False, 
+                    "counter_offer_percent": current_discount, 
+                    "agent_internal_reasoning": f"Combo profit limit hit. Cannot exceed {absolute_max}%."
+                }
+                
+            return {
+                "accepted": False, 
+                "counter_offer_percent": next_offer, 
+                "agent_internal_reasoning": f"Combo requested {requested_discount}% is too high. Countering with {next_offer}%."
+            }
+            
+        return {
+            "accepted": True, 
+            "counter_offer_percent": requested_discount, 
+            "agent_internal_reasoning": "Combo discount requested is safe. Accept!"
+        }
+
 negotiation_service = NegotiationService()
