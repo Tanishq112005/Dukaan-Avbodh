@@ -72,7 +72,7 @@ class NegotiationService:
             "agent_internal_reasoning": "Requested discount is within safe margins and loyalty limits. Accept."
         }
 
-    async def evaluate_combo_negotiation(self, user_id: int, cart_products: list[Product], requested_discount: float, current_discount: float) -> dict:
+    async def evaluate_combo_negotiation(self, user_id: int, cart_products: list[Product], requested_discount: float, current_discount: float, is_angry: bool = False) -> dict:
         """
         Negotiation logic when the user is trying to bargain on the ENTIRE cart/combo.
         """
@@ -114,6 +114,11 @@ class NegotiationService:
             avg_agent_step = 2.0
             avg_min_loyalty = 5.0
             
+        # --- ANGRY USER RULE ---
+        # Agar user gussa hai toh deal jaldi close karne ke liye step size double kar do
+        if is_angry:
+            avg_agent_step *= 2.0
+            
         # 3. Loyalty Check
         scores = await behavior_scorer.get_category_affinity(user_id)
         user_loyalty_score = sum(scores.values()) if scores else 0.0
@@ -124,7 +129,7 @@ class NegotiationService:
             
         absolute_max = round(absolute_max, 2)
         
-        # 3. Haggling Logic (Using Average Agent Step)
+        # 4. Haggling Logic (Using Average Agent Step)
         if requested_discount <= current_discount:
             return {
                 "accepted": True, 
