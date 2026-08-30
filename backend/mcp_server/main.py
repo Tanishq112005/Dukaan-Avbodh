@@ -8,7 +8,6 @@ import mcp_server.order
 import mcp_server.user
 
 # Naye imports add karo:
-import mcp_server.behavior
 import mcp_server.pricing
 
 # Track 1+2 unification ke naye tools:
