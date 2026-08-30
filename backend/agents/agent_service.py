@@ -29,9 +29,10 @@ async def recommend_products_tool(user_id: int):
     """Recommends products to the user based on their behavior, affinity, and cart."""
     return await recommend_products(user_id=user_id)
 
+from repositories.cart_repository import cart_repository
+
 tools = [search_products_tool, negotiate_discount_tool, recommend_products_tool]
 fast_llm = chatModel.get_chat_model().bind_tools(tools)
-
 
 async def agent_node(state: AgentState):
     messages = list(state["messages"])
@@ -44,6 +45,10 @@ async def agent_node(state: AgentState):
         else:
             modified_messages.append(msg)
 
+    # Fetch cart items to provide context to the LLM
+    cart_items = await cart_repository.get_cart_items(state.get("user_id", 0))
+    cart_desc = ", ".join([f"{item['name']} (x{item.get('qty', 1)})" for item in cart_items]) if cart_items else "Empty"
+
     system_prompt = """You are an elite AI Salesperson for 'Dukaan', a premium e-commerce store.
 Your goal is to provide exceptional customer service while maximizing the merchant's profit.
 
@@ -52,30 +57,43 @@ CORE INSTRUCTIONS:
 2. DOMAIN STRICTNESS: You ONLY talk about shopping at Dukaan. If asked about unrelated topics, politely decline and steer the conversation back to shopping.
 3. LANGUAGE: You must ONLY communicate in English.
 4. NEGOTIATION MASTERCLASS: When a user asks for a discount, act as a master salesperson. Use the `negotiate_discount_tool`. Try to make them accept the lowest possible discount. Use praise and flattery to make them feel special.
-5. TOOL MASTERY: Use `search_products_tool` when they want something specific. Use `recommend_products_tool` when they need inspiration or ask for suggestions.
-6. NO GUESSING: Do not guess what is in their cart, the tools will fetch it automatically.
+5. SEARCH & RECOMMENDATIONS: 
+   - When a user asks for something specific (e.g. "t-shirts"), ALWAYS use `search_products_tool`. Do not pretend to search without using the tool!
+   - Look at the user's Cart Contents below. If they have men's items, assume they are shopping for men and append "men's" to your search queries. If women's, append "women's".
+   - If the user explicitly rejects your suggestions ("I don't like these"), DO NOT just apologize and ask questions! You MUST immediately use `search_products_tool` with a new, broad query (like "trending", "new arrivals", or a different category) to show them fresh options instantly!
+6. NO GUESSING: Do not guess products. Always rely on the tool results.
 7. DO NOT REPEAT YOURSELF: Never send the exact same message or suggestions multiple times. Only call a tool ONCE per turn. Do not call the same tool in parallel.
+8. PRODUCT DISPLAY: When you use a tool that returns products (search_products or recommend_products), DO NOT manually list the products, their names, prices, or links in your text response. The UI will automatically display rich product cards below your message. Just write a short, engaging conversational sentence like "Here are some great options I found for you!"
 
 Your current state:
 - User ID: {user_id}
 - Current Discount Offered: {current_discount}%
+- Cart Contents: {cart_desc}
 """
     sys_msg = SystemMessage(content=system_prompt.format(
         user_id=state.get("user_id", 0), 
-        current_discount=state.get("current_discount_percent", 0.0)
+        current_discount=state.get("current_discount_percent", 0.0),
+        cart_desc=cart_desc
     ))
     
     # Back Injection System Reminder
-    reminder = """[SYSTEM REMINDER: English ONLY. Be extremely polite. Do NOT answer unrelated questions. Negotiate fiercely to protect profit using the tool, start low and praise the user. Do not guess data by yourself, always use tools. Do NOT repeat previous messages.]"""
+    reminder = """[SYSTEM REMINDER: English ONLY. Negotiate fiercely to protect profit. Use the cart's gender to guide your search queries. If a proactive [SYSTEM EVENT] occurs, ALWAYS show new suggestions. Do NOT manually list products; the UI will show them.]"""
     
     mod_messages = [sys_msg] + modified_messages + [SystemMessage(content=reminder)]
     
     response = await fast_llm.ainvoke(mod_messages)
     
-    return {
+    updates = {
         "messages": [response],
         "final_response": response.content if not response.tool_calls else ""
     }
+    
+    # Clear old suggestions if this is a fresh user request, so we don't carry over old ones.
+    # If the last message was a ToolMessage, it means we just got new suggestions, so don't clear them!
+    if messages and isinstance(messages[-1], HumanMessage):
+        updates["suggested_products"] = []
+        
+    return updates
 
 
 async def tools_node(state: AgentState):
@@ -95,7 +113,7 @@ async def tools_node(state: AgentState):
             if tool_name == "search_products_tool":
                 res = await search_products_tool.ainvoke(tool_args)
                 if isinstance(res, dict) and res.get("success"):
-                    updates["suggested_product_ids"] = [p["id"] for p in res.get("products", [])]
+                    updates["suggested_products"] = res.get("products", [])
                 tool_messages.append(ToolMessage(content=json.dumps(res), tool_call_id=tool_call["id"]))
                 
             elif tool_name == "negotiate_discount_tool":
@@ -111,7 +129,7 @@ async def tools_node(state: AgentState):
             elif tool_name == "recommend_products_tool":
                 res = await recommend_products_tool.ainvoke(tool_args)
                 if isinstance(res, dict) and res.get("success"):
-                    updates["suggested_product_ids"] = [p["id"] for p in res.get("suggested_products", [])]
+                    updates["suggested_products"] = res.get("suggested_products", [])
                 tool_messages.append(ToolMessage(content=json.dumps(res), tool_call_id=tool_call["id"]))
                 
             else:

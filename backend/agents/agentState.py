@@ -12,7 +12,7 @@ class AgentState(TypedDict):
     combo_offer: Optional[dict]
     
     # Recommendation/Search state
-    suggested_product_ids: List[int]
+    suggested_products: List[dict]
     
     # The final text to send to the user via websocket
     final_response: str

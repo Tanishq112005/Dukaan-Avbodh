@@ -30,7 +30,7 @@ export const useStore = create(
       trackActivity: () => {
         const { activityCount, sendAiEvent } = get();
         const newCount = activityCount + 1;
-        if (newCount >= 5) {
+        if (newCount >= 3) {
           sendAiEvent("activity_threshold_reached");
           set({ activityCount: 0 });
         } else {
@@ -95,7 +95,11 @@ export const useStore = create(
             const data = JSON.parse(event.data);
             if (data.type === 'chat_reply' || data.type === 'proactive_suggestion') {
               set(state => ({ 
-                aiMessages: [...state.aiMessages, { sender: 'ai', text: data.message }],
+                aiMessages: [...state.aiMessages, { 
+                  sender: 'ai', 
+                  text: data.message,
+                  suggested_products: data.suggested_products || []
+                }],
                 aiMessagesLastUpdated: Date.now(),
                 isAgentOpen: true,
                 isAiTyping: false
@@ -132,9 +136,11 @@ export const useStore = create(
           isAiTyping: true
         }));
 
+        const { cart } = get();
         const trySend = () => {
           if (socketInstance && socketInstance.readyState === WebSocket.OPEN) {
-            socketInstance.send(text);
+            const payload = { type: 'chat', text: text, cart: cart };
+            socketInstance.send(JSON.stringify(payload));
           } else if (socketInstance && socketInstance.readyState === WebSocket.CONNECTING) {
             // Socket is still connecting, retry after a short delay
             setTimeout(trySend, 500);

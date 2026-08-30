@@ -22,13 +22,37 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
             # Frontend se data receive karo
             data = await websocket.receive_text()
             
-            # 1. Proactive Monitoring (Background Events)
             try:
                 parsed_data = json.loads(data)
-                if parsed_data.get("type") == "monitoring_event":
+                msg_type = parsed_data.get("type")
+                cart_data = parsed_data.get("cart", [])
+                
+                # Sync frontend cart to backend DB
+                from config.database import db_connection
+                from models.user import User, UserRole
+                from sqlmodel import select
+                from repositories.cart_repository import cart_repository
+                
+                # Ensure the user exists in the DB (for guests) to satisfy the foreign key constraint
+                async with db_connection.get_session() as session:
+                    existing_user = await session.exec(select(User).where(User.id == user_id))
+                    if not existing_user.first():
+                        guest_user = User(id=user_id, name=f"Guest {user_id}", role=UserRole.CUSTOMER, identifier=f"guest_{user_id}@dukaan.local")
+                        session.add(guest_user)
+                        await session.commit()
+                
+                await cart_repository.clear_cart(user_id)
+                for item in cart_data:
+                    await cart_repository.add_item(
+                        user_id=user_id,
+                        product_id=int(item["id"]),
+                        quantity=item.get("qty", 1),
+                        size=item.get("size")
+                    )
+                
+                # 1. Proactive Monitoring (Background Events)
+                if msg_type == "monitoring_event":
                     event_name = parsed_data.get("event")
-                    cart_data = parsed_data.get("cart", [])
-                    
                     if event_name in ["idle_timeout", "viewed_multiple_products", "viewed_checkout", "activity_threshold_reached"]:
                         hidden_msg = HumanMessage(content="PROACTIVE_SUGGESTION_TRIGGER")
                         
@@ -43,7 +67,8 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
                                 await manager.send_message({
                                     "type": "proactive_suggestion",
                                     "message": ai_reply,
-                                    "combo_offer": result.get("combo_offer", None) 
+                                    "combo_offer": result.get("combo_offer", None),
+                                    "suggested_products": result.get("suggested_products", [])
                                 }, user_id)
                         except WebSocketDisconnect:
                             raise
@@ -53,11 +78,17 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
                             traceback.print_exc()
                             
                     continue
+                    
+                # 2. Direct User Chat (Negotiation, Search, etc.)
+                elif msg_type == "chat":
+                    chat_text = parsed_data.get("text", "")
+                    human_msg = HumanMessage(content=chat_text)
+                else:
+                    continue
+                    
             except json.JSONDecodeError:
-                pass
-                
-            # 2. Direct User Chat (Negotiation, Search, etc.)
-            human_msg = HumanMessage(content=data)
+                # Fallback for plain text just in case
+                human_msg = HumanMessage(content=data)
             
             initial_state = {
                 "messages": [human_msg],
@@ -68,11 +99,13 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
                 result = await checkout_agent.ainvoke(initial_state, config=config)
                 ai_reply = result.get("final_response", "Sorry, system error.")
                 combo_offer = result.get("combo_offer", None)
+                suggested_products = result.get("suggested_products", [])
                 
                 await manager.send_message({
                     "type": "chat_reply", 
                     "message": ai_reply,
-                    "combo_offer": combo_offer
+                    "combo_offer": combo_offer,
+                    "suggested_products": suggested_products
                 }, user_id)
             except WebSocketDisconnect:
                 raise
@@ -85,5 +118,8 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
                 except Exception:
                     pass
             
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
+        manager.disconnect(user_id)
+    except Exception as e:
+        print(f"[ERROR] WebSocket loop exited with error: {e}")
         manager.disconnect(user_id)

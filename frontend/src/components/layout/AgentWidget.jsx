@@ -58,11 +58,41 @@ export function AgentWidget() {
     }
   };
 
+  const renderMessage = (text) => {
+    if (!text) return null;
+    return text.split('\n').map((line, i) => {
+      const parts = line.split(/(\*\*.*?\*\*|\[.*?\]\(.*?\))/g);
+      return (
+        <React.Fragment key={i}>
+          {parts.map((part, j) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={j} className="font-bold">{part.slice(2, -2)}</strong>;
+            }
+            const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
+            if (linkMatch) {
+              return (
+                <a 
+                  key={j} 
+                  href={linkMatch[2]} 
+                  className="text-indigo-600 hover:text-indigo-700 underline font-medium"
+                >
+                  {linkMatch[1]}
+                </a>
+              );
+            }
+            return <span key={j}>{part}</span>;
+          })}
+          {i < text.split('\n').length - 1 && <br />}
+        </React.Fragment>
+      );
+    });
+  };
+
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       {/* Chat Window */}
       {isAgentOpen && (
-        <div className="mb-4 w-80 sm:w-96 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 transform origin-bottom-right h-[50vh]">
+        <div className="mb-4 w-[90vw] sm:w-[450px] bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 transform origin-bottom-right h-[70vh]">
           
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
@@ -109,12 +139,40 @@ export function AgentWidget() {
                     {msg.sender === 'user' ? <User size={13} className="text-slate-600"/> : <Bot size={13} className="text-indigo-600"/>}
                   </div>
                   <div className={cn(
-                    "px-3.5 py-2 rounded-2xl max-w-[80%] text-sm shadow-sm whitespace-pre-wrap",
+                    "px-3.5 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm leading-relaxed",
                     msg.sender === 'user' 
                       ? "bg-slate-900 text-white rounded-tr-sm" 
                       : "bg-white border border-slate-100 text-slate-800 rounded-tl-sm"
                   )}>
-                    {msg.text}
+                    <div className="whitespace-pre-wrap">
+                      {renderMessage(msg.text)}
+                    </div>
+                    
+                    {/* Render Rich Product Cards if they exist */}
+                    {msg.suggested_products && msg.suggested_products.length > 0 && (
+                      <div className="mt-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                        {msg.suggested_products.map(p => (
+                          <a 
+                            key={p.id} 
+                            href={`/product/${p.id}`} 
+                            className="flex-shrink-0 w-32 border border-slate-100 rounded-lg overflow-hidden block hover:border-indigo-200 transition-colors bg-slate-50 group"
+                          >
+                            <div className="relative h-28 bg-white">
+                              <img 
+                                src={p.image_url || p.image || `https://via.placeholder.com/150?text=${p.name.charAt(0)}`} 
+                                alt={p.name} 
+                                className="w-full h-full object-cover" 
+                              />
+                              <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                            <div className="p-2">
+                              <p className="text-xs font-medium text-slate-800 truncate" title={p.name}>{p.name}</p>
+                              <p className="text-[11px] font-bold text-slate-900 mt-0.5">₹{p.price}</p>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
