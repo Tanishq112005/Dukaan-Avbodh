@@ -11,6 +11,8 @@ async def search_node(state: AgentState):
     """
     Handles direct product searches combining explicit user queries and implicit behavior profiles.
     """
+    
+    
     last_message = state["messages"][-1].content
     user_id = state["user_id"]
     

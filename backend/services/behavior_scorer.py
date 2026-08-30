@@ -66,4 +66,8 @@ class BehaviorScorer:
 
         return scores
 
+    def estimate_purchase_probability(self, category_score: float) -> float:
+        """Category affinity score ko ek estimated purchase probability % mein convert karta hai."""
+        return round(min(95.0, max(5.0, category_score * 10)), 2)
+
 behavior_scorer = BehaviorScorer()

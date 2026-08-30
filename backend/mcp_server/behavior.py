@@ -52,15 +52,13 @@ async def calculate_purchase_probability(user_id: int, category: str) -> dict:
         # Sirf us category ka score nikalenge jo agent ne pucha hai
         category_score = scores.get(category, 0.0)
         
-        # Probability logic (tum isko apne hisaab se adjust kar sakte ho)
-        # Agar score 0 hai toh low chance, agar 10+ hai toh high chance
-        probability = min(95.0, max(5.0, category_score * 10))
+        probability = behavior_scorer.estimate_purchase_probability(category_score)
         
         return {
             "success": True,
             "category": category,
             "affinity_score": round(category_score, 2),
-            "estimated_purchase_probability_percent": round(probability, 2),
+            "estimated_purchase_probability_percent": probability,
             "recommendation": "High probability, definitely upsell!" if probability > 50 else "Low probability, offer high discount to convert."
         }
     except Exception as e:

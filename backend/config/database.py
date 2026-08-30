@@ -59,7 +59,7 @@ class DatabaseConnection:
 
     async def init_db(self):
         """Saari models ke tables create karta hai (agar exist nahi karti)."""
-        from models import User, Product, Order, DiscountPolicy , UserEvent
+        from models import User, Product, Order, DiscountPolicy, UserEvent, Cart, CartItem
 
         async with self._engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.create_all)
