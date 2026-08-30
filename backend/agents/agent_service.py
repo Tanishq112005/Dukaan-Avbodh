@@ -1,43 +1,136 @@
 # services/agent_service.py
+import json
 from typing import TypedDict, Annotated, Sequence, Literal
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph, END
-from pydantic import BaseModel
-from agents.agentState import AgentState
-from agents.routerNode import router_node, route_decision 
-from agents.searchNode import search_node
-from config.chatModel import chatModel
 from langgraph.checkpoint.memory import MemorySaver
-from agents.generalNode import general_node 
-from agents.negotiateNode import negotiate_node 
-from agents.recomededNode import recommend_node
+from agents.agentState import AgentState
+from config.chatModel import chatModel
+from langchain_core.tools import tool
+
+# Import the MCP Tools
+from mcp_server.search import search_products
+from mcp_server.pricing import negotiate_discount
+from mcp_server.recommendation import recommend_products
+
+# Wrap MCP tools as LangChain Tools
+@tool
+async def search_products_tool(user_id: int, query: str, category: str = None):
+    """Searches for products based on a specific query or style."""
+    return await search_products(user_id=user_id, query=query, category=category)
+
+@tool
+async def negotiate_discount_tool(user_id: int, current_discount_percent: float, requested_discount_percent: float, is_angry: bool = False):
+    """Negotiates a discount. MUST pass the current_discount_percent from your state."""
+    return await negotiate_discount(user_id=user_id, current_discount_percent=current_discount_percent, requested_discount_percent=requested_discount_percent, is_angry=is_angry)
+
+@tool
+async def recommend_products_tool(user_id: int):
+    """Recommends products to the user based on their behavior, affinity, and cart."""
+    return await recommend_products(user_id=user_id)
+
+tools = [search_products_tool, negotiate_discount_tool, recommend_products_tool]
+fast_llm = chatModel.get_chat_model().bind_tools(tools)
+
+
+async def agent_node(state: AgentState):
+    messages = list(state["messages"])
+    
+    # Handle the background trigger
+    if messages and isinstance(messages[-1], HumanMessage) and messages[-1].content == "PROACTIVE_SUGGESTION_TRIGGER":
+        messages[-1] = HumanMessage(content="[SYSTEM EVENT: The user is browsing or idle. Please call recommend_products_tool to show them some suggestions and pitch them proactively.]")
+
+    system_prompt = """You are an elite AI Salesperson for 'Dukaan', a premium e-commerce store.
+Your goal is to provide exceptional customer service while maximizing the merchant's profit.
+
+CORE INSTRUCTIONS:
+1. TONE & POLITENESS: Always remain calm, empathetic, and exceptionally polite, no matter how angry or impatient the customer gets.
+2. DOMAIN STRICTNESS: You ONLY talk about shopping at Dukaan. If asked about unrelated topics, politely decline and steer the conversation back to shopping.
+3. LANGUAGE: You must ONLY communicate in English.
+4. NEGOTIATION MASTERCLASS: When a user asks for a discount, act as a master salesperson. Use the `negotiate_discount_tool`. Try to make them accept the lowest possible discount. Use praise and flattery to make them feel special.
+5. TOOL MASTERY: Use `search_products_tool` when they want something specific. Use `recommend_products_tool` when they need inspiration or ask for suggestions.
+6. NO GUESSING: Do not guess what is in their cart, the tools will fetch it automatically.
+
+Your current state:
+- User ID: {user_id}
+- Current Discount Offered: {current_discount}%
+"""
+    sys_msg = SystemMessage(content=system_prompt.format(
+        user_id=state.get("user_id", 0), 
+        current_discount=state.get("current_discount_percent", 0.0)
+    ))
+    
+    # Back Injection System Reminder
+    reminder = """[SYSTEM REMINDER: English ONLY. Be extremely polite. Do NOT answer unrelated questions. Negotiate fiercely to protect profit using the tool, start low and praise the user. Do not guess data by yourself, always use tools.]"""
+    
+    mod_messages = [sys_msg] + messages + [SystemMessage(content=reminder)]
+    
+    response = await fast_llm.ainvoke(mod_messages)
+    
+    return {
+        "messages": [response],
+        "final_response": response.content if not response.tool_calls else ""
+    }
+
+
+async def tools_node(state: AgentState):
+    last_message = state["messages"][-1]
+    tool_messages = []
+    updates = {}
+    
+    for tool_call in last_message.tool_calls:
+        tool_name = tool_call["name"]
+        tool_args = tool_call["args"]
+        
+        # Ensure user_id is injected
+        if "user_id" not in tool_args:
+            tool_args["user_id"] = state.get("user_id", 0)
+            
+        try:
+            if tool_name == "search_products_tool":
+                res = await search_products_tool.ainvoke(tool_args)
+                if isinstance(res, dict) and res.get("success"):
+                    updates["suggested_product_ids"] = [p["id"] for p in res.get("products", [])]
+                tool_messages.append(ToolMessage(content=json.dumps(res), tool_call_id=tool_call["id"]))
+                
+            elif tool_name == "negotiate_discount_tool":
+                if "current_discount_percent" not in tool_args:
+                    tool_args["current_discount_percent"] = state.get("current_discount_percent", 0.0)
+                res = await negotiate_discount_tool.ainvoke(tool_args)
+                if isinstance(res, dict) and res.get("success"):
+                    updates["current_discount_percent"] = res.get("counter_offer_percent", 0.0)
+                    if "combo_offer" in res:
+                        updates["combo_offer"] = res["combo_offer"]
+                tool_messages.append(ToolMessage(content=json.dumps(res), tool_call_id=tool_call["id"]))
+                
+            elif tool_name == "recommend_products_tool":
+                res = await recommend_products_tool.ainvoke(tool_args)
+                if isinstance(res, dict) and res.get("success"):
+                    updates["suggested_product_ids"] = [p["id"] for p in res.get("suggested_products", [])]
+                tool_messages.append(ToolMessage(content=json.dumps(res), tool_call_id=tool_call["id"]))
+                
+            else:
+                tool_messages.append(ToolMessage(content='{"error": "Unknown tool"}', tool_call_id=tool_call["id"]))
+        except Exception as e:
+            tool_messages.append(ToolMessage(content=f'{{"error": "{str(e)}"}}', tool_call_id=tool_call["id"]))
+            
+    updates["messages"] = tool_messages
+    return updates
+
+
+def should_continue(state: AgentState):
+    last_message = state["messages"][-1]
+    if last_message.tool_calls:
+        return "tools"
+    return END
 
 workflow = StateGraph(AgentState)
+workflow.add_node("agent", agent_node)
+workflow.add_node("tools", tools_node)
 
-workflow.add_node("router", router_node)
-workflow.add_node("search", search_node)
-workflow.add_node("negotiate", negotiate_node)
-workflow.add_node("recommend", recommend_node)
-workflow.add_node("general", general_node)
+workflow.set_entry_point("agent")
+workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", END: END})
+workflow.add_edge("tools", "agent")
 
-workflow.set_entry_point("router")
-
-workflow.add_conditional_edges(
-    "router",
-    route_decision,
-    {
-        "SEARCH": "search",
-        "NEGOTIATE": "negotiate",
-        "RECOMMEND": "recommend",
-        "GENERAL": "general"
-    }
-)
-
-workflow.add_edge("search", END)
-workflow.add_edge("negotiate", END)
-workflow.add_edge("recommend", END)
-workflow.add_edge("general", END)
-
-# Compile the graph with MemorySaver for persistence across WebSocket turns
 memory = MemorySaver()
 checkout_agent = workflow.compile(checkpointer=memory)
