@@ -36,9 +36,13 @@ fast_llm = chatModel.get_chat_model().bind_tools(tools)
 async def agent_node(state: AgentState):
     messages = list(state["messages"])
     
-    # Handle the background trigger
-    if messages and isinstance(messages[-1], HumanMessage) and messages[-1].content == "PROACTIVE_SUGGESTION_TRIGGER":
-        messages[-1] = HumanMessage(content="[SYSTEM EVENT: The user is browsing or idle. Please call recommend_products_tool to show them some suggestions and pitch them proactively.]")
+    # Translate ALL background triggers in history so LLM doesn't get confused by past ones
+    modified_messages = []
+    for msg in messages:
+        if isinstance(msg, HumanMessage) and msg.content == "PROACTIVE_SUGGESTION_TRIGGER":
+            modified_messages.append(HumanMessage(content="[SYSTEM EVENT: The user is browsing or idle. Please call recommend_products_tool to show them some suggestions and pitch them proactively.]"))
+        else:
+            modified_messages.append(msg)
 
     system_prompt = """You are an elite AI Salesperson for 'Dukaan', a premium e-commerce store.
 Your goal is to provide exceptional customer service while maximizing the merchant's profit.
@@ -50,6 +54,7 @@ CORE INSTRUCTIONS:
 4. NEGOTIATION MASTERCLASS: When a user asks for a discount, act as a master salesperson. Use the `negotiate_discount_tool`. Try to make them accept the lowest possible discount. Use praise and flattery to make them feel special.
 5. TOOL MASTERY: Use `search_products_tool` when they want something specific. Use `recommend_products_tool` when they need inspiration or ask for suggestions.
 6. NO GUESSING: Do not guess what is in their cart, the tools will fetch it automatically.
+7. DO NOT REPEAT YOURSELF: Never send the exact same message or suggestions multiple times. Only call a tool ONCE per turn. Do not call the same tool in parallel.
 
 Your current state:
 - User ID: {user_id}
@@ -61,9 +66,9 @@ Your current state:
     ))
     
     # Back Injection System Reminder
-    reminder = """[SYSTEM REMINDER: English ONLY. Be extremely polite. Do NOT answer unrelated questions. Negotiate fiercely to protect profit using the tool, start low and praise the user. Do not guess data by yourself, always use tools.]"""
+    reminder = """[SYSTEM REMINDER: English ONLY. Be extremely polite. Do NOT answer unrelated questions. Negotiate fiercely to protect profit using the tool, start low and praise the user. Do not guess data by yourself, always use tools. Do NOT repeat previous messages.]"""
     
-    mod_messages = [sys_msg] + messages + [SystemMessage(content=reminder)]
+    mod_messages = [sys_msg] + modified_messages + [SystemMessage(content=reminder)]
     
     response = await fast_llm.ainvoke(mod_messages)
     

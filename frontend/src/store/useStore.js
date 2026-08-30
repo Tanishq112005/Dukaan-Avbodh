@@ -108,7 +108,7 @@ export const useStore = create(
         };
         
         socketInstance.onclose = () => {
-          set({ isAiConnected: false });
+          set({ isAiConnected: false, isAiTyping: false });
           socketInstance = null;
         };
       },
@@ -119,7 +119,7 @@ export const useStore = create(
           socketInstance = null; // Set null FIRST to prevent reconnect race
           sock.onclose = null;  // Remove handler to avoid state update after disconnect
           sock.close();
-          set({ isAiConnected: false });
+          set({ isAiConnected: false, isAiTyping: false });
         }
       },
 

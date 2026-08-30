@@ -45,6 +45,8 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
                                     "message": ai_reply,
                                     "combo_offer": result.get("combo_offer", None) 
                                 }, user_id)
+                        except WebSocketDisconnect:
+                            raise
                         except Exception as e:
                             print(f"[ERROR] Proactive suggestion failed: {e}")
                             import traceback
@@ -72,11 +74,16 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
                     "message": ai_reply,
                     "combo_offer": combo_offer
                 }, user_id)
+            except WebSocketDisconnect:
+                raise
             except Exception as e:
                 print(f"[ERROR] Chat agent failed: {e}")
                 import traceback
                 traceback.print_exc()
-                await manager.send_message({"type": "chat_reply", "message": "Sorry, something went wrong. Please try again!"}, user_id)
+                try:
+                    await manager.send_message({"type": "chat_reply", "message": "Sorry, something went wrong. Please try again!"}, user_id)
+                except Exception:
+                    pass
             
     except WebSocketDisconnect:
         manager.disconnect(user_id)
