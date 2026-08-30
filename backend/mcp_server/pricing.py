@@ -34,7 +34,6 @@ async def calculate_combo_offer(product_ids: list[int]) -> dict:
 @mcp.tool()
 async def negotiate_discount(
     user_id: int,
-    cart_items: list[dict],
     current_discount_percent: float,
     requested_discount_percent: float,
     is_angry: bool = False,
@@ -43,14 +42,15 @@ async def negotiate_discount(
     Pure negotiation calculator — yeh tool khud koi state store nahi karta.
     Agent ko khud apni memory mein pichhla offer (current_discount_percent) rakhna
     hoga aur har negotiation round mein yahan bhejna hoga (pehli baar 0 bhejo).
-    cart_items agent ko get_cart se already mila hua hoga, format:
-    [{"product_id": 12, "quantity": 1}, ...]
     Response ka counter_offer_percent agent ko apni memory mein update karke
     rakhna hoga taaki agli baar negotiation round mein wahi current_discount_percent
     ki tarah bheje.
     """
+    from repositories.cart_repository import cart_repository
+    cart_items = await cart_repository.get_cart_items(user_id)
+    
     if not cart_items:
-        return {"success": False, "error": "cart_items khali hai — negotiate karne se pehle get_cart se cart lo."}
+        return {"success": False, "error": "Cart khali hai — negotiate karne ke liye cart mein items hone chahiye."}
 
     products = []
     for item in cart_items:
@@ -59,7 +59,7 @@ async def negotiate_discount(
             products.append(p)
 
     if not products:
-        return {"success": False, "error": "cart_items ke products database mein nahi mile."}
+        return {"success": False, "error": "Cart ke products database mein nahi mile."}
 
     result = await negotiation_service.evaluate_combo_negotiation(
         user_id=user_id,
