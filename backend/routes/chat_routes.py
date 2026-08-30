@@ -35,8 +35,7 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
                         try:
                             result = await checkout_agent.ainvoke({
                                 "messages": [hidden_msg],
-                                "user_id": user_id,
-                                "cart": cart_data
+                                "user_id": user_id
                             }, config=config)
                             
                             ai_reply = result.get("final_response")
@@ -60,15 +59,19 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
             
             initial_state = {
                 "messages": [human_msg],
-                "user_id": user_id,
-                "cart": []
+                "user_id": user_id
             }
             
             try:
                 result = await checkout_agent.ainvoke(initial_state, config=config)
                 ai_reply = result.get("final_response", "Sorry, system error.")
+                combo_offer = result.get("combo_offer", None)
                 
-                await manager.send_message({"type": "chat_reply", "message": ai_reply}, user_id)
+                await manager.send_message({
+                    "type": "chat_reply", 
+                    "message": ai_reply,
+                    "combo_offer": combo_offer
+                }, user_id)
             except Exception as e:
                 print(f"[ERROR] Chat agent failed: {e}")
                 import traceback
