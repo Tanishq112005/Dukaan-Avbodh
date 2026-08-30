@@ -64,7 +64,7 @@ async def search_node(state: AgentState):
                 found_items.append(f"- {p.name} (Rs. {p.price})")
                 
     if not found_items:
-        return {"final_response": "Mujhe is se related abhi kuch exact match nahi mila, kya aap kuch aur try karna chahenge?"}
+        return {"final_response": "I couldn't find an exact match for that right now. Would you like to try looking for something else?"}
         
     results_text = "\n".join(found_items)
     
@@ -75,13 +75,13 @@ async def search_node(state: AgentState):
     
     {results_text}
     
-    Write a short, engaging response presenting these options to the user in Hinglish or English (match their tone).
+    Write a short, engaging response presenting these options to the user ONLY IN ENGLISH.
     Do NOT mention that you looked at their past preferences, just make it sound like you naturally found the perfect items.
     """
     
     try:
         final_reply = fast_llm.invoke(final_prompt).content
     except Exception:
-        final_reply = f"Yeh lijiye aapke liye kuch best options:\n{results_text}"
+        final_reply = f"Here are some great options for you:\n{results_text}"
     
     return {"final_response": final_reply}

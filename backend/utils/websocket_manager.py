@@ -5,6 +5,12 @@ class ConnectionManager:
         self.active_connections: dict[int, WebSocket] = {}
 
     async def connect(self, websocket: WebSocket, user_id: int):
+        # Close old connection if same user reconnects
+        if user_id in self.active_connections:
+            try:
+                await self.active_connections[user_id].close()
+            except Exception:
+                pass
         await websocket.accept()
         self.active_connections[user_id] = websocket
 

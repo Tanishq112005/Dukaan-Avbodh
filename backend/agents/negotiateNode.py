@@ -47,12 +47,18 @@ async def negotiate_node(state: AgentState):
                 if p:
                     cart_products.append(p)
                     
+    rec_id = state.get("recommended_product_id")
+    if rec_id:
+        p = await product_repo.get_by_id(rec_id)
+        if p and p.id not in [cp.id for cp in cart_products]:
+            cart_products.append(p)
+            
     # Assume 0 current discount if not tracked in state
     current_discount = 0.0 
     
     # 3. Call Negotiation Service
     result = await negotiation_service.evaluate_combo_negotiation(
-        user_id=state["user_id"],
+        user_id=state.get("user_id", 0),
         cart_products=cart_products,
         requested_discount=requested_discount,
         current_discount=current_discount,
@@ -69,12 +75,26 @@ async def negotiate_node(state: AgentState):
     The backend negotiation engine returned this result: 
     Accepted: {result['accepted']}, Counter Offer: {offered}%, Internal Reason: {reasoning}.
     
-    Write a short, conversational response to the user. 
-    If accepted, be happy. 
+    Write a short, conversational response to the user IN ENGLISH ONLY. 
+    If they are just agreeing to a previous suggestion (e.g., "Yes I like it"), say something like: "Great! Let's talk about a discount. I can offer you {offered}% off if you buy them together!"
+    If they asked for a specific discount and it was accepted, be happy. 
     If not accepted, politely offer {offered}% and explain you can't go lower.
     (Do NOT mention the internal reason directly).
     """
     
     final_reply = fast_llm.invoke(response_prompt).content
     
-    return {"final_response": final_reply}
+    # Generate Combo Offer to send to UI
+    from services.combo_pricing_engine import combo_pricing_engine
+    combo_offer = None
+    if len(cart_products) > 0:
+        base_combo = combo_pricing_engine.calculate_combo_price(cart_products)
+        # Override with negotiated discount
+        base_combo["effective_discount_percent"] = offered
+        base_combo["final_price"] = round(base_combo["subtotal"] * (1 - offered / 100), 2)
+        combo_offer = base_combo
+    
+    return {
+        "final_response": final_reply,
+        "combo_offer": combo_offer
+    }

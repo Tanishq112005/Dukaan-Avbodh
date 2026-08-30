@@ -29,48 +29,51 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
                     event_name = parsed_data.get("event")
                     cart_data = parsed_data.get("cart", [])
                     
-                    # Agar user ne kuch time se interact nahi kiya ya naya page khola ya checkout/activity limit pahunchi:
                     if event_name in ["idle_timeout", "viewed_multiple_products", "viewed_checkout", "activity_threshold_reached"]:
-                        # Hidden trigger to graph to run 'recommendNode' proactively
                         hidden_msg = HumanMessage(content="PROACTIVE_SUGGESTION_TRIGGER")
                         
-                        # Graph run karo
-                        result = await checkout_agent.ainvoke({
-                            "messages": [hidden_msg],
-                            "user_id": user_id,
-                            "cart": cart_data
-                        }, config=config)
-                        
-                        ai_reply = result.get("final_response")
-                        if ai_reply:
-                            await manager.send_message({
-                                "type": "proactive_suggestion",
-                                "message": ai_reply,
-                                "combo_offer": result.get("combo_offer", None) 
-                            }, user_id)
+                        try:
+                            result = await checkout_agent.ainvoke({
+                                "messages": [hidden_msg],
+                                "user_id": user_id,
+                                "cart": cart_data
+                            }, config=config)
                             
-                    continue # Wait for next message
+                            ai_reply = result.get("final_response")
+                            if ai_reply:
+                                await manager.send_message({
+                                    "type": "proactive_suggestion",
+                                    "message": ai_reply,
+                                    "combo_offer": result.get("combo_offer", None) 
+                                }, user_id)
+                        except Exception as e:
+                            print(f"[ERROR] Proactive suggestion failed: {e}")
+                            import traceback
+                            traceback.print_exc()
+                            
+                    continue
             except json.JSONDecodeError:
-                pass # Normal text chat hai, koi JSON event nahi
+                pass
                 
             # 2. Direct User Chat (Negotiation, Search, etc.)
             human_msg = HumanMessage(content=data)
             
-            # TODO: Ideal case mein cart database se aayega. 
-            # Abhi ke liye hum assume kar rahe hain state empty se shuru hogi, 
-            # ya previous thread_id state use karegi.
             initial_state = {
                 "messages": [human_msg],
                 "user_id": user_id,
-                "cart": [] # Fill this with actual cart items from DB in production
+                "cart": []
             }
             
-            # Graph run karo
-            result = await checkout_agent.ainvoke(initial_state, config=config)
-            ai_reply = result.get("final_response", "Sorry, system error.")
-            
-            # User ko reply bhejo
-            await manager.send_message({"type": "chat_reply", "message": ai_reply}, user_id)
+            try:
+                result = await checkout_agent.ainvoke(initial_state, config=config)
+                ai_reply = result.get("final_response", "Sorry, system error.")
+                
+                await manager.send_message({"type": "chat_reply", "message": ai_reply}, user_id)
+            except Exception as e:
+                print(f"[ERROR] Chat agent failed: {e}")
+                import traceback
+                traceback.print_exc()
+                await manager.send_message({"type": "chat_reply", "message": "Sorry, something went wrong. Please try again!"}, user_id)
             
     except WebSocketDisconnect:
         manager.disconnect(user_id)

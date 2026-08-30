@@ -125,17 +125,19 @@ class RecommendationService:
                 filter=filter_dict
             )
             
-            # --- 5. Return Best Match ---
+            # --- 5. Return Best Matches ---
             if search_results and search_results.matches:
-                # Top match ka ID utha kar database se actual product fetch karenge
-                best_match_id = int(search_results.matches[0].id)
-                suggested_product = await product_repo.get_by_id(best_match_id)
-                return suggested_product
+                suggested_products = []
+                for match in search_results.matches:
+                    product = await product_repo.get_by_id(int(match.id))
+                    if product:
+                        suggested_products.append(product)
+                return suggested_products
                     
         except Exception as e:
             print(f"Error querying Vector DB: {e}")
             
-        return None
+        return []
 
 # Export instance
 recommendation_service = RecommendationService()

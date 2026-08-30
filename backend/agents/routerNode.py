@@ -19,12 +19,15 @@ def router_node(state: AgentState):
 
     last_message = state["messages"][-1].content
     
+    if last_message == "PROACTIVE_SUGGESTION_TRIGGER":
+        return {"intent": "RECOMMEND"}
+    
     prompt = f"""You are an intent router for a clothing store.
     Categorize the following user message into ONE of these intents:
     - SEARCH: User is looking for a specific item (e.g., 'black tie', 'show me jeans').
-    - NEGOTIATE: User is asking for discounts or lower prices.
+    - NEGOTIATE: User is asking for discounts, OR the user is accepting/agreeing to a recommendation (e.g., 'Yes I like it', 'Ok add it', 'Sure').
     - RECOMMEND: User asks for suggestions or what matches their current cart.
-    - GENERAL: General chat, greetings, or unclear intent.
+    - GENERAL: General chat, greetings, unclear intent, or rejecting a product/offer (e.g., "I don't like this", "no thanks").
     
     User Message: {last_message}
     """

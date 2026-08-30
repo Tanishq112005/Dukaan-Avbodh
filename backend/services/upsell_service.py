@@ -12,10 +12,10 @@ class UpsellService:
     """
     
     async def generate_upsell_offer(self, user_id: int, cart_items: list[dict]) -> dict:
-        # 1. Get Recommendation from pure Recommendation Service
-        suggested_product = await recommendation_service.get_best_suggestion(user_id, cart_items)
+        # 1. Get Recommendations from pure Recommendation Service
+        suggested_products = await recommendation_service.get_best_suggestion(user_id, cart_items)
         
-        if not suggested_product:
+        if not suggested_products:
             return {"success": False, "message": "No suitable recommendations found."}
             
         # 2. Fetch actual Product models for Cart Items
@@ -27,15 +27,17 @@ class UpsellService:
                 if p:
                     cart_products.append(p)
                     
-        # 3. Create the combo list (Cart + Suggested)
-        combo_list = cart_products + [suggested_product]
+        # 3. Create the combo list using the FIRST suggestion for future use
+        # (Though we won't show it immediately based on new rules)
+        best_product = suggested_products[0]
+        combo_list = cart_products + [best_product]
         
         # 4. Generate bounded pricing from Combo Pricing Engine
         combo_offer = combo_pricing_engine.calculate_combo_price(combo_list)
         
         return {
             "success": True,
-            "suggested_product": suggested_product.model_dump() if hasattr(suggested_product, 'model_dump') else suggested_product.dict(),
+            "suggested_products": [p.model_dump() if hasattr(p, 'model_dump') else p.dict() for p in suggested_products],
             "combo_offer": combo_offer
         }
 

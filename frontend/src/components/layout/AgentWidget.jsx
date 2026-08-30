@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
-import { MessageCircle, X, Send, Bot, User } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, Loader2 } from 'lucide-react';
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -10,31 +10,45 @@ function cn(...inputs) {
 }
 
 export function AgentWidget() {
-  const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   
   const { 
     user,
     aiMessages, 
+    aiMessagesLastUpdated,
+    isAiTyping,
     sendAiMessage, 
     isAiConnected, 
     comboOffer,
     connectAgent,
-    disconnectAgent
+    disconnectAgent,
+    isAgentOpen,
+    setIsAgentOpen
   } = useStore();
   
   const messagesEndRef = useRef(null);
 
-  // Always connect, even for guests
+  // Connect once on mount, disconnect on unmount
   useEffect(() => {
     connectAgent();
+    // Check if aiMessages are older than 1 day
+    if (aiMessagesLastUpdated) {
+      const now = Date.now();
+      const diff = now - aiMessagesLastUpdated;
+      if (diff > 24 * 60 * 60 * 1000) {
+        useStore.setState({ aiMessages: [], aiMessagesLastUpdated: now, comboOffer: null });
+      }
+    } else {
+      useStore.setState({ aiMessagesLastUpdated: Date.now() });
+    }
     return () => disconnectAgent();
-  }, [connectAgent, disconnectAgent, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [aiMessages, isOpen]);
+  }, [aiMessages, isAgentOpen, isAiTyping]);
 
   const handleSend = (e) => {
     e.preventDefault();
@@ -47,8 +61,8 @@ export function AgentWidget() {
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       {/* Chat Window */}
-      {isOpen && (
-        <div className="mb-4 w-80 sm:w-96 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 transform origin-bottom-right">
+      {isAgentOpen && (
+        <div className="mb-4 w-80 sm:w-96 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 transform origin-bottom-right h-[50vh]">
           
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
@@ -67,7 +81,7 @@ export function AgentWidget() {
               </div>
             </div>
             <button 
-              onClick={() => setIsOpen(false)}
+              onClick={() => setIsAgentOpen(false)}
               className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-md transition-colors"
             >
               <X size={18} />
@@ -75,7 +89,7 @@ export function AgentWidget() {
           </div>
 
           {/* Messages Area */}
-          <div className="flex-1 h-[350px] overflow-y-auto p-4 space-y-4 bg-white/50">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white/50">
             {aiMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-3">
                 <div className="bg-slate-50 p-4 rounded-full">
@@ -95,7 +109,7 @@ export function AgentWidget() {
                     {msg.sender === 'user' ? <User size={13} className="text-slate-600"/> : <Bot size={13} className="text-indigo-600"/>}
                   </div>
                   <div className={cn(
-                    "px-3.5 py-2 rounded-2xl max-w-[80%] text-sm shadow-sm",
+                    "px-3.5 py-2 rounded-2xl max-w-[80%] text-sm shadow-sm whitespace-pre-wrap",
                     msg.sender === 'user' 
                       ? "bg-slate-900 text-white rounded-tr-sm" 
                       : "bg-white border border-slate-100 text-slate-800 rounded-tl-sm"
@@ -106,15 +120,27 @@ export function AgentWidget() {
               ))
             )}
             
+            {isAiTyping && (
+              <div className="flex gap-2">
+                <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1 bg-indigo-50">
+                  <Bot size={13} className="text-indigo-600"/>
+                </div>
+                <div className="px-3.5 py-3 rounded-2xl max-w-[80%] text-sm shadow-sm bg-white border border-slate-100 text-slate-800 rounded-tl-sm flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin text-slate-400" />
+                  <span className="text-slate-400">Agent is typing...</span>
+                </div>
+              </div>
+            )}
+            
             {/* Combo Offer Banner */}
             {comboOffer && (
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-800 shadow-sm animate-in fade-in slide-in-from-bottom-2">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-lg">🎉</span>
+                  <span className="text-lg">dYZ%</span>
                   <strong className="font-semibold tracking-tight">Limited Combo Offer!</strong>
                 </div>
                 <p className="opacity-90 mb-2">
-                  Buy {comboOffer.products.map(p => p.name).join(" + ")} together for a <span className="font-bold">{comboOffer.effective_discount_percent}%</span> discount!
+                  Buy {comboOffer.products.map(p => p.name).join(" + ")} together for a <span className="font-bold">{Math.abs(comboOffer.effective_discount_percent).toFixed(2)}%</span> discount!
                 </p>
                 
                 {/* Product Images Row */}
@@ -163,10 +189,10 @@ export function AgentWidget() {
 
       {/* Floating Toggle Button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsAgentOpen(!isAgentOpen)}
         className="bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-full shadow-lg shadow-slate-900/20 transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
       >
-        {isOpen ? <X size={24} /> : <MessageCircle size={24} />}
+        {isAgentOpen ? <X size={24} /> : <MessageCircle size={24} />}
       </button>
     </div>
   );
