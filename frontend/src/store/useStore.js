@@ -25,6 +25,8 @@ export const useStore = create(
 
       // --- Cart State ---
       cart: [],
+      aiDiscount: 0,
+      setAiDiscount: (discount) => set({ aiDiscount: discount }),
       activityCount: 0,
       
       trackActivity: () => {
@@ -119,6 +121,9 @@ export const useStore = create(
                 }));
                 set({ cart: syncedCart });
               }
+              if (data.ai_discount !== undefined) {
+                set({ aiDiscount: data.ai_discount });
+              }
             }
           } catch (err) { console.error(err) }
         };
@@ -183,6 +188,7 @@ export const useStore = create(
         user: state.user,
         token: state.token,
         cart: state.cart,
+        aiDiscount: state.aiDiscount,
         aiMessages: state.aiMessages,
         aiMessagesLastUpdated: state.aiMessagesLastUpdated,
         comboOffer: state.comboOffer,

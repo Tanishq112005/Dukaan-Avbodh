@@ -5,12 +5,12 @@ import { useStore } from "../../store/useStore";
 import axios from "axios";
 
 export function CartSummary() {
-  const { cart: cartItems, token, clearCart } = useStore();
+  const { cart: cartItems, token, clearCart, aiDiscount } = useStore();
 
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
-  const discount = subtotal * 0.2; // 20%
+  const discountAmount = subtotal * ((aiDiscount || 0) / 100);
   const delivery = 15;
-  const total = subtotal - discount + delivery;
+  const total = subtotal - discountAmount + delivery;
 
   const loadRazorpayScript = () => {
     return new Promise((resolve) => {
@@ -70,7 +70,7 @@ export function CartSummary() {
               for (const item of cartItems) {
                 await axios.post("http://localhost:8000/checkout/", {
                   product_id: item.id,
-                  requested_discount: 20.0
+                  requested_discount: aiDiscount || 0.0
                 }, {
                   headers: { Authorization: `Bearer ${token}` }
                 });
@@ -109,8 +109,11 @@ export function CartSummary() {
     <div className="md:w-1/3 border border-gray-200 rounded-[20px] p-6 h-fit">
       <h2 className="text-xl font-bold mb-6">Order Summary</h2>
       <div className="space-y-4 text-gray-500 mb-6">
-        <div className="flex justify-between"><span>Subtotal</span><span className="font-bold text-black">₹{subtotal}</span></div>
-        <div className="flex justify-between"><span>Discount (-20%)</span><span className="font-bold text-red-500">-₹{discount.toFixed(0)}</span></div>
+        <div className="flex justify-between"><span>Subtotal</span><span className="font-bold text-black">₹{subtotal.toFixed(0)}</span></div>
+        <div className="flex justify-between">
+          <span>Discount {aiDiscount > 0 ? `(-${aiDiscount.toFixed(1)}%)` : ''}</span>
+          <span className="font-bold text-red-500">-₹{discountAmount.toFixed(0)}</span>
+        </div>
         <div className="flex justify-between"><span>Delivery Fee</span><span className="font-bold text-black">₹{delivery}</span></div>
       </div>
       <hr className="my-4" />

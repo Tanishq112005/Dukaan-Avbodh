@@ -68,7 +68,8 @@ async def chat_message(req: ChatRequest):
             "message": ai_reply,
             "combo_offer": combo_offer,
             "suggested_products": suggested_products,
-            "cart": updated_cart
+            "cart": updated_cart,
+            "ai_discount": result.get("current_discount_percent", 0.0)
         }
     except Exception as e:
         print(f"[ERROR] Chat agent failed: {e}")
