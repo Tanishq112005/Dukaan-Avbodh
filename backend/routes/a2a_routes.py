@@ -72,22 +72,10 @@ async def get_agent_card():
         },
         "supported_protocols": ["ACP-1.0", "AP2"],
         "capabilities": [
-            {
-                "name": "product_discovery",
-                "description": "Can search the catalog, filter by category, and provide semantic recommendations based on user affinities."
-            },
-            {
-                "name": "cart_management",
-                "description": "Can maintain a persistent cart state per buyer agent, add, update, and remove items."
-            },
-            {
-                "name": "dynamic_pricing_and_negotiation",
-                "description": "Can evaluate bulk purchases, calculate combo offers, and negotiate discounts bounded by merchant policies."
-            },
-            {
-                "name": "checkout_and_settlement",
-                "description": "Can convert a cart into an order and integrate with Razorpay for final payment settlement."
-            }
+            "product_discovery",
+            "cart_management",
+            "dynamic_pricing_and_negotiation",
+            "checkout_and_settlement"
         ],
         "interaction_model": {
             "type": "true_agentic_routing",
