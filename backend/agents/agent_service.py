@@ -130,7 +130,7 @@ Analyze the user's request and strictly use the correct tool based on these scen
    - IF you are unsure which exact product they mean, or if any necessary information is missing, politely ask the user for clarification before taking action. Do not guess.
 
 2. PRODUCT DISCOVERY:
-   - IF user explicitly asks for a specific item (e.g., "show me blue jeans"): USE `search_products`.
+   - IF user explicitly asks for a specific item (e.g., "show me blue jeans"): USE `get_products_by_type` or `search_products`. DO NOT hallucinate products or brands. YOU MUST CALL A TOOL to see what's in stock before answering.
    - IF frontend triggers [SYSTEM EVENT] OR user asks for general suggestions: USE `recommend_products`.
 
 3. PRICING & NEGOTIATION:
@@ -249,7 +249,7 @@ NEVER list product details manually in text; the UI handles it.]"""
                 print(f"   [REASON] {str(res_text)[:300]}", flush=True)
 
             if isinstance(parsed, dict) and parsed.get("success"):
-                if tool_name == "search_products":
+                if "products" in parsed:
                     updates["suggested_products"] = parsed.get("products", [])
                 elif tool_name == "recommend_products":
                     updates["suggested_products"] = parsed.get("suggested_products", [])
