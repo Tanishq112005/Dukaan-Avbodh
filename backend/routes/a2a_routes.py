@@ -177,6 +177,14 @@ async def a2a_interact_jsonrpc(req: Request):
         
         ai_reply = result.get("final_response", "Action completed.")
         
+        # Inject product markdown if any were suggested, since A2A Inspector doesn't render our custom JSON payload
+        suggested = result.get("suggested_products", [])
+        if suggested:
+            ai_reply += "\n\n### Recommended Products:\n"
+            for p in suggested:
+                img_url = p.get("image_url") or "https://via.placeholder.com/150"
+                ai_reply += f"\n**{p.get('name')}** - ₹{p.get('price')}\n![{p.get('name')}]({img_url})\n"
+                
     except Exception as e:
         ai_reply = f"Error processing request: {str(e)}"
         
