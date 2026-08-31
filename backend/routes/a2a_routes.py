@@ -149,7 +149,9 @@ async def a2a_interact_jsonrpc(req: Request):
     try:
         parts = body.get("params", {}).get("message", {}).get("parts", [])
         for part in parts:
-            if part.get("kind") == "text":
+            if "text" in part:
+                intent += part.get("text", "") + " "
+            elif part.get("kind") == "text":
                 intent += part.get("text", "") + " "
     except Exception:
         pass
@@ -183,7 +185,6 @@ async def a2a_interact_jsonrpc(req: Request):
             "role": "ROLE_AGENT",
             "parts": [
                 {
-                    "kind": "text",
                     "text": ai_reply
                 }
             ]
