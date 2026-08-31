@@ -103,6 +103,16 @@ async def get_agent_card():
                 ]
             }
         },
+        "transports": [
+            {
+                "type": "http",
+                "endpoint": "/a2a/interact"
+            },
+            {
+                "type": "rest",
+                "endpoint": "/a2a/interact"
+            }
+        ],
         "static_endpoints": {
             "catalog": {
                 "url": "/a2a/catalog",
