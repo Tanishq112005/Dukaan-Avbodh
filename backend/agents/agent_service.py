@@ -1,5 +1,6 @@
 import os
 import sys
+import asyncio
 import json
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph, END
@@ -12,17 +13,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) 
+MCP_URL = os.getenv("MCP_SERVER_URL", "http://127.0.0.1:8001/sse")
+FASTMCP_TOKEN = os.getenv("FASTMCP_TOKEN")
 
-# We force the local URL to avoid cloud authentication/401 errors.
-# Render will run the MCP server locally in the same container using the background task.
-MCP_URL = "http://127.0.0.1:8001/sse"
+mcp_config = {
+    "url": MCP_URL,
+    "transport": "streamable_http",
+}
+
+if FASTMCP_TOKEN:
+    mcp_config["headers"] = {
+        "Authorization": f"Bearer {FASTMCP_TOKEN}"
+    }
 
 mcp_client = MultiServerMCPClient({
-    "dukaan": {
-        "url": MCP_URL,
-        "transport": "sse",
-    }
+    "dukaan": mcp_config
 })
 
 
@@ -50,16 +55,39 @@ def _safe_parse(text: str):
 async def init_agent():
     global _checkout_agent, _tools_by_name
 
-    print("   ↳ MCP server (mcp_server/main.py) se connect ho raha hai (HTTP SSE)...")
-    tools = await mcp_client.get_tools()
-    _tools_by_name = {t.name: t for t in tools}
-    print(f"   ↳ {len(tools)} tools mile: {', '.join(sorted(_tools_by_name.keys()))}")
+    print("   ↳ FastMCP Cloud/Local Server se tools load ho rahe hain...")
+    
+    max_retries = 10
+    tools = None
+    
+    # Context managers ko puri tarah hata diya hai taaki TaskGroup background mein collapse na ho
+    for attempt in range(max_retries):
+        try:
+            # Client bina direct block ke tools generate karega
+            tools = await mcp_client.get_tools()
+            if tools is not None:
+                break
+        except Exception as e:
+            print(f"   [Attempt {attempt+1}/{max_retries}] Waiting for MCP server... Error string: {e}")
+            await asyncio.sleep(2)
+            
+    if tools is None:
+        print("   ❌ MCP Server target offline! Activating empty tools fallback to prevent FastAPI crash.")
+        tools = []
+        _tools_by_name = {}
+    else:
+        _tools_by_name = {t.name: t for t in tools}
+        print(f"   ↳ {len(tools)} tools mile: {', '.join(sorted(_tools_by_name.keys()))}")
 
     print("   ↳ LLM ke saath tools bind ho rahe hain...")
-    fast_llm = chatModel.get_chat_model().bind_tools(tools)
+    fast_llm = chatModel.get_chat_model()
+    if tools:
+        fast_llm = fast_llm.bind_tools(tools)
+    else:
+        print("   ⚠️ LLM operational without active server tools connection.")
 
     print("   ↳ LangGraph agent (agent ↔ tools loop) compile ho raha hai...")
-
+    
     async def agent_node(state: AgentState):
         messages = list(state["messages"])
 
