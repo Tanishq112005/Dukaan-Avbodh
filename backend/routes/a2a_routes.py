@@ -178,19 +178,15 @@ async def a2a_interact_jsonrpc(req: Request):
     except Exception as e:
         ai_reply = f"Error processing request: {str(e)}"
         
-    # Construct A2A standard JSON-RPC response
+    # Construct A2A standard protobuf-to-JSON response (lf.a2a.v1.SendMessageResponse)
     return {
-        "jsonrpc": "2.0",
-        "id": body.get("id", "req-001"),
-        "result": {
-            "message": {
-                "role": "model",
-                "parts": [
-                    {
-                        "kind": "text",
-                        "text": ai_reply
-                    }
-                ]
-            }
+        "message": {
+            "role": "model",
+            "parts": [
+                {
+                    "kind": "text",
+                    "text": ai_reply
+                }
+            ]
         }
     }
