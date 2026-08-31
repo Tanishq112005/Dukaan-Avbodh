@@ -24,13 +24,5 @@ import mcp_server.recommendation
 import mcp_server.search
 
 if __name__ == "__main__":
-    # DB tables banane ki zaroorat NAHI hai yahan — woh already backend/main.py
-    # (FastAPI app) ke startup event mein ho chuka hoga. Do alag processes se
-    # ek hi migration dobara chalana (a) redundant hai, aur (b) Windows par yeh
-    # extra fresh connection asyncpg/SSL ke saath flaky nikla — isliye skip.
-    #
-    # TESTING/DEV: abhi stdio transport (default) — MultiServerMCPClient isi
-    # script ko subprocess ki tarah spawn karke stdin/stdout se baat karega.
-    # Baad mein production/Track-2 (external agents) ke liye streamable-http
-    # pe shift karenge: mcp.run(transport="streamable-http", host="127.0.0.1", port=8001)
-    mcp.run()
+    print("[READY] Starting MCP Server on http://127.0.0.1:8001 (SSE)")
+    mcp.run(transport="sse", port=8001)

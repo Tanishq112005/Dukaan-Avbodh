@@ -93,7 +93,7 @@ class RecommendationService:
             Provide ONLY a 1-3 word answer containing the best color and fit/style.
             """
             try:
-                llm_response = fast_llm.invoke(prompt)
+                llm_response = await fast_llm.ainvoke(prompt)
                 fashion_style_suggestion = llm_response.content.strip()
             except Exception as e:
                 print(f"Fashion Theorist LLM failed, using fallback. {e}")
@@ -104,7 +104,8 @@ class RecommendationService:
             search_query = f"Category: {target_category}. Matches with: {cart_description}" if target_category else "Best trending stylish clothes"
             
         # --- 3. Generate Vector Embedding using HuggingFace ---
-        query_vector = self.embedding_model.embed_query(search_query)
+        import asyncio
+        query_vector = await asyncio.to_thread(self.embedding_model.embed_query, search_query)
         
         # Determine Gender: pehle cart se try karo, warna current browsing session se
         # (cart khali hona normal hai jab tak user kuch add na kare — is case mein
@@ -123,7 +124,9 @@ class RecommendationService:
 
         
         try:
-            search_results = self.vector_index.query(
+            import asyncio
+            search_results = await asyncio.to_thread(
+                self.vector_index.query,
                 vector=query_vector,
                 top_k=3, # Top 3 items la rahe hain
                 include_metadata=True,

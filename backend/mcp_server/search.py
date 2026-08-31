@@ -24,75 +24,98 @@ def _detect_category(query: str) -> Optional[str]:
 
 
 @mcp.tool()
-async def search_products(user_id: int, query: str, category: Optional[str] = None) -> dict:
+async def search_products(user_id: int, query: str, category: str) -> dict:
     """
-    User ki specific search query (jaise 'blue jeans', 'party wear shirt') ke liye
-    3-4 matching products dhoondta hai.
-
-    Agar query ek specific category ki taraf point karti hai (jaise 'jeans'), toh
-    yeh tool user ke SIRF usi category ke purane events (viewed/purchased/accepted)
-    check karta hai — poori affinity list nahi — taaki us category mein unka
-    brand/style preference pata chale, aur usi context ke saath vector search
-    karke best matches diye jaate hain.
-
-    category param optional hai — agent explicitly bhej sakta hai (jaise 'jeans',
-    get_products_by_type se pehle se pata hoga), warna query text se best-effort
-    detect ho jaata hai.
+    Search for 3-4 matching products for a specific user query (e.g. 'blue jeans', 'party wear shirt').
+    
+    CRITICAL INSTRUCTION FOR AI AGENT:
+    If the user's request implies a specific product category (e.g. they ask for 'jeans', 'shirts', 't-shirts', 'shorts', 'hoodies'), you MUST provide that category string in the `category` argument. DO NOT leave it None.
+    If you leave it None, the search might fail or return bad results!
+    
+    The category helps filter the vector search and fetch the user's past affinity for that specific style.
     """
+    def log(msg):
+        with open("mcp_debug.txt", "a") as f:
+            f.write(msg + "\n")
+            
+    log(f"--- search_products called: {query} / {category} ---")
+    
+    if not category or category.lower() in ("none", "null", "general", "any", ""):
+        category = None
+        
     detected_category = category or _detect_category(query)
-
-    # --- Sirf isi category ka past behavior, poori profile nahi ---
-    style_context = ""
-    category_score = 0.0
-    if detected_category:
-        all_events = await event_repo.get_events_for_user(user_id)
-        relevant_events = [
-            e for e in all_events
-            if e.category == detected_category
-            and e.event_type in (EventType.VIEWED, EventType.PURCHASED, EventType.SUGGESTION_ACCEPTED)
-            and e.product_id is not None
-        ]
-        relevant_events = sorted(relevant_events, key=lambda e: e.timestamp, reverse=True)[:5]
-
-        past_products = []
-        for e in relevant_events:
-            p = await product_repo.get_by_id(e.product_id)
-            if p:
-                past_products.append(p.name)
-
-        if past_products:
-            style_context = f"User pehle in {detected_category} ko pasand kar chuka hai: {', '.join(past_products)}."
-
-        scores = await behavior_scorer.get_category_affinity(user_id)
-        category_score = scores.get(detected_category, 0.0)
-
-    cart_items = await cart_repository.get_cart_items(user_id)
-    cart_desc = ", ".join(i["name"] for i in cart_items) if cart_items else "empty"
-
-    # Gender: pehle cart se, warna current browsing session se (men's section browse
-    # karte waqt women's items suggest hone se bachne ke liye)
-    cart_genders = [i.get("gender") for i in cart_items if i.get("gender")]
-    if cart_genders:
-        target_gender = max(set(cart_genders), key=cart_genders.count)
-    else:
-        target_gender = await behavior_scorer.get_current_gender_context(user_id)
-
-    enhanced_query = f"{query}. {style_context} Current cart: {cart_desc}".strip()
-
-    embedder = embeddingModel.getModel()
-    query_vector = embedder.embed_query(enhanced_query)
-
-    index = vectorDB.get_index("dukaan-products")
-    filter_dict = {}
-    if detected_category:
-        filter_dict["category"] = detected_category
-    if target_gender and target_gender != "unisex":
-        filter_dict["gender"] = {"$in": [target_gender, "unisex"]}
+    log(f"detected_category: {detected_category}")
 
     try:
-        search_results = index.query(vector=query_vector, top_k=4, include_metadata=True, filter=filter_dict)
+        import asyncio
+        async def do_full_search():
+            log("Starting do_full_search")
+            style_context = ""
+            category_score = 0.0
+            if detected_category:
+                log("Fetching events")
+                all_events = await event_repo.get_events_for_user(user_id)
+                relevant_events = [
+                    e for e in all_events
+                    if e.category == detected_category
+                    and e.event_type in (EventType.VIEWED, EventType.PURCHASED, EventType.SUGGESTION_ACCEPTED)
+                    and e.product_id is not None
+                ]
+                relevant_events = sorted(relevant_events, key=lambda e: e.timestamp, reverse=True)[:5]
+        
+                past_products = []
+                for e in relevant_events:
+                    p = await product_repo.get_by_id(e.product_id)
+                    if p:
+                        past_products.append(p.name)
+        
+                if past_products:
+                    style_context = f"User pehle in {detected_category} ko pasand kar chuka hai: {', '.join(past_products)}."
+        
+                scores = await behavior_scorer.get_category_affinity(user_id)
+                category_score = scores.get(detected_category, 0.0)
+        
+            log("Fetching cart items")
+            cart_items = await cart_repository.get_cart_items(user_id)
+            cart_desc = ", ".join(i["name"] for i in cart_items) if cart_items else "empty"
+        
+            cart_genders = [i.get("gender") for i in cart_items if i.get("gender")]
+            if cart_genders:
+                target_gender = max(set(cart_genders), key=cart_genders.count)
+            else:
+                target_gender = await behavior_scorer.get_current_gender_context(user_id)
+        
+            enhanced_query = f"{query}. {style_context} Current cart: {cart_desc}".strip()
+            
+            log(f"Getting embedder. Query: {enhanced_query}")
+            embedder = embeddingModel.getModel()
+            
+            log("Calling embed_query (in thread to avoid blocking event loop)")
+            # Fix: HuggingFace's aembed_query might block the event loop synchronously!
+            query_vector = await asyncio.to_thread(embedder.embed_query, enhanced_query)
+            log("Embedding done")
+            
+            index = vectorDB.get_index("dukaan-products")
+            filter_dict = {}
+            if detected_category:
+                filter_dict["category"] = detected_category
+            if target_gender and target_gender != "unisex":
+                filter_dict["gender"] = {"$in": [target_gender, "unisex"]}
+                
+            log("Calling Pinecone index.query")
+            res = await asyncio.to_thread(index.query, vector=query_vector, top_k=4, include_metadata=True, filter=filter_dict)
+            log("Pinecone done")
+            return res, style_context, category_score
+
+        log("Waiting for do_full_search with 90s timeout")
+        search_results, style_context, category_score = await asyncio.wait_for(do_full_search(), timeout=90.0)
+        log("do_full_search finished successfully")
+    except asyncio.TimeoutError:
+        log("TIMEOUT ERROR")
+        return {"success": False, "error": "Search timed out after 90 seconds. DB, HuggingFace or Pinecone might be slow."}
     except Exception as e:
-        return {"success": False, "error": f"Vector search failed: {e}"}
+        log(f"EXCEPTION: {e}")
+        return {"success": False, "error": f"Vector search or embedding failed: {str(e)}. Tip for agent: The error might be because a category is missing or there was a DB timeout."}
 
     found_items = []
     if search_results and hasattr(search_results, "matches"):

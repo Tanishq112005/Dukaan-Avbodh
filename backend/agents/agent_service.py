@@ -16,10 +16,8 @@ BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 mcp_client = MultiServerMCPClient(
     {
         "dukaan": {
-            "command": sys.executable,
-            "args": ["-m", "mcp_server.main"],
-            "cwd": BACKEND_DIR,
-            "transport": "stdio",
+            "url": "http://127.0.0.1:8001/sse",
+            "transport": "sse",
         }
     }
 )
@@ -56,7 +54,7 @@ async def init_agent():
     compile kar deta hai."""
     global _checkout_agent, _tools_by_name
 
-    print("   ↳ MCP server (mcp_server/main.py) se connect ho raha hai (stdio subprocess)...")
+    print("   ↳ MCP server (mcp_server/main.py) se connect ho raha hai (HTTP SSE)...")
     tools = await mcp_client.get_tools()
     _tools_by_name = {t.name: t for t in tools}
     print(f"   ↳ {len(tools)} tools mile: {', '.join(sorted(_tools_by_name.keys()))}")
@@ -87,15 +85,17 @@ CORE INSTRUCTIONS:
 1. TONE & POLITENESS: Always remain calm, empathetic, and exceptionally polite, no matter how angry or impatient the customer gets.
 2. DOMAIN STRICTNESS: You ONLY talk about shopping at Dukaan. If asked about unrelated topics, politely decline and steer the conversation back to shopping.
 3. LANGUAGE: You must ONLY communicate in English.
-4. NEGOTIATION MASTERCLASS: When a user asks for a discount (mentions "discount", "%", "off", "deal", or a price they want), this is your TOP PRIORITY for this turn — do NOT recommend unrelated products instead. First call `get_cart` if you don't already know the cart contents, then call `negotiate_discount` with those cart_items. Try to make them accept the lowest possible discount. Use praise and flattery to make them feel special.
+4. NEGOTIATION MASTERCLASS: When a user asks for a discount (mentions "discount", "%", "off", "deal", or a price they want), this is your TOP PRIORITY for this turn — do NOT recommend unrelated products instead. Call `negotiate_discount` to check if a discount is possible. Try to make them accept the lowest possible discount. Use praise and flattery to make them feel special.
 5. CART MANAGEMENT: Use `add_to_cart`, `remove_from_cart`, and `update_cart_item_quantity` whenever the user asks to add/remove/change something in their cart. Use `get_cart` whenever you need to know what's currently in the cart.
 6. SEARCH & RECOMMENDATIONS:
    - When a user asks for something specific (e.g. "t-shirts"), ALWAYS use `search_products`. Do not pretend to search without using the tool!
+   - EXTREMELY IMPORTANT: If the user asks for a specific category (e.g., 'jeans', 'shirts', 'hoodie'), you MUST explicitly pass that category as the `category` argument to `search_products`. DO NOT leave the category as None!
    - Look at the user's Cart Contents below. If they have men's items, assume they are shopping for men and append "men's" to your search queries. If women's, append "women's".
    - If the user explicitly rejects your suggestions ("I don't like these"), DO NOT just apologize and ask questions! You MUST immediately use `search_products` with a new, broad query (like "trending", "new arrivals", or a different category) to show them fresh options instantly!
 7. NO GUESSING: Do not guess products. Always rely on the tool results.
 8. DO NOT REPEAT YOURSELF: Never send the exact same message or suggestions multiple times. Only call a tool ONCE per turn. Do not call the same tool in parallel.
 9. PRODUCT DISPLAY: When you use a tool that returns products (search_products or recommend_products), DO NOT manually list the products, their names, prices, or links in your text response. The UI will automatically display rich product cards below your message. Just write a short, engaging conversational sentence like "Here are some great options I found for you!"
+10. ERROR HANDLING: If a tool returns a JSON with {{"error": "..."}}, apologize to the user and mention the error context gracefully.
 
 Your current state:
 - User ID: {user_id}
@@ -140,6 +140,7 @@ Your current state:
             tool_name = tool_call["name"]
             tool_args = dict(tool_call["args"])
 
+            # Hamesha user_id inject karo, niche scrubber un tools se hata dega jinko nahi chahiye
             if "user_id" not in tool_args:
                 tool_args["user_id"] = state.get("user_id", 0)
 
@@ -149,30 +150,31 @@ Your current state:
                 tool_messages.append(ToolMessage(content='{"error": "Unknown tool"}', tool_call_id=tool_call["id"]))
                 continue
 
-            # negotiate_discount ke liye safety net: agar LLM current_discount_percent
-            # ya cart_items bhejna bhool jaaye, server khud fill kar deta hai
+            # negotiate_discount ke liye safety net: agar LLM current_discount_percent bhejna bhool jaaye
             if tool_name == "negotiate_discount":
                 if "current_discount_percent" not in tool_args:
                     tool_args["current_discount_percent"] = state.get("current_discount_percent", 0.0)
-                if not tool_args.get("cart_items"):
-                    db_cart = await cart_repository.get_cart_items(state.get("user_id", 0))
-                    tool_args["cart_items"] = [
-                        {"product_id": item["product_id"], "quantity": item["quantity"]}
-                        for item in db_cart
-                    ]
+                # DO NOT inject cart_items here, the MCP tool handles fetching the cart itself!
 
-            print(f"   🔧 Calling tool: {tool_name}({tool_args})")
+            print(f"   --- Calling tool: {tool_name}({tool_args})", flush=True)
+            
+            # Bulletproof safety: Remove any arguments the LLM hallucinated that the tool doesn't accept
+            if hasattr(tool, "args_schema") and tool.args_schema:
+                valid_keys = tool.args_schema.model_fields.keys()
+                tool_args = {k: v for k, v in tool_args.items() if k in valid_keys}
+                
             try:
                 raw_res = await tool.ainvoke(tool_args)
             except Exception as e:
-                print(f"   ❌ Tool '{tool_name}' fail ho gaya: {e}")
+                print(f"   [ERROR] Tool '{tool_name}' fail ho gaya: {e}", flush=True)
                 tool_messages.append(ToolMessage(content=f'{{"error": "{str(e)}"}}', tool_call_id=tool_call["id"]))
                 continue
 
             res_text = _extract_text(raw_res)
             parsed = _safe_parse(res_text)
             ok = isinstance(parsed, dict) and parsed.get("success")
-            print(f"   {'✅' if ok else '⚠️'} Tool '{tool_name}' se result mila (success={ok}).")
+            status_symbol = "SUCCESS" if ok else "WARNING"
+            print(f"   [{status_symbol}] Tool '{tool_name}' se result mila (success={ok}).", flush=True)
 
             if isinstance(parsed, dict) and parsed.get("success"):
                 if tool_name == "search_products":

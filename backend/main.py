@@ -49,11 +49,15 @@ async def startup():
     print("🧠 Chat model (LLM) initialize ho raha hai...")
     chatModel.get_chat_model()
     print("✅ Chat model ready hai.")
-
+    
+    
+    print("Embedding model se connect ho raha hai ... ")
+    embeddingModel.getModel() 
+    print("✅ Embedding model ready hai.")
     print("📦 Vector database (Pinecone) se connect ho raha hai...")
     vectorDB.get_index()
     print("✅ Vector database ready hai.")
-
+      
     # MCP server (mcp_server/main.py) ek ALAG process ke roop mein pehle se chal
     # raha hona chahiye (python -m mcp_server.main), tabhi yeh connect ho payega.
     print("🔧 MCP server se tools load ho rahe hain (agent ban raha hai)...")

@@ -22,7 +22,10 @@ async def recommend_products(user_id: int) -> dict:
     - user khud suggestions maange ("kuch aur dikhao", "iske saath kya achha lagega").
     """
     cart_items = await cart_repository.get_cart_items(user_id)
-    result = await upsell_service.generate_upsell_offer(user_id, cart_items)
+    try:
+        result = await upsell_service.generate_upsell_offer(user_id, cart_items)
+    except Exception as e:
+        return {"success": False, "error": f"Failed to generate upsell offer: {str(e)}"}
 
     if not result.get("success") or not result.get("suggested_products"):
         return {"success": False, "message": "Abhi cart/behavior ke hisaab se koi achha match nahi mila."}

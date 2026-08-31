@@ -11,3 +11,5 @@ class HuggingFaceChatModelConfig(BaseModel):
 class HuggingFaceEmbeddingModelConfig(BaseModel):
     model_name : str 
         
+class OpenRouterEmbeddingModelCofig(BaseModel):
+    api_key : str
