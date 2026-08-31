@@ -60,64 +60,59 @@ async def get_or_create_a2a_user(chat_token: str) -> int:
 async def get_agent_card():
     """
     Returns the Agent Card (identity and capabilities) for discovery by other agents.
-    Compliant with standard A2A discovery patterns (ACP).
+    Compliant with standard A2A Inspector format.
     """
     return {
-        "schema_version": "1.0",
-        "agent_identity": {
-            "id": "did:web:dukaan.local:sales_agent",
-            "name": "Dukaan AI Sales Agent",
-            "role": "Autonomous Merchant Agent",
-            "description": "I am an intelligent sales agent for Dukaan. I can help you search for products, negotiate prices, build a cart, and execute checkout transactions."
-        },
-        "supported_protocols": ["ACP-1.0", "AP2"],
-        "capabilities": [
-            "product_discovery",
-            "cart_management",
-            "dynamic_pricing_and_negotiation",
-            "checkout_and_settlement"
+        "name": "Dukaan AI Sales Agent",
+        "description": "I am an intelligent sales agent for Dukaan. I can help you search for products, negotiate prices, build a cart, and execute checkout transactions.",
+        "version": "1.0.0",
+        "supportedInterfaces": [
+            {
+                "url": "https://dukaan-avbodh.onrender.com/a2a/interact",
+                "protocolBinding": "HTTP+JSON",
+                "protocolVersion": "1.0"
+            }
         ],
-        "interaction_model": {
-            "type": "true_agentic_routing",
-            "initialization": {
-                "endpoint": "/a2a/start_session",
-                "method": "POST",
-                "description": "CRITICAL: You MUST call this endpoint first to obtain a chat_token. This token acts as your secure session ID for all subsequent interactions."
-            },
-            "interaction": {
-                "endpoint": "/a2a/interact",
-                "method": "POST",
-                "request_schema": {
-                    "chat_token": "string (required) - The token received from /a2a/start_session",
-                    "intent": "string (required) - Natural language instruction of what you want me to do",
-                    "context": "object (optional) - Any structured JSON data to help fulfill the intent"
-                },
-                "response_schema": {
-                    "status": "enum: [success, error, counter_offer]",
-                    "message": "string - My textual response or negotiation reasoning",
-                    "data": "object - Structured data (like order_ids, cart items, prices)"
-                },
-                "example_flow": [
-                    "1. POST /a2a/start_session -> receive { chat_token: '...' }",
-                    "2. POST /a2a/interact with { chat_token: '...', intent: 'I want to buy 5 units of product ID 2...' }"
-                ]
-            }
+        "capabilities": {
+            "streaming": False,
+            "pushNotifications": False,
+            "extendedAgentCard": False
         },
-        "supported_transports": ["http_json", "jsonrpc"],
-        "transports": {
-            "http_json": {
-                "endpoint": "/a2a/interact"
+        "defaultInputModes": ["application/json"],
+        "defaultOutputModes": ["application/json"],
+        "skills": [
+            {
+                "id": "product-discovery",
+                "name": "Product Discovery",
+                "description": "Can search the catalog, filter by category, and provide semantic recommendations.",
+                "tags": ["search", "catalog", "recommendation"],
+                "examples": ["Show me blue jeans", "What shirts do you have?"]
             },
-            "jsonrpc": {
-                "endpoint": "/a2a/interact"
+            {
+                "id": "cart-management",
+                "name": "Cart Management",
+                "description": "Can maintain a persistent cart state per buyer agent, add, update, and remove items.",
+                "tags": ["cart", "shopping"],
+                "examples": ["Add 2 blue jeans to my cart"]
+            },
+            {
+                "id": "negotiation",
+                "name": "Dynamic Pricing and Negotiation",
+                "description": "Can evaluate bulk purchases, calculate combo offers, and negotiate discounts.",
+                "tags": ["discount", "price", "negotiate"],
+                "examples": ["Can you give me a discount?"]
+            },
+            {
+                "id": "checkout",
+                "name": "Checkout and Settlement",
+                "description": "Can convert a cart into an order and integrate with Razorpay for final payment settlement.",
+                "tags": ["checkout", "pay", "order"],
+                "examples": ["I want to checkout now"]
             }
-        },
-        "static_endpoints": {
-            "catalog": {
-                "url": "/a2a/catalog",
-                "method": "GET",
-                "description": "Fetch the complete machine-readable product catalog without invoking the LLM."
-            }
+        ],
+        "provider": {
+            "organization": "Dukaan Avbodh",
+            "url": "https://dukaan-avbodh.onrender.com"
         }
     }
 
