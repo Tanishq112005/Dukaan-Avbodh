@@ -69,13 +69,26 @@ async def search_products(user_id: int, query: str, category: Optional[str] = No
     cart_items = await cart_repository.get_cart_items(user_id)
     cart_desc = ", ".join(i["name"] for i in cart_items) if cart_items else "empty"
 
+    # Gender: pehle cart se, warna current browsing session se (men's section browse
+    # karte waqt women's items suggest hone se bachne ke liye)
+    cart_genders = [i.get("gender") for i in cart_items if i.get("gender")]
+    if cart_genders:
+        target_gender = max(set(cart_genders), key=cart_genders.count)
+    else:
+        target_gender = await behavior_scorer.get_current_gender_context(user_id)
+
     enhanced_query = f"{query}. {style_context} Current cart: {cart_desc}".strip()
 
     embedder = embeddingModel.getModel()
     query_vector = embedder.embed_query(enhanced_query)
 
     index = vectorDB.get_index("dukaan-products")
-    filter_dict = {"category": detected_category} if detected_category else {}
+    filter_dict = {}
+    if detected_category:
+        filter_dict["category"] = detected_category
+    if target_gender and target_gender != "unisex":
+        filter_dict["gender"] = {"$in": [target_gender, "unisex"]}
+
     try:
         search_results = index.query(vector=query_vector, top_k=4, include_metadata=True, filter=filter_dict)
     except Exception as e:

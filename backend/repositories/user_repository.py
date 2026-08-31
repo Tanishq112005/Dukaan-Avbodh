@@ -58,3 +58,30 @@ class UserRepository(BaseRepository[User]):
                 raise e
             finally:
                 await session.close()
+
+    async def ensure_guest_exists(self, user_id: int) -> None:
+        """
+        Guest users (login nahi kiye hue) ke liye bhi ek User row ensure karta hai,
+        taaki UserEvent/Cart jaise foreign-key wale tables mein unka data save ho
+        sake. Frontend jo bhi ID (guestId) chat/product-view ke liye use kar raha
+        hai, wahi yahan pass honi chahiye.
+        """
+        from models.user import UserRole
+        async with db_connection.get_session() as session:
+            try:
+                result = await session.exec(select(User).where(User.id == user_id))
+                if result.first():
+                    return
+                guest = User(
+                    id=user_id,
+                    name=f"Guest {user_id}",
+                    role=UserRole.CUSTOMER,
+                    identifier=f"guest_{user_id}@dukaan.local",
+                )
+                session.add(guest)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                # Race condition (do requests ek saath guest bana rahe) — safe to ignore
+            finally:
+                await session.close()

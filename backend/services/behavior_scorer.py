@@ -70,4 +70,41 @@ class BehaviorScorer:
         """Category affinity score ko ek estimated purchase probability % mein convert karta hai."""
         return round(min(95.0, max(5.0, category_score * 10)), 2)
 
+    async def get_current_gender_context(self, user_id: int, limit: int = 10) -> str | None:
+        """
+        User abhi kis gender section mein browse kar raha hai, yeh detect karta hai
+        recent VIEWED events se. Cart khali hone par bhi (jo normal hai jab tak user
+        kuch add na kare) yeh sahi gender signal deta hai — taaki men's section
+        browse karte waqt women's suggestions na aayein.
+
+        CURRENT session ke views ko priority deta hai (sabse accurate — abhi kya
+        dekh raha hai), tabhi purani sessions pe fallback karta hai.
+        """
+        from repositories.product_repository import ProductRepository
+        product_repo = ProductRepository()
+
+        events = await self.event_repo.get_events_for_user(user_id)
+
+        session_starts = [e.timestamp for e in events if e.event_type == EventType.SESSION_START]
+        current_session_start = max(session_starts) if session_starts else None
+
+        viewed = [e for e in events if e.event_type == EventType.VIEWED and e.product_id]
+
+        if current_session_start:
+            current_views = [e for e in viewed if e.timestamp >= current_session_start]
+            if current_views:
+                viewed = current_views
+
+        viewed_sorted = sorted(viewed, key=lambda e: e.timestamp, reverse=True)[:limit]
+
+        genders = []
+        for e in viewed_sorted:
+            p = await product_repo.get_by_id(e.product_id)
+            if p and p.gender and p.gender != "unisex":
+                genders.append(p.gender)
+
+        if not genders:
+            return None
+        return max(set(genders), key=genders.count)
+
 behavior_scorer = BehaviorScorer()

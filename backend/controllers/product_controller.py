@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from schemas.product_schemas import AddProductRequest
 from repositories import ProductRepository
 from repositories.user_event_repository import UserEventRepository
+from repositories.user_repository import UserRepository
 from models import Product, UserEvent
 from models.user_event import EventType
 from services.audit_logger import audit_logger
@@ -12,6 +13,7 @@ class ProductController:
     def __init__(self):
         self.product_repo = ProductRepository()
         self.event_repo = UserEventRepository()      # add kiya
+        self.user_repo = UserRepository()
         self.audit_logger = audit_logger              # add kiya (audit_repo nahi, audit_logger — service pattern follow karo)
 
     async def add_product(self, payload: AddProductRequest, merchant_id: int):

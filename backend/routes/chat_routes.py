@@ -1,10 +1,13 @@
 import json
+import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from langchain_core.messages import HumanMessage
 from agents.agent_service import checkout_agent
 from utils.websocket_manager import manager
 
 router = APIRouter()
+
+HEARTBEAT_INTERVAL_SECONDS = 20  # itni der tak koi message na aaye toh ek ping bhej do
 
 @router.websocket("/ws/chat/{user_id}")
 async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
@@ -19,8 +22,19 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
     
     try:
         while True:
-            # Frontend se data receive karo
-            data = await websocket.receive_text()
+            # Frontend se data receive karo — agar HEARTBEAT_INTERVAL_SECONDS tak kuch
+            # nahi aaya, ek ping bhej do taaki koi bhi proxy/browser is connection ko
+            # "idle" samajh kar khud band na kar de
+            try:
+                data = await asyncio.wait_for(
+                    websocket.receive_text(), timeout=HEARTBEAT_INTERVAL_SECONDS
+                )
+            except asyncio.TimeoutError:
+                try:
+                    await websocket.send_json({"type": "ping"})
+                except Exception:
+                    break
+                continue
             
             try:
                 parsed_data = json.loads(data)

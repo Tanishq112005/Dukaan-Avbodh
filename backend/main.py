@@ -1,10 +1,11 @@
 # main.py
 from fastapi import FastAPI
-from config.database import db_connection
+from config.database import db_connection 
 from routes import auth_routes, product_routes, user_routes, order_routes, checkout_routes
-
+from config.chatModel import chatModel
 from fastapi.middleware.cors import CORSMiddleware
-
+from config.embeddingModel import embeddingModel
+from config.vectorDatabase import vectorDB
 app = FastAPI(title="Sauda API")
 
 app.add_middleware(
@@ -26,11 +27,18 @@ app.include_router(checkout_routes.router)
 from routes import chat_routes
 app.include_router(chat_routes.router)
 
+
 @app.on_event("startup")
 async def startup():
     await db_connection.init_db()
+    await chatModel.get_chat_model() 
+    await embeddingModel.getModel() 
+    await vectorDB.get_index() 
+
+    
 
 
 @app.on_event("shutdown")
 async def shutdown():
     await db_connection.close()
+    

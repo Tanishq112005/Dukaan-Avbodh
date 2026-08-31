@@ -106,9 +106,14 @@ class RecommendationService:
         # --- 3. Generate Vector Embedding using HuggingFace ---
         query_vector = self.embedding_model.embed_query(search_query)
         
-        # Determine Gender from cart
+        # Determine Gender: pehle cart se try karo, warna current browsing session se
+        # (cart khali hona normal hai jab tak user kuch add na kare — is case mein
+        # bina gender-fallback ke, opposite-gender items suggest ho jaate the)
         cart_genders = [item.get("gender") for item in cart_items if item.get("gender")]
-        target_gender = max(set(cart_genders), key=cart_genders.count) if cart_genders else None
+        if cart_genders:
+            target_gender = max(set(cart_genders), key=cart_genders.count)
+        else:
+            target_gender = await behavior_scorer.get_current_gender_context(user_id)
         
         filter_dict = {}
         if target_category:
