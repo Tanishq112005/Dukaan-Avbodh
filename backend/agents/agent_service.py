@@ -8,14 +8,20 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from agents.agentState import AgentState
 from config.chatModel import chatModel
 from repositories.cart_repository import cart_repository
+from dotenv import load_dotenv
 
+load_dotenv()
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) 
+
+
+
+MCP_URL = os.getenv("MCP_SERVER_URL", "http://127.0.0.1:8001/sse")
 
 mcp_client = MultiServerMCPClient(
     {
         "dukaan": {
-            "url": "http://127.0.0.1:8001/sse",
+            "url": MCP_URL,
             "transport": "sse",
         }
     }
