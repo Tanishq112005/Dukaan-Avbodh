@@ -56,7 +56,7 @@ async def get_or_create_a2a_user(chat_token: str) -> int:
             
         return user.id
 
-@router.get("/.well-known/agent.json")
+@router.get("/.well-known/agent-card.json", summary="A2A Agent Card")
 async def get_agent_card():
     """
     Returns the Agent Card (identity and capabilities) for discovery by other agents.
