@@ -12,23 +12,96 @@ export function CartSummary() {
   const delivery = 15;
   const total = subtotal - discount + delivery;
 
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   const handleCheckout = async () => {
     if (!token) return alert("Please login first by clicking the User icon in top right!");
     
+    const res = await loadRazorpayScript();
+    if (!res) {
+      alert("Razorpay SDK failed to load. Are you online?");
+      return;
+    }
+
     try {
-      for (const item of cartItems) {
-        await axios.post("http://localhost:8000/checkout/", {
-          product_id: item.id,
-          requested_discount: 20.0
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      }
-      alert("Checkout successful via FastAPI!");
-      clearCart();
+      // 1. Create Order on Backend
+      const amountPaise = Math.round(total * 100);
+      const orderResponse = await axios.post("http://localhost:8000/api/payment/create-order", {
+        amount: amountPaise,
+        currency: "INR",
+        receipt: `receipt_cart_${Date.now()}`
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const order = orderResponse.data;
+
+      // 2. Open Razorpay Modal
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_TWV2ichCwzRcvo", // Use env var in production
+        amount: order.amount,
+        currency: order.currency,
+        name: "Dukaan Shopping",
+        description: "Test Transaction",
+        order_id: order.id,
+        handler: async function (response) {
+          // 3. Verify Payment on Backend
+          try {
+            const verifyRes = await axios.post("http://localhost:8000/api/payment/verify", {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            }, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (verifyRes.data.success) {
+              alert("Payment Successful & Verified!");
+              
+              // Also call the old internal checkout to clear stock/log purchase if needed
+              for (const item of cartItems) {
+                await axios.post("http://localhost:8000/checkout/", {
+                  product_id: item.id,
+                  requested_discount: 20.0
+                }, {
+                  headers: { Authorization: `Bearer ${token}` }
+                });
+              }
+              
+              clearCart();
+            }
+          } catch (err) {
+            console.error(err);
+            alert("Payment verification failed on server.");
+          }
+        },
+        prefill: {
+          name: "Test User",
+          email: "test@example.com",
+          contact: "9999999999"
+        },
+        theme: {
+          color: "#000000"
+        }
+      };
+
+      const rzp1 = new window.Razorpay(options);
+      rzp1.on('payment.failed', function (response){
+        alert("Payment failed: " + response.error.description);
+      });
+      rzp1.open();
+
     } catch (err) {
       console.error(err);
-      alert("Checkout failed. See console.");
+      alert("Failed to initialize checkout. See console.");
     }
   };
 

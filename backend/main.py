@@ -26,11 +26,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from routes.payment_routes import router as payment_router
+
 app.include_router(auth_routes.router)
 app.include_router(product_routes.router)
 app.include_router(user_routes.router)
 app.include_router(order_routes.router)
 app.include_router(checkout_routes.router)
+app.include_router(payment_router, prefix="/api")
 
 from routes import chat_routes, a2a_routes
 app.include_router(chat_routes.router)
