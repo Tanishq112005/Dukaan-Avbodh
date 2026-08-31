@@ -1,4 +1,4 @@
-﻿aiofile==3.12.3
+aiofile==3.12.3
 aiosqlite==0.22.1
 annotated-doc==0.0.5
 annotated-types==0.8.0
@@ -106,8 +106,6 @@ python-dotenv==1.2.3
 python-jose==3.5.0
 python-json-logger==4.2.0
 python-multipart==0.0.32
-pywin32==312
-pywin32-ctypes==0.2.3
 PyYAML==6.0.3
 redis==8.1.0
 referencing==0.37.0
