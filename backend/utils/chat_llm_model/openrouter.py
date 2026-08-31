@@ -12,6 +12,9 @@ class OpenRouter(IChatModels):
         self.apiKey = uri  
         try:
             print("Initalizing the model")
+            import os
+            if self.apiKey:
+                os.environ["OPENROUTER_API_KEY"] = self.apiKey
             
             self.model = ChatOpenRouter(
                  model="dots-studio/dots-3-note-preview:free", 
