@@ -11,15 +11,15 @@ event_repo = UserEventRepository()
 @mcp.tool()
 async def recommend_products(user_id: int) -> dict:
     """
-    User ke current cart + behavior/affinity + recent activity ke hisaab se
-    3-4 best matching product suggest karta hai. Behavior data (affinity score,
-    recent events, purchase probability) is tool ke andar hi fetch ho jaata hai —
-    agent ko alag se get_user_affinity/get_recent_events/calculate_purchase_probability
-    call karne ki zaroorat nahi.
+    Recommends 3-4 best-matching products based on the user's current cart, behavior affinity, and recent browsing activity.
+    This tool automatically fetches all necessary behavioral context internally.
 
-    Yeh tab call karo jab:
-    - user ne is session mein kaafi products browse/view kar liye hon, YA
-    - user khud suggestions maange ("kuch aur dikhao", "iske saath kya achha lagega").
+    LLM Instructions:
+    - DO call this tool when the user explicitly asks for suggestions (e.g., "what else should I buy?", "what matches with this?").
+    - DO call this tool proactively to upsell if the user has items in their cart and is actively engaged.
+    - DO present the 'suggested_products' to the user in a friendly, conversational manner.
+    - DO use the 'why' metadata internally to personalize your pitch (e.g., if you see they recently viewed a category, naturally mention it).
+    - DO NOT expose the raw 'why' metadata variables (such as 'affinity_score', 'estimated_purchase_probability_percent', or raw 'recent_activity' logs) to the user. Keep the data hidden.
     """
     cart_items = await cart_repository.get_cart_items(user_id)
     try:
@@ -28,11 +28,11 @@ async def recommend_products(user_id: int) -> dict:
         return {"success": False, "error": f"Failed to generate upsell offer: {str(e)}"}
 
     if not result.get("success") or not result.get("suggested_products"):
-        return {"success": False, "message": "Abhi cart/behavior ke hisaab se koi achha match nahi mila."}
+        return {"success": False, "message": "No suitable recommendations found based on current cart and behavior."}
 
     suggested = result["suggested_products"][:4]
 
-    # --- Behavior context, ab yahin integrate ---
+    # --- Behavior context, integrated internally ---
     scores = await behavior_scorer.get_category_affinity(user_id)
 
     top_category = suggested[0].get("type") if suggested else None

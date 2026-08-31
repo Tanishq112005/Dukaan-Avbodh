@@ -1,5 +1,5 @@
-# mcp_server/search.py
 from typing import Optional
+import asyncio
 from mcp_server.server import mcp
 from config.embeddingModel import embeddingModel
 from config.vectorDatabase import vectorDB
@@ -15,7 +15,7 @@ event_repo = UserEventRepository()
 
 
 def _detect_category(query: str) -> Optional[str]:
-    """Query text mein se koi valid ProductType keyword dhoondta hai (best-effort)."""
+    """Attempts to detect a valid ProductType keyword from the query text."""
     q = query.lower()
     for t in ProductType:
         if t.value in q:
@@ -26,13 +26,15 @@ def _detect_category(query: str) -> Optional[str]:
 @mcp.tool()
 async def search_products(user_id: int, query: str, category: str) -> dict:
     """
-    Search for 3-4 matching products for a specific user query (e.g. 'blue jeans', 'party wear shirt').
+    Performs a semantic vector search to find 3-4 products matching a user's free-text query (e.g., 'blue jeans', 'party wear shirt').
     
-    CRITICAL INSTRUCTION FOR AI AGENT:
-    If the user's request implies a specific product category (e.g. they ask for 'jeans', 'shirts', 't-shirts', 'shorts', 'hoodies'), you MUST provide that category string in the `category` argument. DO NOT leave it None.
-    If you leave it None, the search might fail or return bad results!
-    
-    The category helps filter the vector search and fetch the user's past affinity for that specific style.
+    LLM Instructions:
+    - DO pass the user's explicit request in the 'query' parameter.
+    - DO infer the product category (e.g., 't-shirt', 'jeans', 'shirt', 'hoodie', 'short') from the user's request and pass it in the 'category' argument. 
+    - DO NOT leave 'category' empty or None if a specific type is explicitly or implicitly requested, as this drastically improves search accuracy.
+    - DO present the returned 'products' to the user in a natural, conversational way.
+    - DO NOT expose the 'why' metadata variables (like 'category_affinity_score' or 'past_style_context') to the user. Use them internally to guide your tone.
+    - DO NOT fabricate products; only recommend the exact items returned by this tool.
     """
     def log(msg):
         with open("mcp_debug.txt", "a") as f:
@@ -47,11 +49,11 @@ async def search_products(user_id: int, query: str, category: str) -> dict:
     log(f"detected_category: {detected_category}")
 
     try:
-        import asyncio
         async def do_full_search():
             log("Starting do_full_search")
             style_context = ""
             category_score = 0.0
+            
             if detected_category:
                 log("Fetching events")
                 all_events = await event_repo.get_events_for_user(user_id)
@@ -70,7 +72,7 @@ async def search_products(user_id: int, query: str, category: str) -> dict:
                         past_products.append(p.name)
         
                 if past_products:
-                    style_context = f"User pehle in {detected_category} ko pasand kar chuka hai: {', '.join(past_products)}."
+                    style_context = f"User previously liked these {detected_category}s: {', '.join(past_products)}."
         
                 scores = await behavior_scorer.get_category_affinity(user_id)
                 category_score = scores.get(detected_category, 0.0)
@@ -91,7 +93,6 @@ async def search_products(user_id: int, query: str, category: str) -> dict:
             embedder = embeddingModel.getModel()
             
             log("Calling embed_query (in thread to avoid blocking event loop)")
-            # Fix: HuggingFace's aembed_query might block the event loop synchronously!
             query_vector = await asyncio.to_thread(embedder.embed_query, enhanced_query)
             log("Embedding done")
             
@@ -105,27 +106,30 @@ async def search_products(user_id: int, query: str, category: str) -> dict:
             log("Calling Pinecone index.query")
             res = await asyncio.to_thread(index.query, vector=query_vector, top_k=4, include_metadata=True, filter=filter_dict)
             log("Pinecone done")
+            
             return res, style_context, category_score
 
         log("Waiting for do_full_search with 90s timeout")
         search_results, style_context, category_score = await asyncio.wait_for(do_full_search(), timeout=90.0)
         log("do_full_search finished successfully")
+        
     except asyncio.TimeoutError:
         log("TIMEOUT ERROR")
-        return {"success": False, "error": "Search timed out after 90 seconds. DB, HuggingFace or Pinecone might be slow."}
+        return {"success": False, "error": "Search timed out after 90 seconds. Please tell the user you are having trouble searching right now."}
     except Exception as e:
         log(f"EXCEPTION: {e}")
-        return {"success": False, "error": f"Vector search or embedding failed: {str(e)}. Tip for agent: The error might be because a category is missing or there was a DB timeout."}
+        return {"success": False, "error": f"Vector search failed. Tip for agent: The error might be due to a missing category or database timeout."}
 
     found_items = []
     if search_results and hasattr(search_results, "matches"):
         for match in search_results.matches:
             p = await product_repo.get_by_id(int(match.id))
             if p:
-                found_items.append(p.model_dump())
+                # Exclude sensitive data to prevent LLM leakage
+                found_items.append(p.model_dump(exclude={"cost_price", "min_profit_margin_percent", "stock", "discount"}))
 
     if not found_items:
-        return {"success": False, "message": "Koi matching product nahi mila."}
+        return {"success": False, "message": "No matching products found."}
 
     return {
         "success": True,

@@ -3,14 +3,17 @@ from services.combo_pricing_engine import combo_pricing_engine
 from services.negotiation_service import negotiation_service
 
 @mcp.tool()
-async def calculate_combo_offer(user_id: int) -> dict:
+@mcp.tool()
+async def calculate_combo_offer(user_id: int, discount_percent: float = 0.0) -> dict:
     """
-    Retrieves the cart contents and calculates the total base selling price (subtotal).
+    Retrieves the cart contents and calculates the bundle offer based on a specific discount percentage.
     
     LLM Instructions:
-    - DO pass ONLY the user_id. The backend will automatically fetch the cart items.
-    - DO use this tool to check the base total price before starting any bundle or combo negotiations.
-    - DO NOT negotiate if this tool returns an error (e.g., if the cart has fewer than 2 items). Inform the user that combo offers require at least 2 items.
+    - DO pass the 'user_id' and the agreed 'discount_percent'. 
+    - If you just want to check the base price without any discount, pass 0.0.
+    - The backend will automatically fetch the cart items and apply the requested discount percentage to the total selling price.
+    - DO use this tool's response to tell the user their exact savings ('discount_amount').
+    - DO NOT negotiate if this tool returns an error. Inform the user that combo offers require at least 2 items.
     """
     from repositories.cart_repository import cart_repository
     
@@ -21,13 +24,25 @@ async def calculate_combo_offer(user_id: int) -> dict:
     if not cart_items or total_items < 2:
         return {"success": False, "error": "Cart must have at least 2 items to calculate a combo offer."}
         
-    # Simply returning the sum of selling prices (price * quantity)
+    # Calculate subtotal directly from cart items (Selling Price)
     subtotal = sum(item["price"] * item["quantity"] for item in cart_items)
+    
+    # Apply the provided discount percentage
+    discount_amount = round(subtotal * (discount_percent / 100), 2)
+    final_price = round(subtotal - discount_amount, 2)
+    
+    # Clean dictionary to pass back to the LLM
+    safe_combo = {
+        "subtotal": round(subtotal, 2),
+        "final_price": final_price,
+        "effective_discount_percent": discount_percent,
+        "discount_amount": discount_amount,
+        "total_items": total_items
+    }
     
     return {
         "success": True,
-        "subtotal_selling_price": round(subtotal, 2),
-        "total_items": total_items
+        "combo_offer": safe_combo
     }
     
     

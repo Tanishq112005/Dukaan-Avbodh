@@ -1,7 +1,9 @@
 from repositories.discount_policy_repository import DiscountPolicyRepository
 from services.behavior_scorer import behavior_scorer
 from models import Product
-
+from repositories.cart_repository import cart_repository
+from repositories.product_repository import ProductRepository
+        
 policy_repo = DiscountPolicyRepository()
 
 class NegotiationService:
@@ -77,9 +79,7 @@ class NegotiationService:
         Backend directly fetches the cart using user_id. 
         Agent does not need to provide product lists.
         """
-        from repositories.cart_repository import cart_repository
-        from repositories.product_repository import ProductRepository
-        
+     
         product_repo = ProductRepository()
         cart_items = await cart_repository.get_cart_items(user_id)
         
