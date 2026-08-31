@@ -181,7 +181,7 @@ async def a2a_interact_jsonrpc(req: Request):
     # Construct A2A standard protobuf-to-JSON response (lf.a2a.v1.SendMessageResponse)
     return {
         "message": {
-            "role": "model",
+            "role": "agent",
             "parts": [
                 {
                     "kind": "text",
