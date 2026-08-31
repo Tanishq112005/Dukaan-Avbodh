@@ -136,55 +136,61 @@ async def get_catalog():
         ]
     }
 
-@router.post("/a2a/interact", response_model=A2AInteractResponse)
-async def a2a_interact(req: A2AInteractRequest):
+from fastapi import Request
+
+@router.post("/a2a/interact/message:send")
+async def a2a_interact_jsonrpc(req: Request):
     """
-    The True Agentic Endpoint. 
-    The Buyer Agent sends its intent, and our LangGraph agent decides which MCP tools to call.
+    Standard A2A JSON-RPC 2.0 Endpoint for receiving messages from other agents/inspectors.
     """
+    body = await req.json()
+    
+    # Extract intent from A2A schema
+    intent = ""
+    try:
+        parts = body.get("params", {}).get("message", {}).get("parts", [])
+        for part in parts:
+            if part.get("kind") == "text":
+                intent += part.get("text", "") + " "
+    except Exception:
+        pass
+        
+    intent = intent.strip() or "Hello"
+    
+    # Extract session ID (chat_token) from metadata or use a default one
+    chat_token = body.get("params", {}).get("metadata", {}).get("context_id", "default_a2a_session")
+    
+    # Call our agent
     agent = agent_service.get_agent()
-    a2a_user_id = await get_or_create_a2a_user(req.chat_token)
-    config = {"configurable": {"thread_id": req.chat_token}}
+    a2a_user_id = await get_or_create_a2a_user(chat_token)
+    config = {"configurable": {"thread_id": chat_token}}
     
-    context_str = json.dumps(req.context) if req.context else "{}"
+    prompt = f"[A2A EXTERNAL REQUEST] Intent: {intent}"
     
-    prompt = f"""
-[SYSTEM EVENT: A2A INTERACTION REQUEST]
-You are fulfilling a request from an external Buyer Agent (Session Token: {req.chat_token}).
-Buyer Agent Intent: "{req.intent}"
-Additional Context: {context_str}
-
-Task: Use your tools to fulfill this request (e.g., search_products, add_to_cart, negotiate_discount). 
-Reply briefly to confirm what you did.
-"""
-
     try:
         result = await agent.ainvoke({
             "messages": [HumanMessage(content=prompt)],
             "user_id": a2a_user_id
         }, config=config)
         
-        ai_reply = result.get("final_response", "Action completed by agent.")
-        if not ai_reply:
-            ai_reply = "I have processed your request."
-            
-        # Fetch latest cart state to send back as structured data
-        from repositories.cart_repository import cart_repository
-        cart_items = await cart_repository.get_cart_items(a2a_user_id)
+        ai_reply = result.get("final_response", "Action completed.")
         
-        return A2AInteractResponse(
-            status="success",
-            message=ai_reply,
-            data={
-                "cart": cart_items,
-                "suggested_products": result.get("suggested_products", []),
-                "combo_offer": result.get("combo_offer", None)
-            }
-        )
     except Exception as e:
-        print(f"[A2A ERROR] Agent failed: {e}")
-        return A2AInteractResponse(
-            status="error",
-            message="Internal agent error.",
-            data={"error_details": str(e)}
-        )
+        ai_reply = f"Error processing request: {str(e)}"
+        
+    # Construct A2A standard JSON-RPC response
+    return {
+        "jsonrpc": "2.0",
+        "id": body.get("id", "req-001"),
+        "result": {
+            "message": {
+                "role": "model",
+                "parts": [
+                    {
+                        "kind": "text",
+                        "text": ai_reply
+                    }
+                ]
+            }
+        }
+    }
