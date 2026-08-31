@@ -91,19 +91,29 @@ async def get_agent_card():
         ],
         "interaction_model": {
             "type": "true_agentic_routing",
-            "endpoint": "/a2a/interact",
-            "method": "POST",
-            "request_schema": {
-                "buyer_agent_id": "string (required)",
-                "intent": "string (required) - Natural language instruction of what you want me to do",
-                "context": "object (optional) - Any structured JSON data to help fulfill the intent"
+            "initialization": {
+                "endpoint": "/a2a/start_session",
+                "method": "POST",
+                "description": "CRITICAL: You MUST call this endpoint first to obtain a chat_token. This token acts as your secure session ID for all subsequent interactions."
             },
-            "response_schema": {
-                "status": "enum: [success, error, counter_offer]",
-                "message": "string - My textual response or negotiation reasoning",
-                "data": "object - Structured data (like order_ids, cart items, prices)"
-            },
-            "example_intent": "I want to buy 5 units of product ID 2. Can you offer a 15% discount?"
+            "interaction": {
+                "endpoint": "/a2a/interact",
+                "method": "POST",
+                "request_schema": {
+                    "chat_token": "string (required) - The token received from /a2a/start_session",
+                    "intent": "string (required) - Natural language instruction of what you want me to do",
+                    "context": "object (optional) - Any structured JSON data to help fulfill the intent"
+                },
+                "response_schema": {
+                    "status": "enum: [success, error, counter_offer]",
+                    "message": "string - My textual response or negotiation reasoning",
+                    "data": "object - Structured data (like order_ids, cart items, prices)"
+                },
+                "example_flow": [
+                    "1. POST /a2a/start_session -> receive { chat_token: '...' }",
+                    "2. POST /a2a/interact with { chat_token: '...', intent: 'I want to buy 5 units of product ID 2...' }"
+                ]
+            }
         },
         "static_endpoints": {
             "catalog": {
