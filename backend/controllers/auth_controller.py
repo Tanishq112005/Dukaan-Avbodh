@@ -24,7 +24,8 @@ class AuthController:
             name=payload.name,
             identifier=payload.identifier,
             password_hash=hashed,
-            role=payload.role
+            role=payload.role,
+            address=payload.address
         )
         created = await self.user_repo.create(user)
         token = AuthHandler.create_access_token(created.id, created.role.value)

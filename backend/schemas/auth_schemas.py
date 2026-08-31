@@ -8,6 +8,7 @@ class SignupRequest(BaseModel):
     identifier: str          # email ya AI agent ID
     password: str | None = None
     role: UserRole = UserRole.CUSTOMER
+    address: str | None = None
 
 
 class LoginRequest(BaseModel):

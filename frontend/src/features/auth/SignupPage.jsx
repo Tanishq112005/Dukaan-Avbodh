@@ -8,6 +8,7 @@ import { Input } from "../../components/ui/input";
 export function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const { login } = useStore();
@@ -17,9 +18,9 @@ export function SignupPage() {
     e.preventDefault();
     try {
       const res = await axios.post("http://localhost:8000/auth/signup", {
-        name, identifier: email, password, role: "merchant"
+        name, identifier: email, address, password, role: "merchant"
       });
-      login({ name, email }, res.data.access_token);
+      login({ name, email, address }, res.data.access_token);
       navigate("/");
     } catch (err) {
       setError("Signup failed. Email might be in use.");
@@ -42,6 +43,13 @@ export function SignupPage() {
           type="email" 
           value={email} 
           onChange={(e) => setEmail(e.target.value)} 
+          required 
+        />
+        <Input 
+          placeholder="Delivery Address / Location" 
+          type="text" 
+          value={address} 
+          onChange={(e) => setAddress(e.target.value)} 
           required 
         />
         <Input 
