@@ -147,7 +147,8 @@ async def a2a_interact_jsonrpc(req: Request):
     # Extract intent from A2A schema
     intent = ""
     try:
-        parts = body.get("params", {}).get("message", {}).get("parts", [])
+        message_obj = body.get("params", {}).get("message") or body.get("message", {})
+        parts = message_obj.get("parts", [])
         for part in parts:
             if "text" in part:
                 intent += part.get("text", "") + " "
