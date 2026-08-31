@@ -32,8 +32,9 @@ app.include_router(user_routes.router)
 app.include_router(order_routes.router)
 app.include_router(checkout_routes.router)
 
-from routes import chat_routes
+from routes import chat_routes, a2a_routes
 app.include_router(chat_routes.router)
+app.include_router(a2a_routes.router)
 
 
 @app.on_event("startup")

@@ -1,7 +1,10 @@
-from typing import List
+from typing import List, Optional
 from mcp_server.server import mcp
 from repositories import OrderRepository, UserRepository, ProductRepository, DiscountPolicyRepository
 from models import Order
+from config.database import db_connection
+from sqlmodel import select
+from models.user import User
 
 order_repo = OrderRepository()
 user_repo = UserRepository()
@@ -10,17 +13,35 @@ discount_repo = DiscountPolicyRepository()
 
 
 @mcp.tool()
-async def create_order(user_id: int, product_ids: List[int], discount: float = 0.0) -> dict:
+async def create_order(
+    user_id: int, 
+    product_ids: List[int], 
+    name: str, 
+    email: str, 
+    address: str, 
+    discount: float = 0.0
+) -> dict:
     """
     Creates a new order for multiple products and applies a bounded discount.
     
     LLM Instructions:
-    - Call this tool after the user confirms their cart contents for purchase.
-    - Pass the user_id, an array of product_ids from the cart, and the negotiated 'discount' percentage (float).
-    - If the user did not negotiate a discount, pass 0.0.
+    - BEFORE calling this tool, you MUST ask the user (or Buyer Agent) for their delivery name, email, and address.
+    - Do not call this tool until you have collected all three pieces of information.
+    - Call this tool after the user confirms their cart contents and provides their details.
+    - Pass the user_id, product_ids, name, email, address, and the negotiated 'discount' percentage (float).
     """
     # 1. Ensure user exists in the database
     await user_repo.ensure_guest_exists(user_id)
+    
+    # Update the user's details with the provided name, email, and address
+    async with db_connection.get_session() as session:
+        user = (await session.exec(select(User).where(User.id == user_id))).first()
+        if user:
+            user.name = name
+            user.identifier = email # Using identifier as email for B2C, or storing it safely
+            user.address = address
+            session.add(user)
+            await session.commit()
     
     products = []
     total_price = 0.0
