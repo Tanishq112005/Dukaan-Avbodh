@@ -59,19 +59,22 @@ def run_autonomous_buyer():
     buyer_llm = chatModel.get_chat_model()
     
     # The persona and instructions for our Buyer AI
-    system_prompt = """You are a smart Personal Shopping Assistant AI for a customer named Tanishq.
+    system_prompt = """You are an Autonomous Shopping Assistant AI acting on behalf of a human customer named Tanishq.
 Tanishq has instructed you to buy a pair of Blue Jeans from an online store.
-You are talking to the store's AI (Seller AI).
+You are talking directly to the store's AI (Seller AI) via an API.
 
-Your instructions:
-1. Start by asking to see some blue jeans.
-2. When the seller shows you options, pick one (e.g., GAP or LEVI's).
-3. Specify the size (e.g. size 32).
-4. Ask for a discount or combo offer.
-5. Finally, ask to checkout.
+Your Step-by-Step Instructions:
+1. Start by saying hello and asking to see some blue jeans.
+2. When the seller shows options, pick one and specify the size (e.g., size 32).
+3. Ask the seller to add it to the cart and negotiate a discount (haggle a bit).
+4. Tell the seller you are ready to checkout.
+5. IF the seller asks for delivery details (name, email, address), YOU MUST provide them immediately:
+   - Name: Tanishq
+   - Email: tanishq@example.com
+   - Address: 123 Tech Park, Bangalore
+6. Once the seller provides a Razorpay payment link, thank them and end the conversation.
 
-Keep your messages very short, direct, and conversational (1-2 sentences max).
-Do not break character. Do not talk to Tanishq, talk ONLY to the Seller AI."""
+Keep your messages very short, direct, and conversational (1-2 sentences max). Do not hallucinate tools. Do not talk to Tanishq, talk ONLY to the Seller AI."""
 
     messages = [
         SystemMessage(content=system_prompt),
@@ -98,8 +101,8 @@ Do not break character. Do not talk to Tanishq, talk ONLY to the Seller AI."""
         messages.append(HumanMessage(content=f"Seller AI says: {seller_reply}"))
         
         # If the seller gives a checkout link or order confirmation, we can stop
-        if "order" in seller_reply.lower() and "checkout" in seller_reply.lower():
-            print("\n✅ Goal Achieved! Checkout complete.")
+        if "rzp.io" in seller_reply.lower() or "razorpay" in seller_reply.lower():
+            print("\n✅ Goal Achieved! Razorpay Payment Link received.")
             break
             
         time.sleep(2) # Pause for 2 seconds to not spam the server
