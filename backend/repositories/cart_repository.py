@@ -1,7 +1,11 @@
 # repositories/cart_repository.py
 from typing import Optional, List
-from sqlmodel import select
+from datetime import datetime, timezone
+from sqlmodel import select, delete
 from config.database import db_connection
+
+# Ensure this matches your file structure. 
+# It imports the CLASSES Cart and CartItem from the file models/cart.py
 from models.cart import Cart, CartItem
 from models.product import Product
 
@@ -20,49 +24,54 @@ class CartRepository:
                 cart = result.first()
                 if cart:
                     return cart
+
                 cart = Cart(user_id=user_id)
                 session.add(cart)
                 await session.commit()
                 await session.refresh(cart)
                 return cart
-            finally:
-                await session.close()
+            except Exception as e:
+                await session.rollback()
+                raise e
 
     async def get_cart_items(self, user_id: int) -> List[dict]:
-        """Cart items ko product details ke saath enrich karke return karta hai."""
+        """
+        Cart items ko product details ke saath enrich karke return karta hai.
+        JOIN query use karta hai taaki N+1 problem na ho.
+        """
         async with db_connection.get_session() as session:
-            try:
-                cart_result = await session.exec(select(Cart).where(Cart.user_id == user_id))
-                cart = cart_result.first()
-                if not cart:
-                    return []
+            cart_result = await session.exec(select(Cart).where(Cart.user_id == user_id))
+            cart = cart_result.first()
+            if not cart:
+                return []
 
-                items_result = await session.exec(select(CartItem).where(CartItem.cart_id == cart.id))
-                items = items_result.all()
+            # Single SQL JOIN query fetching both CartItem and Product simultaneously
+            query = (
+                select(CartItem, Product)
+                .join(Product, CartItem.product_id == Product.id)
+                .where(CartItem.cart_id == cart.id)
+            )
+            results = await session.exec(query)
 
-                enriched: List[dict] = []
-                for item in items:
-                    p_result = await session.exec(select(Product).where(Product.id == item.product_id))
-                    product = p_result.first()
-                    if not product:
-                        continue
-                    enriched.append({
-                        "cart_item_id": item.id,
-                        "id": product.id,
-                        "product_id": product.id,
-                        "name": product.name,
-                        "price": product.price,
-                        "quantity": item.quantity,
-                        "size": item.size,
-                        "type": product.type.value,
-                        "gender": product.gender,
-                        "image_url": product.image_url,
-                    })
-                return enriched
-            finally:
-                await session.close()
+            enriched: List[dict] = []
+            for item, product in results:
+                enriched.append({
+                    "cart_item_id": item.id,
+                    "id": product.id,
+                    "product_id": product.id,
+                    "name": product.name,
+                    "price": product.price,
+                    "quantity": item.quantity,
+                    "size": item.size,
+                    "type": product.type.value if hasattr(product.type, "value") else product.type,
+                    "gender": product.gender,
+                    "image_url": product.image_url,
+                })
+            return enriched
 
-    async def add_item(self, user_id: int, product_id: int, quantity: int = 1, size: Optional[str] = None) -> CartItem:
+    async def add_item(
+        self, user_id: int, product_id: int, quantity: int = 1, size: Optional[str] = None
+    ) -> CartItem:
         async with db_connection.get_session() as session:
             try:
                 cart_result = await session.exec(select(Cart).where(Cart.user_id == user_id))
@@ -73,7 +82,7 @@ class CartRepository:
                     await session.commit()
                     await session.refresh(cart)
 
-                # Agar same product+size already cart mein hai, quantity badha do (duplicate row mat banao)
+                # Check if item with same product_id and size exists
                 existing_result = await session.exec(
                     select(CartItem).where(
                         CartItem.cart_id == cart.id,
@@ -82,25 +91,35 @@ class CartRepository:
                     )
                 )
                 existing = existing_result.first()
+
                 if existing:
                     existing.quantity += quantity
                     session.add(existing)
+                    cart.updated_at = datetime.now(timezone.utc)
+                    session.add(cart)
                     await session.commit()
                     await session.refresh(existing)
                     return existing
 
-                item = CartItem(cart_id=cart.id, product_id=product_id, quantity=quantity, size=size)
+                item = CartItem(
+                    cart_id=cart.id,
+                    product_id=product_id,
+                    quantity=quantity,
+                    size=size,
+                )
                 session.add(item)
+                cart.updated_at = datetime.now(timezone.utc)
+                session.add(cart)
                 await session.commit()
                 await session.refresh(item)
                 return item
             except Exception as e:
                 await session.rollback()
                 raise e
-            finally:
-                await session.close()
 
-    async def remove_item(self, user_id: int, product_id: int, size: Optional[str] = None) -> bool:
+    async def remove_item(
+        self, user_id: int, product_id: int, size: Optional[str] = None
+    ) -> bool:
         async with db_connection.get_session() as session:
             try:
                 cart_result = await session.exec(select(Cart).where(Cart.user_id == user_id))
@@ -109,7 +128,8 @@ class CartRepository:
                     return False
 
                 query = select(CartItem).where(
-                    CartItem.cart_id == cart.id, CartItem.product_id == product_id
+                    CartItem.cart_id == cart.id,
+                    CartItem.product_id == product_id,
                 )
                 if size is not None:
                     query = query.where(CartItem.size == size)
@@ -120,13 +140,13 @@ class CartRepository:
                     return False
 
                 await session.delete(item)
+                cart.updated_at = datetime.now(timezone.utc)
+                session.add(cart)
                 await session.commit()
                 return True
             except Exception as e:
                 await session.rollback()
                 raise e
-            finally:
-                await session.close()
 
     async def update_quantity(
         self, user_id: int, product_id: int, quantity: int, size: Optional[str] = None
@@ -140,7 +160,8 @@ class CartRepository:
                     return None
 
                 query = select(CartItem).where(
-                    CartItem.cart_id == cart.id, CartItem.product_id == product_id
+                    CartItem.cart_id == cart.id,
+                    CartItem.product_id == product_id,
                 )
                 if size is not None:
                     query = query.where(CartItem.size == size)
@@ -152,21 +173,24 @@ class CartRepository:
 
                 if quantity <= 0:
                     await session.delete(item)
+                    cart.updated_at = datetime.now(timezone.utc)
+                    session.add(cart)
                     await session.commit()
                     return None
 
                 item.quantity = quantity
                 session.add(item)
+                cart.updated_at = datetime.now(timezone.utc)
+                session.add(cart)
                 await session.commit()
                 await session.refresh(item)
                 return item
             except Exception as e:
                 await session.rollback()
                 raise e
-            finally:
-                await session.close()
 
     async def clear_cart(self, user_id: int) -> bool:
+        """Single bulk DELETE query ke through poora cart empty karta hai."""
         async with db_connection.get_session() as session:
             try:
                 cart_result = await session.exec(select(Cart).where(Cart.user_id == user_id))
@@ -174,17 +198,15 @@ class CartRepository:
                 if not cart:
                     return False
 
-                items_result = await session.exec(select(CartItem).where(CartItem.cart_id == cart.id))
-                items = items_result.all()
-                for item in items:
-                    await session.delete(item)
+                # Bulk delete using SQL statement instead of item-by-item loop
+                await session.exec(delete(CartItem).where(CartItem.cart_id == cart.id))
+                cart.updated_at = datetime.now(timezone.utc)
+                session.add(cart)
                 await session.commit()
                 return True
             except Exception as e:
                 await session.rollback()
                 raise e
-            finally:
-                await session.close()
 
 
 cart_repository = CartRepository()

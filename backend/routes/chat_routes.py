@@ -41,7 +41,10 @@ async def sync_cart_and_user(user_id: int, cart_data: list):
 
 @router.post("/chat/message")
 async def chat_message(req: ChatRequest):
-    await sync_cart_and_user(req.user_id, req.cart)
+    try:
+        await sync_cart_and_user(req.user_id, req.cart)
+    except Exception as e:
+        print(f"[WARNING] sync_cart_and_user failed during chat_message: {e}")
     
     config = {"configurable": {"thread_id": str(req.user_id)}}
     human_msg = HumanMessage(content=req.text)
@@ -71,14 +74,31 @@ async def chat_message(req: ChatRequest):
 
 @router.post("/chat/event")
 async def chat_event(req: EventRequest):
-    await sync_cart_and_user(req.user_id, req.cart)
-    
     config = {"configurable": {"thread_id": str(req.user_id)}}
     
     if req.event in ["idle_timeout", "viewed_multiple_products", "viewed_checkout", "activity_threshold_reached"]:
+        # Let's get the current state to check if we should ignore the trigger (Spam Filter)
+        try:
+            agent = agent_service.get_agent()
+            state_snapshot = agent.get_state(config)
+            if state_snapshot and state_snapshot.values and "messages" in state_snapshot.values:
+                msgs = state_snapshot.values["messages"]
+                # If the last human message was a proactive trigger, ignore this one to prevent spam
+                proactive_count = sum(1 for m in msgs[-3:] if isinstance(m, HumanMessage) and m.content == "PROACTIVE_SUGGESTION_TRIGGER")
+                if proactive_count > 0:
+                    return {"success": True, "ignored": True, "reason": "already triggered recently"}
+        except Exception:
+            pass
+
+        # Only sync cart if we are actually going to process the event!
+        try:
+            await sync_cart_and_user(req.user_id, req.cart)
+        except Exception as e:
+            print(f"[WARNING] sync_cart_and_user failed during event: {e}")
+
         hidden_msg = HumanMessage(content="PROACTIVE_SUGGESTION_TRIGGER")
         try:
-            result = await agent_service.get_agent().ainvoke({
+            result = await agent.ainvoke({
                 "messages": [hidden_msg],
                 "user_id": req.user_id
             }, config=config)
