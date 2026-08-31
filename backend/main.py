@@ -1,4 +1,13 @@
 # main.py
+import sys
+import asyncio
+
+# Windows par asyncpg (SSL connections) ProactorEventLoop ke saath fail hota hai
+# (ConnectionResetError: WinError 64). Selector loop policy chahiye, kisi bhi
+# asyncio loop ke banne se PEHLE (uvicorn is import ke baad apna loop banata hai).
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from fastapi import FastAPI
 from config.database import db_connection 
 from routes import auth_routes, product_routes, user_routes, order_routes, checkout_routes

@@ -1,5 +1,6 @@
 # agents/agent_service.py
 import os
+import sys
 import json
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph, END
@@ -9,16 +10,21 @@ from agents.agentState import AgentState
 from config.chatModel import chatModel
 from repositories.cart_repository import cart_repository
 
-# MCP server (mcp_server/main.py) ek ALAG process ke roop mein standalone chalna
-# chahiye (python -m mcp_server.main) — yeh backend usi se ek client ki tarah connect
-# hota hai, bilkul waise hi jaise koi external AI buyer agent (Track 2) connect karega.
-MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://127.0.0.1:8001/mcp")
+# TESTING/DEV STAGE: abhi MCP server ko stdio transport se spawn karte hain
+# (yeh script khud subprocess ki tarah chalega, sys.executable use karke taaki
+# wahi venv/python use ho jo is backend process ko chala raha hai).
+# Baad mein production/Track-2 (external AI buyer agents) ke liye standalone
+# streamable-http server pe shift karenge — tab yahan sirf "url" + "transport":
+# "streamable_http" set karna hoga, baaki code same rahega.
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # .../backend
 
 mcp_client = MultiServerMCPClient(
     {
         "dukaan": {
-            "url": MCP_SERVER_URL,
-            "transport": "streamable_http",
+            "command": sys.executable,
+            "args": ["-m", "mcp_server.main"],
+            "cwd": BACKEND_DIR,
+            "transport": "stdio",
         }
     }
 )
