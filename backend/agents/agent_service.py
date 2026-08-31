@@ -14,18 +14,16 @@ load_dotenv()
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) 
 
+# We force the local URL to avoid cloud authentication/401 errors.
+# Render will run the MCP server locally in the same container using the background task.
+MCP_URL = "http://127.0.0.1:8001/sse"
 
-
-MCP_URL = os.getenv("MCP_SERVER_URL", "http://127.0.0.1:8001/sse")
-
-mcp_client = MultiServerMCPClient(
-    {
-        "dukaan": {
-            "url": MCP_URL,
-            "transport": "sse",
-        }
+mcp_client = MultiServerMCPClient({
+    "dukaan": {
+        "url": MCP_URL,
+        "transport": "sse",
     }
-)
+})
 
 
 _checkout_agent = None
