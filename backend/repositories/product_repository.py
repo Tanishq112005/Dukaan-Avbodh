@@ -1,11 +1,9 @@
-# repositories/product_repository.py
 from typing import Optional, List
 from sqlmodel import select
 from config.database import db_connection
 from models import Product
 from models.product import ProductType
 from .base_repository import BaseRepository
-
 
 class ProductRepository(BaseRepository[Product]):
     def __init__(self):
@@ -27,29 +25,22 @@ class ProductRepository(BaseRepository[Product]):
             except Exception as e:
                 await session.rollback()
                 raise e
-            finally:
-                await session.close()
 
     async def get_in_stock(self) -> List[Product]:
         async with db_connection.get_session() as session:
-            try:
-                result = await session.exec(
-                    select(Product).where(Product.stock > 0)
-                )
-                return result.all()
-            except Exception as e:
-                raise e
-            finally:
-                await session.close()
+            result = await session.exec(
+                select(Product).where(Product.stock > 0)
+            )
+            return result.all()
 
     async def get_by_type(self, product_type: ProductType) -> List[Product]:
+        """Fetches products of a specific type that are currently in stock."""
         async with db_connection.get_session() as session:
-            try:
-                result = await session.exec(
-                    select(Product).where(Product.type == product_type)
+            result = await session.exec(
+                # Added Product.stock > 0 to ensure out-of-stock items are filtered out
+                select(Product).where(
+                    Product.type == product_type, 
+                    Product.stock > 0
                 )
-                return result.all()
-            except Exception as e:
-                raise e
-            finally:
-                await session.close()
+            )
+            return result.all()

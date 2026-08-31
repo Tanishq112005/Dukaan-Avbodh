@@ -1,10 +1,8 @@
-# repositories/user_repository.py
 from typing import Optional
 from sqlmodel import select
 from config.database import db_connection
 from models import User
 from .base_repository import BaseRepository
-
 
 class UserRepository(BaseRepository[User]):
     def __init__(self):
@@ -12,15 +10,10 @@ class UserRepository(BaseRepository[User]):
 
     async def get_by_identifier(self, identifier: str) -> Optional[User]:
         async with db_connection.get_session() as session:
-            try:
-                result = await session.exec(
-                    select(User).where(User.identifier == identifier)
-                )
-                return result.first()
-            except Exception as e:
-                raise e
-            finally:
-                await session.close()
+            result = await session.exec(
+                select(User).where(User.identifier == identifier)
+            )
+            return result.first()
 
     async def get_or_create(
         self,
@@ -56,16 +49,8 @@ class UserRepository(BaseRepository[User]):
             except Exception as e:
                 await session.rollback()
                 raise e
-            finally:
-                await session.close()
 
     async def ensure_guest_exists(self, user_id: int) -> None:
-        """
-        Guest users (login nahi kiye hue) ke liye bhi ek User row ensure karta hai,
-        taaki UserEvent/Cart jaise foreign-key wale tables mein unka data save ho
-        sake. Frontend jo bhi ID (guestId) chat/product-view ke liye use kar raha
-        hai, wahi yahan pass honi chahiye.
-        """
         from models.user import UserRole
         async with db_connection.get_session() as session:
             try:
@@ -82,6 +67,3 @@ class UserRepository(BaseRepository[User]):
                 await session.commit()
             except Exception:
                 await session.rollback()
-                # Race condition (do requests ek saath guest bana rahe) — safe to ignore
-            finally:
-                await session.close()
