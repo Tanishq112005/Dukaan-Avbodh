@@ -2,7 +2,7 @@ import json
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from langchain_core.messages import HumanMessage
-from agents.agent_service import checkout_agent
+from agents import agent_service
 from utils.websocket_manager import manager
 
 router = APIRouter()
@@ -71,7 +71,7 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
                         hidden_msg = HumanMessage(content="PROACTIVE_SUGGESTION_TRIGGER")
                         
                         try:
-                            result = await checkout_agent.ainvoke({
+                            result = await agent_service.get_agent().ainvoke({
                                 "messages": [hidden_msg],
                                 "user_id": user_id
                             }, config=config)
@@ -110,7 +110,7 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int):
             }
             
             try:
-                result = await checkout_agent.ainvoke(initial_state, config=config)
+                result = await agent_service.get_agent().ainvoke(initial_state, config=config)
                 ai_reply = result.get("final_response", "Sorry, system error.")
                 combo_offer = result.get("combo_offer", None)
                 suggested_products = result.get("suggested_products", [])

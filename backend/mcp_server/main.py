@@ -17,4 +17,9 @@ import mcp_server.search
 
 if __name__ == "__main__":
     asyncio.run(db_connection.init_db())
-    mcp.run()
+    # streamable-http transport — yeh ab ek standalone, always-running server hai.
+    # Chat backend (agent_service.py) isi se MultiServerMCPClient ke through connect
+    # karta hai, aur future mein koi bhi external AI agent (Track 2 buyer) bhi
+    # isi URL pe connect karke seedha in tools ko call kar sakta hai.
+    # Run this as its OWN process, alag se: python -m mcp_server.main
+    mcp.run(transport="streamable-http", host="127.0.0.1", port=8001)

@@ -6,6 +6,7 @@ from config.chatModel import chatModel
 from fastapi.middleware.cors import CORSMiddleware
 from config.embeddingModel import embeddingModel
 from config.vectorDatabase import vectorDB
+from agents import agent_service
 app = FastAPI(title="Sauda API")
 
 app.add_middleware(
@@ -31,11 +32,13 @@ app.include_router(chat_routes.router)
 @app.on_event("startup")
 async def startup():
     await db_connection.init_db()
-    await chatModel.get_chat_model() 
+    chatModel.get_chat_model()
     await embeddingModel.getModel() 
     await vectorDB.get_index() 
 
-    
+    # MCP server (mcp_server/main.py) ek ALAG process ke roop mein pehle se chal
+    # raha hona chahiye (python -m mcp_server.main), tabhi yeh connect ho payega.
+    await agent_service.init_agent()
 
 
 @app.on_event("shutdown")
