@@ -107,6 +107,18 @@ export const useStore = create(
               if (data.combo_offer) {
                 set({ comboOffer: data.combo_offer });
               }
+              if (data.cart) {
+                const syncedCart = data.cart.map(item => ({
+                  id: item.id || item.product_id,
+                  name: item.name,
+                  price: item.price,
+                  qty: item.quantity || item.qty,
+                  size: item.size,
+                  color: item.color,
+                  image_url: item.image_url
+                }));
+                set({ cart: syncedCart });
+              }
             }
           } catch (err) { console.error(err) }
         };

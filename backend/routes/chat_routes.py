@@ -60,11 +60,15 @@ async def chat_message(req: ChatRequest):
         combo_offer = result.get("combo_offer", None)
         suggested_products = result.get("suggested_products", [])
         
+        # Fetch the updated cart state after the AI has potentially run MCP tools
+        updated_cart = await cart_repository.get_cart_items(req.user_id)
+        
         return {
             "type": "chat_reply", 
             "message": ai_reply,
             "combo_offer": combo_offer,
-            "suggested_products": suggested_products
+            "suggested_products": suggested_products,
+            "cart": updated_cart
         }
     except Exception as e:
         print(f"[ERROR] Chat agent failed: {e}")
@@ -105,11 +109,13 @@ async def chat_event(req: EventRequest):
             
             ai_reply = result.get("final_response")
             if ai_reply:
+                updated_cart = await cart_repository.get_cart_items(req.user_id)
                 return {
                     "type": "proactive_suggestion",
                     "message": ai_reply,
                     "combo_offer": result.get("combo_offer", None),
-                    "suggested_products": result.get("suggested_products", [])
+                    "suggested_products": result.get("suggested_products", []),
+                    "cart": updated_cart
                 }
         except Exception as e:
             print(f"[ERROR] Proactive suggestion failed: {e}")

@@ -81,8 +81,8 @@ Keep your messages very short, direct, and conversational (1-2 sentences max). D
         HumanMessage(content="START CONVERSATION. Say hello and ask for what you need.")
     ]
     
-    # Chat Loop: Let the AIs talk for a maximum of 6 turns
-    for turn in range(6):
+    # Chat Loop: Let the AIs talk for a maximum of 15 turns
+    for turn in range(15):
         print(f"\n--- Turn {turn + 1} ---")
         
         # 1. Buyer AI generates what to say using Langchain
