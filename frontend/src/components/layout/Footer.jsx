@@ -19,7 +19,7 @@ export function Footer() {
         
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-12">
           <div className="md:col-span-2">
-            <h3 className="text-3xl font-black mb-4">SHOP.CO</h3>
+            <h3 className="text-3xl font-black mb-4">DUKKAN</h3>
             <p className="text-gray-500 text-sm max-w-xs mb-6">
               We have clothes that suits your style and which you're proud to wear. From women to men.
             </p>
@@ -53,7 +53,7 @@ export function Footer() {
           </div>
         </div>
         <div className="border-t border-gray-300 pt-6 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-sm text-gray-500">Shop.co © 2000-2023, All Rights Reserved</p>
+          <p className="text-sm text-gray-500">Dukkan © 2026, All Rights Reserved</p>
         </div>
       </div>
     </footer>

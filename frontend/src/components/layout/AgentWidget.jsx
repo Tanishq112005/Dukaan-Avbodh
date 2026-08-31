@@ -101,7 +101,7 @@ export function AgentWidget() {
                 <Bot size={18} className="text-indigo-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-slate-800 text-sm">Dukaan AI Agent</h3>
+                <h3 className="font-semibold text-slate-800 text-sm">Dukkan AI Agent</h3>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <div className={cn("w-2 h-2 rounded-full", isAiConnected ? "bg-green-500" : "bg-red-500")} />
                   <p className="text-[10px] uppercase font-medium tracking-wide text-slate-500">
