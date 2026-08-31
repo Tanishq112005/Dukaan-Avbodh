@@ -5,7 +5,6 @@ from schemas.a2a_schemas import A2AInteractRequest, A2AInteractResponse, A2AStar
 from agents import agent_service
 from langchain_core.messages import HumanMessage
 from repositories import ProductRepository
-
 from config.database import db_connection
 from models.user import User, UserRole
 from sqlmodel import select
@@ -181,7 +180,7 @@ async def a2a_interact_jsonrpc(req: Request):
     # Construct A2A standard protobuf-to-JSON response (lf.a2a.v1.SendMessageResponse)
     return {
         "message": {
-            "role": "agent",
+            "role": "ROLE_AGENT",
             "parts": [
                 {
                     "kind": "text",
