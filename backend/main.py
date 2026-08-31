@@ -26,8 +26,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global WebSocket Manager (Imported from utils to prevent circular dependencies)
-from utils.websocket_manager import manager
 app.include_router(auth_routes.router)
 app.include_router(product_routes.router)
 app.include_router(user_routes.router)
