@@ -10,13 +10,8 @@ from agents.agentState import AgentState
 from config.chatModel import chatModel
 from repositories.cart_repository import cart_repository
 
-# TESTING/DEV STAGE: abhi MCP server ko stdio transport se spawn karte hain
-# (yeh script khud subprocess ki tarah chalega, sys.executable use karke taaki
-# wahi venv/python use ho jo is backend process ko chala raha hai).
-# Baad mein production/Track-2 (external AI buyer agents) ke liye standalone
-# streamable-http server pe shift karenge — tab yahan sirf "url" + "transport":
-# "streamable_http" set karna hoga, baaki code same rahega.
-BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # .../backend
+
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) 
 
 mcp_client = MultiServerMCPClient(
     {
@@ -29,7 +24,7 @@ mcp_client = MultiServerMCPClient(
     }
 )
 
-# Yeh sab backend startup (main.py) ke waqt init_agent() call hone ke baad set ho jaate hain
+
 _checkout_agent = None
 _tools_by_name: dict = {}
 

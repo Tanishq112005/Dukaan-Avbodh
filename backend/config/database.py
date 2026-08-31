@@ -35,20 +35,16 @@ class DatabaseConnection:
             elif database_url.startswith("postgres://"):
                 database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
 
-            # Remove unsupported query parameters like sslmode ya channel_binding
-            # (asyncpg inhe URL mein samajhta nahi, connect() call fail ho jaata hai).
-            # SSL yahan URL se nahi, connect_args se explicitly bhejte hain — warna
-            # SSL bilkul off ho jaata hai aur Neon jaise providers connection reset
-            # kar dete hain (WinError 10054 / "forcibly closed by remote host").
+
             if "?" in database_url:
                 database_url = database_url.split("?")[0]
 
             self._engine = create_async_engine(
                 database_url,
                 echo=False,
-                pool_size=5,          # kitne connections pool mein rakhne hain
-                max_overflow=10,      # extra connections agar zaroorat pade
-                pool_pre_ping=True,   # dead connections ko auto-detect karega
+                pool_size=5,        
+                max_overflow=10,      
+                pool_pre_ping=True, 
                 connect_args={
                     "ssl": "require",
                     "statement_cache_size": 0,  # Neon pooler (PgBouncer, transaction mode) ke saath

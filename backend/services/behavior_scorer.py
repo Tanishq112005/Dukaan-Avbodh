@@ -5,7 +5,8 @@ from models.user_event import EventType
 class BehaviorScorer:
     EVENT_WEIGHTS = {
         "purchased": 5.0,
-        "added_to_cart": 3.0,
+        "add_to_cart": 3.0,
+        "remove_from_cart": -1.0,
         "suggestion_accepted": 3.0,
         "viewed": 1.0,
         "suggestion_skipped": -2.0,

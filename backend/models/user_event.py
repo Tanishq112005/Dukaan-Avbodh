@@ -11,6 +11,8 @@ class EventType(str, Enum):
     SUGGESTION_ACCEPTED = "suggestion_accepted"
     SUGGESTION_SKIPPED = "suggestion_skipped"
     SESSION_START = "session_start"
+    ADD_TO_CART = "add_to_cart"
+    REMOVE_FROM_CART = "remove_from_cart"
 
 
 class UserEvent(SQLModel, table=True):
