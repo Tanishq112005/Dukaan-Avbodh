@@ -61,9 +61,15 @@ async def init_agent():
     compile kar deta hai."""
     global _checkout_agent, _tools_by_name
 
+    print("   ↳ MCP server (mcp_server/main.py) se connect ho raha hai (stdio subprocess)...")
     tools = await mcp_client.get_tools()
     _tools_by_name = {t.name: t for t in tools}
+    print(f"   ↳ {len(tools)} tools mile: {', '.join(sorted(_tools_by_name.keys()))}")
+
+    print("   ↳ LLM ke saath tools bind ho rahe hain...")
     fast_llm = chatModel.get_chat_model().bind_tools(tools)
+
+    print("   ↳ LangGraph agent (agent ↔ tools loop) compile ho raha hai...")
 
     async def agent_node(state: AgentState):
         messages = list(state["messages"])
@@ -113,6 +119,13 @@ Your current state:
 
         response = await fast_llm.ainvoke(mod_messages)
 
+        if response.tool_calls:
+            called = ', '.join(tc["name"] for tc in response.tool_calls)
+            print(f"🤖 Agent ne decide kiya: tool(s) call karo → {called}")
+        else:
+            preview = (response.content or "")[:80]
+            print(f"🤖 Agent ne seedha reply diya (koi tool nahi): \"{preview}...\"" if len(response.content or "") > 80 else f"🤖 Agent ne seedha reply diya (koi tool nahi): \"{preview}\"")
+
         updates = {
             "messages": [response],
             "final_response": response.content if not response.tool_calls else ""
@@ -137,6 +150,7 @@ Your current state:
 
             tool = _tools_by_name.get(tool_name)
             if tool is None:
+                print(f"   ❌ Unknown tool call: {tool_name}")
                 tool_messages.append(ToolMessage(content='{"error": "Unknown tool"}', tool_call_id=tool_call["id"]))
                 continue
 
@@ -152,14 +166,18 @@ Your current state:
                         for item in db_cart
                     ]
 
+            print(f"   🔧 Calling tool: {tool_name}({tool_args})")
             try:
                 raw_res = await tool.ainvoke(tool_args)
             except Exception as e:
+                print(f"   ❌ Tool '{tool_name}' fail ho gaya: {e}")
                 tool_messages.append(ToolMessage(content=f'{{"error": "{str(e)}"}}', tool_call_id=tool_call["id"]))
                 continue
 
             res_text = _extract_text(raw_res)
             parsed = _safe_parse(res_text)
+            ok = isinstance(parsed, dict) and parsed.get("success")
+            print(f"   {'✅' if ok else '⚠️'} Tool '{tool_name}' se result mila (success={ok}).")
 
             if isinstance(parsed, dict) and parsed.get("success"):
                 if tool_name == "search_products":
@@ -192,6 +210,7 @@ Your current state:
 
     memory = MemorySaver()
     _checkout_agent = workflow.compile(checkpointer=memory)
+    print("   ↳ Agent compile ho gaya, memory (per-user conversation history) attach ho gayi.")
     return _checkout_agent
 
 
