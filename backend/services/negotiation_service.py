@@ -27,7 +27,7 @@ class NegotiationService:
         # 3. Security Check: Never exceed merchant's strict minimum profit limit
         # Even if policy says 30%, if cost_price prevents it, we cap it.
         profit_cap = ((product.price - (product.cost_price * (1 + product.min_profit_margin_percent / 100))) / product.price) * 100
-        absolute_max = min(max_discount, profit_cap)
+        absolute_max = max(0.0, min(max_discount, profit_cap))
         
         # 4. Check User Loyalty
         scores = await behavior_scorer.get_category_affinity(user_id)
@@ -131,7 +131,10 @@ class NegotiationService:
             
         absolute_max = round(absolute_max, 2)
         
-        # 4. Asymptotic (Gap Closure) Haggling Logic
+        # 4. Asymptotic / Strict Haggling Logic
+        # Agent will only yield a maximum of 'agent_step' (e.g., 5%) per negotiation round.
+        agent_step = 5.0
+        
         if requested_discount <= current_discount:
             return {
                 "accepted": True, 
@@ -140,37 +143,34 @@ class NegotiationService:
                 "products": cart_products
             }
             
-        # Jump 50% of the remaining gap between the current offer and the absolute max
-        gap = absolute_max - current_discount
-        if gap <= 0:
-            next_offer = absolute_max
-        else:
-            next_offer = current_discount + (gap * 0.5)
-            
-        next_offer = round(next_offer * 2) / 2
+        # Calculate the maximum the agent is willing to offer in THIS specific round
+        next_offer = current_discount + agent_step
+        
+        # Cap it by the absolute maximum allowed for the user
         next_offer = min(next_offer, absolute_max)
+        next_offer = round(next_offer * 2) / 2  # Round to nearest 0.5%
 
-        # 5. Evaluate the User's Request
+        # 5. Evaluate the User's Request against this round's limit
         if requested_discount <= next_offer:
             return {
                 "accepted": True, 
                 "counter_offer_percent": requested_discount, 
-                "agent_internal_reasoning": "Combo discount requested is safe. Accept!",
+                "agent_internal_reasoning": f"Requested {requested_discount}% is within this round's step limit ({next_offer}%). Accept!",
                 "products": cart_products
             }
         else:
-            if next_offer <= current_discount or next_offer == absolute_max:
+            if next_offer <= current_discount or next_offer >= absolute_max:
                 return {
                     "accepted": False, 
                     "counter_offer_percent": absolute_max, 
-                    "agent_internal_reasoning": "Final margin limits reached. This is the absolute best offer.",
+                    "agent_internal_reasoning": f"Hit margin limits. Max allowed is {absolute_max}%.",
                     "products": cart_products
                 }
                 
             return {
                 "accepted": False, 
                 "counter_offer_percent": next_offer, 
-                "agent_internal_reasoning": "Requested discount is too high. Countering with the next safe increment.",
+                "agent_internal_reasoning": f"User wants {requested_discount}%, but I'm restricting increments to protect merchant profit. Countering with {next_offer}%.",
                 "products": cart_products
             }
 

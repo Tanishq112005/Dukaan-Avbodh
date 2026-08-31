@@ -95,7 +95,7 @@ class CartRepository:
                 if existing:
                     existing.quantity += quantity
                     session.add(existing)
-                    cart.updated_at = datetime.now(timezone.utc)
+                    cart.updated_at = datetime.utcnow()
                     session.add(cart)
                     await session.commit()
                     await session.refresh(existing)
@@ -108,7 +108,7 @@ class CartRepository:
                     size=size,
                 )
                 session.add(item)
-                cart.updated_at = datetime.now(timezone.utc)
+                cart.updated_at = datetime.utcnow()
                 session.add(cart)
                 await session.commit()
                 await session.refresh(item)
@@ -140,7 +140,7 @@ class CartRepository:
                     return False
 
                 await session.delete(item)
-                cart.updated_at = datetime.now(timezone.utc)
+                cart.updated_at = datetime.utcnow()
                 session.add(cart)
                 await session.commit()
                 return True
@@ -173,14 +173,14 @@ class CartRepository:
 
                 if quantity <= 0:
                     await session.delete(item)
-                    cart.updated_at = datetime.now(timezone.utc)
+                    cart.updated_at = datetime.utcnow()
                     session.add(cart)
                     await session.commit()
                     return None
 
                 item.quantity = quantity
                 session.add(item)
-                cart.updated_at = datetime.now(timezone.utc)
+                cart.updated_at = datetime.utcnow()
                 session.add(cart)
                 await session.commit()
                 await session.refresh(item)
@@ -200,7 +200,7 @@ class CartRepository:
 
                 # Bulk delete using SQL statement instead of item-by-item loop
                 await session.exec(delete(CartItem).where(CartItem.cart_id == cart.id))
-                cart.updated_at = datetime.now(timezone.utc)
+                cart.updated_at = datetime.utcnow()
                 session.add(cart)
                 await session.commit()
                 return True

@@ -20,7 +20,7 @@ async def list_product_types() -> dict:
 
 
 @mcp.tool()
-async def get_catalog() -> list[dict]:
+async def get_catalog() -> dict:
     """
     Retrieves the complete catalog of currently available (in-stock) products.
     
@@ -32,10 +32,13 @@ async def get_catalog() -> list[dict]:
     products = await product_repo.get_in_stock()
     
     # Exclude sensitive merchant data AND discount info so the LLM doesn't see or leak it
-    return [
-        p.model_dump(exclude={"cost_price", "min_profit_margin_percent", "stock", "discount"}) 
-        for p in products
-    ]
+    return {
+        "success": True,
+        "products": [
+            p.model_dump(exclude={"cost_price", "min_profit_margin_percent", "stock", "discount"}) 
+            for p in products
+        ]
+    }
 
 
 @mcp.tool()

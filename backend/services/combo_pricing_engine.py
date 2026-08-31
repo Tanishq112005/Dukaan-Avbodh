@@ -22,6 +22,7 @@ class ComboPricingEngine:
         
         max_discount_amount = total_price - total_cost - total_min_profit
         absolute_max_discount_percent = (max_discount_amount / total_price) * 100 if total_price > 0 else 0.0
+        absolute_max_discount_percent = max(0.0, absolute_max_discount_percent)
         
         return {
             "total_price": total_price,
@@ -31,5 +32,30 @@ class ComboPricingEngine:
             "absolute_max_discount_percent": absolute_max_discount_percent
         }
 
+    def calculate_combo_price(self, products: list[Product]) -> dict:
+        """
+        Calculates the subtotal and base combo details for a list of products.
+        Does not apply any custom discount by default.
+        """
+        if not products:
+            return {
+                "subtotal": 0.0,
+                "final_price": 0.0,
+                "effective_discount_percent": 0.0,
+                "discount_amount": 0.0,
+                "total_items": 0,
+                "products": []
+            }
+            
+        subtotal = sum(p.price for p in products)
+        
+        return {
+            "subtotal": round(subtotal, 2),
+            "final_price": round(subtotal, 2),
+            "effective_discount_percent": 0.0,
+            "discount_amount": 0.0,
+            "total_items": len(products),
+            "products": [{"id": p.id, "name": p.name, "image": p.image_url} for p in products]
+        }
 
 combo_pricing_engine = ComboPricingEngine()
