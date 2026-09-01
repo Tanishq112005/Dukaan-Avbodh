@@ -71,6 +71,15 @@ async def negotiate_discount(
         current_discount=current_discount_percent
     )
 
+    from services.audit_logger import audit_logger
+    
+    await audit_logger.log_action(
+        action="negotiate_discount",
+        reason=result.get("agent_internal_reasoning", "Negotiation logic evaluated"),
+        result=f"Requested: {requested_discount_percent}%, Counter: {result.get('counter_offer_percent', 0.0)}%, Accepted: {result.get('accepted', False)}",
+        user_id=user_id
+    )
+
     if not result.get("products"):
         return {"success": False, "error": result["agent_internal_reasoning"]}
 

@@ -47,7 +47,8 @@ class CheckoutController:
         await self.audit_logger.log_action(
             action="checkout_completed",
             reason=f"user {user_id} checked out product {product.id}, requested {payload.requested_discount}%",
-            result=f"applied={final_discount}%, capped={payload.requested_discount > max_discount}"
+            result=f"applied={final_discount}%, capped={payload.requested_discount > max_discount}",
+            user_id=user_id
         )
 
         return {
