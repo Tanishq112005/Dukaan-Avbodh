@@ -25,8 +25,7 @@ async def recommend_products(user_id: int) -> dict:
     try:
         result = await upsell_service.generate_upsell_offer(user_id, cart_items)
     except Exception as e:
-        with open("mcp_debug.txt", "a") as f:
-            f.write(f"ERROR in recommend_products: {str(e)}\n")
+        print(f"ERROR in recommend_products: {str(e)}")
         return {"success": False, "error": f"Failed to generate upsell offer: {str(e)}"}
 
     if not result.get("success") or not result.get("suggested_products"):

@@ -1,9 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-// --- Global WebSocket Instance (Outside Store to avoid serialization issues) ---
-let socketInstance = null;
-
+// Store definition
 export const useStore = create(
   persist(
     (set, get) => ({
@@ -73,7 +71,7 @@ export const useStore = create(
       })),
       clearCart: () => set({ cart: [] }),
 
-      // --- AI Agent / WebSocket State ---
+      // --- AI Agent / HTTP State ---
       aiMessages: [],
       aiMessagesLastUpdated: null,
       isAiTyping: false,
@@ -81,20 +79,36 @@ export const useStore = create(
       isAiConnected: false,
       isAgentOpen: false,
       setIsAgentOpen: (isOpen) => set({ isAgentOpen: isOpen }),
-      guestId: Math.floor(Math.random() * 1000000) + 10000, // For users who are not logged in
+      guestId: Math.floor(Math.random() * 1000000) + 10000,
 
       connectAgent: () => {
-        const { user, guestId } = get();
-        if (socketInstance) return; // Already connected
+        set({ isAiConnected: true });
+      },
 
+      disconnectAgent: () => {
+        set({ isAiConnected: false, isAiTyping: false });
+      },
+
+      sendAiMessage: async (text) => {
+        // Add message to UI immediately
+        set(state => ({ 
+          aiMessages: [...state.aiMessages, { sender: 'user', text }],
+          aiMessagesLastUpdated: Date.now(),
+          isAgentOpen: true,
+          isAiTyping: true
+        }));
+
+        const { cart, user, guestId } = get();
         const connectId = user?.id || guestId;
-        socketInstance = new WebSocket(`ws://localhost:8000/ws/chat/${connectId}`);
         
-        socketInstance.onopen = () => set({ isAiConnected: true });
-        
-        socketInstance.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/chat/message`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_id: connectId, text: text, cart: cart })
+            });
+            const data = await res.json();
+            
             if (data.type === 'chat_reply' || data.type === 'proactive_suggestion') {
               set(state => ({ 
                 aiMessages: [...state.aiMessages, { 
@@ -125,59 +139,56 @@ export const useStore = create(
                 set({ aiDiscount: data.ai_discount });
               }
             }
-          } catch (err) { console.error(err) }
-        };
-        
-        socketInstance.onclose = () => {
-          set({ isAiConnected: false, isAiTyping: false });
-          socketInstance = null;
-        };
-      },
-
-      disconnectAgent: () => {
-        if (socketInstance) {
-          const sock = socketInstance;
-          socketInstance = null; // Set null FIRST to prevent reconnect race
-          sock.onclose = null;  // Remove handler to avoid state update after disconnect
-          sock.close();
-          set({ isAiConnected: false, isAiTyping: false });
+        } catch(e) {
+            console.error("Chat error", e);
+            set({ isAiTyping: false });
         }
       },
 
-      sendAiMessage: (text) => {
-        // Add message to UI immediately
-        set(state => ({ 
-          aiMessages: [...state.aiMessages, { sender: 'user', text }],
-          aiMessagesLastUpdated: Date.now(),
-          isAgentOpen: true,
-          isAiTyping: true
-        }));
-
-        const { cart } = get();
-        const trySend = () => {
-          if (socketInstance && socketInstance.readyState === WebSocket.OPEN) {
-            const payload = { type: 'chat', text: text, cart: cart };
-            socketInstance.send(JSON.stringify(payload));
-          } else if (socketInstance && socketInstance.readyState === WebSocket.CONNECTING) {
-            // Socket is still connecting, retry after a short delay
-            setTimeout(trySend, 500);
-          }
-          // If closed/null, silently skip ?" message is still visible in UI
-        };
-        trySend();
-      },
-
-      sendAiEvent: (eventName) => {
-        const { cart } = get();
-        const trySend = () => {
-          if (socketInstance && socketInstance.readyState === WebSocket.OPEN) {
-            const payload = { type: 'monitoring_event', event: eventName, cart: cart };
-            socketInstance.send(JSON.stringify(payload));
-          } else if (socketInstance && socketInstance.readyState === WebSocket.CONNECTING) {
-            setTimeout(trySend, 500);
-          }
-        };
-        trySend();
+      sendAiEvent: async (eventName) => {
+        const { cart, user, guestId } = get();
+        const connectId = user?.id || guestId;
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/chat/event`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_id: connectId, event: eventName, cart: cart })
+            });
+            const data = await res.json();
+            
+            if (data.type === 'chat_reply' || data.type === 'proactive_suggestion') {
+              set(state => ({ 
+                aiMessages: [...state.aiMessages, { 
+                  sender: 'ai', 
+                  text: data.message,
+                  suggested_products: data.suggested_products || []
+                }],
+                aiMessagesLastUpdated: Date.now(),
+                isAgentOpen: true,
+                isAiTyping: false
+              }));
+              if (data.combo_offer) {
+                set({ comboOffer: data.combo_offer });
+              }
+              if (data.cart) {
+                const syncedCart = data.cart.map(item => ({
+                  id: item.id || item.product_id,
+                  name: item.name,
+                  price: item.price,
+                  qty: item.quantity || item.qty,
+                  size: item.size,
+                  color: item.color,
+                  image_url: item.image_url
+                }));
+                set({ cart: syncedCart });
+              }
+              if (data.ai_discount !== undefined) {
+                set({ aiDiscount: data.ai_discount });
+              }
+            }
+        } catch(e) {
+            console.error("Event error", e);
+        }
       },
       
       clearComboOffer: () => set({ comboOffer: null })

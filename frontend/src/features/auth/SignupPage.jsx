@@ -11,16 +11,17 @@ export function SignupPage() {
   const [address, setAddress] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+ 
   const { login } = useStore();
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:8000/auth/signup", {
-        name, identifier: email, address, password, role: "merchant"
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/auth/signup`, {
+        name, identifier: email, address, password, role: "customer"
       });
-      login({ name, email, address }, res.data.access_token);
+      login({ name, email, address, id: res.data.user_id, role: res.data.role }, res.data.access_token);
       navigate("/");
     } catch (err) {
       setError("Signup failed. Email might be in use.");

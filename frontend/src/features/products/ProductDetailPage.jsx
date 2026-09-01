@@ -16,7 +16,7 @@ export function ProductDetailPage() {
   useEffect(() => {
     trackActivity();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    axios.get(`http://localhost:8000/product/detail/${id}`, { headers })
+    axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/product/detail/${id}`, { headers })
       .then(res => {
         setProduct(res.data);
         setLoading(false);

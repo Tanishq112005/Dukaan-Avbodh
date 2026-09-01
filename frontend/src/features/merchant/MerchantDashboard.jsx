@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useStore } from "../../store/useStore";
 import { MerchantProductForm } from "./MerchantProductForm";
+import { MerchantAnalytics } from "./MerchantAnalytics";
 
 export function MerchantDashboard() {
   const { token, user } = useStore();
@@ -68,6 +69,16 @@ export function MerchantDashboard() {
           Security & Audit Logs
         </button>
         <button
+          onClick={() => setActiveTab("analytics")}
+          className={`py-3 px-6 font-semibold whitespace-nowrap transition-colors ${
+            activeTab === "analytics" 
+              ? "border-b-2 border-black text-black" 
+              : "text-gray-500 hover:text-black"
+          }`}
+        >
+          Analytics & Revenue
+        </button>
+        <button
           onClick={() => setActiveTab("orders")}
           className={`py-3 px-6 font-semibold whitespace-nowrap transition-colors ${
             activeTab === "orders" 
@@ -92,6 +103,14 @@ export function MerchantDashboard() {
       {/* Tab Content */}
       <div className="mt-8">
         
+        {/* ANALYTICS TAB */}
+        {activeTab === "analytics" && (
+          <div>
+            <h2 className="text-2xl font-bold mb-6">Analytics & Revenue</h2>
+            <MerchantAnalytics />
+          </div>
+        )}
+
         {/* ADD PRODUCT TAB */}
         {activeTab === "add_product" && (
           <div className="max-w-xl">

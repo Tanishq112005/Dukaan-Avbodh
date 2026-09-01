@@ -15,10 +15,10 @@ export function LoginPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:8000/auth/login", {
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/auth/login`, {
         identifier, password
       });
-      login({ email: identifier }, res.data.access_token);
+      login({ email: identifier, id: res.data.user_id, role: res.data.role }, res.data.access_token);
       navigate("/");
     } catch (err) {
       setError("Invalid credentials. Please try again.");

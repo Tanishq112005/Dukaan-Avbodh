@@ -1,6 +1,5 @@
 import { Search, ShoppingCart, User } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
 import { Input } from "../ui/input";
 import { useStore } from "../../store/useStore";
 
@@ -13,7 +12,7 @@ function NavSearch({ searchQuery, setSearchQuery, handleSearch }) {
   );
 }
 
-function NavActions({ cartCount }) {
+function NavActions({ cartCount, user, handleAuth }) {
   return (
     <div className="flex items-center space-x-4">
       <Search className="h-6 w-6 md:hidden" />
@@ -22,17 +21,16 @@ function NavActions({ cartCount }) {
         {cartCount > 0 && <span className="absolute -top-2 -right-2 bg-black text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">{cartCount}</span>}
       </Link>
       <div className="flex items-center gap-2">
-        <SignedOut>
-          <SignInButton mode="modal">
-            <span className="text-sm cursor-pointer font-bold">Login</span>
-          </SignInButton>
-          <SignUpButton mode="modal">
-            <span className="text-sm cursor-pointer font-bold ml-2">Sign Up</span>
-          </SignUpButton>
-        </SignedOut>
-        <SignedIn>
-          <UserButton />
-        </SignedIn>
+        {!user ? (
+          <>
+            <Link to="/login" className="text-sm cursor-pointer font-bold">Login</Link>
+            <Link to="/signup" className="text-sm cursor-pointer font-bold ml-2">Sign Up</Link>
+          </>
+        ) : (
+          <div onClick={handleAuth} className="w-8 h-8 bg-green-800 text-white rounded-full flex items-center justify-center font-bold cursor-pointer hover:bg-green-700 transition">
+            {user.name ? user.name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -55,9 +53,6 @@ export function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 bg-white border-b border-gray-200">
-      <div className="bg-black text-white text-xs text-center py-2">
-        Sign up and get 20% off to your first order. <Link to="/signup" className="underline cursor-pointer">Sign Up Now</Link>
-      </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-8">
@@ -69,7 +64,7 @@ export function Navbar() {
             </div>
           </div>
           <NavSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} />
-          <NavActions cartCount={cartCount} />
+          <NavActions cartCount={cartCount} user={user} handleAuth={handleAuth} />
         </div>
       </div>
     </nav>

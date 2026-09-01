@@ -9,7 +9,7 @@ export function HomePage() {
   const { products, setProducts } = useStore();
 
   useEffect(() => {
-    axios.get("http://localhost:8000/product/catalog")
+    axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/product/catalog`)
       .then(res => setProducts(res.data.products || res.data))
       .catch(err => {
         console.error("API error, using fallback", err);

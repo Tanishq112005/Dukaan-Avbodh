@@ -10,7 +10,7 @@ export function ProductListPage() {
 
   useEffect(() => {
     if (products.length === 0) {
-      axios.get("http://localhost:8000/product/catalog")
+      axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/product/catalog`)
         .then(res => setProducts(res.data.products || res.data))
         .catch(() => setProducts([
           { id: 1, name: "Gradient Graphic T-shirt", price: 145, rating: 3.5, discount: 0, type: "t-shirt", brand: "ZARA", description: "Awesome gradient t-shirt for summer.", sizes: "S,M,L" },

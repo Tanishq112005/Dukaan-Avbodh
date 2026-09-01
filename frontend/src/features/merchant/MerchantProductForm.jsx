@@ -22,7 +22,7 @@ export function MerchantProductForm() {
         price: parseFloat(formData.price), stock: parseInt(formData.stock),
         rating: parseFloat(formData.rating), discount: parseInt(formData.discount),
       };
-      await axios.post("http://localhost:8000/product/add", payload, {
+      await axios.post(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/product/add`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMsg("Product added successfully!");

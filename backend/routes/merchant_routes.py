@@ -3,8 +3,17 @@ from middleware.role_middleware import require_role
 from models.user import UserRole
 from services.audit_logger import audit_logger
 from repositories.chat_audit_repository import chat_audit_repo
+from services.analytics_service import analytics_service
 
 router = APIRouter(prefix="/merchant", tags=["Merchant"])
+
+@router.get("/analytics")
+async def get_analytics(
+    current_user: dict = Depends(require_role(UserRole.MERCHANT))
+):
+    """Fetch aggregated business analytics, revenue, and AI discount metrics."""
+    data = await analytics_service.get_dashboard_metrics()
+    return data
 
 @router.get("/audit-logs")
 async def get_audit_logs(

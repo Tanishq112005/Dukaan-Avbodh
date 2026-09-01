@@ -37,8 +37,7 @@ async def search_products(user_id: int, query: str, category: str) -> dict:
     - DO NOT fabricate products; only recommend the exact items returned by this tool.
     """
     def log(msg):
-        with open("mcp_debug.txt", "a") as f:
-            f.write(msg + "\n")
+        print(msg)
             
     log(f"--- search_products called: {query} / {category} ---")
     
