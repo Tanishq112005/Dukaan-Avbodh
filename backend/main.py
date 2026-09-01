@@ -46,42 +46,43 @@ app.include_router(merchant_routes.router)
 @app.on_event("startup")
 async def startup():
     print("\n" + "=" * 60)
-    print("🚀 Dukaan backend start ho raha hai...")
+    print("[STARTING] Dukaan backend start ho raha hai...")
     print("=" * 60)
 
-    print("🗄️  Database initialize ho rahi hai (tables check/create)...")
+    print("[DB] Database initialize ho rahi hai (tables check/create)...")
     await db_connection.init_db()
-    print("✅ Database ready hai.")
+    print("[OK] Database ready hai.")
 
-    print("🧠 Chat model (LLM) initialize ho raha hai...")
+    print("[LLM] Chat model (LLM) initialize ho raha hai...")
     chatModel.get_chat_model()
-    print("✅ Chat model ready hai.")
+    print("[OK] Chat model ready hai.")
     
     
-    print("Embedding model se connect ho raha hai ... ")
+    print("[EMBED] Embedding model se connect ho raha hai ... ")
     embeddingModel.getModel() 
-    print("✅ Embedding model ready hai.")
-    print("📦 Vector database (Pinecone) se connect ho raha hai...")
+    print("[OK] Embedding model ready hai.")
+    
+    print("[VECTOR] Vector database (Pinecone) se connect ho raha hai...")
     vectorDB.get_index()
-    print("✅ Vector database ready hai.")
+    print("[OK] Vector database ready hai.")
     
     
     
     # MCP server (mcp_server/main.py) ek ALAG process ke roop mein pehle se chal
     # raha hona chahiye (python -m mcp_server.main), tabhi yeh connect ho payega.
-    print("🔧 MCP server se tools load ho rahe hain (agent ban raha hai)...")
+    print("[MCP] MCP server se tools load ho rahe hain (agent ban raha hai)...")
     await agent_service.init_agent()
-    print("✅ Agent ready hai, saare tools connected hain.")
+    print("[OK] Agent ready hai, saare tools connected hain.")
     
     
     print("Abh MongoDb se connect ho raha hai ...")
 
     nosql_client.get_client()  # MongoDB client ko initialize karna
-    print("✅ MongoDB ready hai.")
+    print("[OK] MongoDB ready hai.")
     
     
     print("=" * 60)
-    print("🎉 Dukaan backend poori tarah ready hai — requests handle karne ke liye taiyar!")
+    print("[READY] Dukaan backend poori tarah ready hai - requests handle karne ke liye taiyar!")
     print("=" * 60 + "\n")
 
 

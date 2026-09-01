@@ -10,7 +10,7 @@ from config.chatModel import chatModel
 from repositories.cart_repository import cart_repository
 from dotenv import load_dotenv
 from config.mogodbconfig import nosql_client
-from langgraph.checkpoint.mongodb import AsyncMongoDBSaver
+from langgraph.checkpoint.mongodb import MongoDBSaver
  
  
     
@@ -69,7 +69,7 @@ def _safe_parse(text: str):
 async def init_agent():
     global _checkout_agent, _tools_by_name
 
-    print("   ↳ FastMCP Cloud/Local Server se tools load ho rahe hain...")
+    print("    FastMCP Cloud/Local Server se tools load ho rahe hain...")
     
     max_retries = 10
     tools = None
@@ -86,21 +86,21 @@ async def init_agent():
             await asyncio.sleep(2)
             
     if tools is None:
-        print("   ❌ MCP Server target offline! Activating empty tools fallback to prevent FastAPI crash.")
+        print("    MCP Server target offline! Activating empty tools fallback to prevent FastAPI crash.")
         tools = []
         _tools_by_name = {}
     else:
         _tools_by_name = {t.name: t for t in tools}
-        print(f"   ↳ {len(tools)} tools mile: {', '.join(sorted(_tools_by_name.keys()))}")
+        print(f"    {len(tools)} tools mile: {', '.join(sorted(_tools_by_name.keys()))}")
 
-    print("   ↳ LLM ke saath tools bind ho rahe hain...")
+    print("    LLM ke saath tools bind ho rahe hain...")
     fast_llm = chatModel.get_chat_model()
     if tools:
         fast_llm = fast_llm.bind_tools(tools)
     else:
-        print("   ⚠️ LLM operational without active server tools connection.")
+        print("    LLM operational without active server tools connection.")
 
-    print("   ↳ LangGraph agent (agent ↔ tools loop) compile ho raha hai...")
+    print("    LangGraph agent (agent  tools loop) compile ho raha hai...")
     
     async def agent_node(state: AgentState):
         messages = list(state["messages"])
@@ -188,16 +188,16 @@ NEVER list product details manually in text; the UI handles it.]"""
         if response.content and "<thought>" in response.content:
             try:
                 thought = response.content.split("<thought>")[1].split("</thought>")[0].strip()
-                print(f"🧠 AI Thought: {thought}")
+                print(f" AI Thought: {thought}")
             except Exception:
                 pass
 
         if response.tool_calls:
             called = ', '.join(tc["name"] for tc in response.tool_calls)
-            print(f"🤖 Agent decided to call tool(s): {called}")
+            print(f" Agent decided to call tool(s): {called}")
         else:
             preview = (response.content or "")[:80].replace("\n", " ")
-            print(f"🤖 Agent replied directly: \"{preview}...\"")
+            print(f" Agent replied directly: \"{preview}...\"")
 
         import re
         final_text = response.content if not response.tool_calls else ""
@@ -228,7 +228,7 @@ NEVER list product details manually in text; the UI handles it.]"""
 
             tool = _tools_by_name.get(tool_name)
             if tool is None:
-                print(f"   ❌ Unknown tool call: {tool_name}")
+                print(f"    Unknown tool call: {tool_name}")
                 tool_messages.append(ToolMessage(content='{"error": "Unknown tool"}', tool_call_id=tool_call["id"]))
                 continue
 
@@ -296,12 +296,17 @@ NEVER list product details manually in text; the UI handles it.]"""
     workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", END: END})
     workflow.add_edge("tools", "agent")
 
-    # User ke NoSqlClient ko use karte hue checkpointer banaya
-    mongo_client = nosql_client.get_client()
-    memory = AsyncMongoDBSaver(mongo_client)
+    from langgraph.checkpoint.mongodb import MongoDBSaver
+    from pymongo import MongoClient
+    import os
+    
+    # LangGraph MongoDB Saver requires a synchronous MongoClient
+    mongo_uri = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+    sync_client = MongoClient(mongo_uri)
+    memory = MongoDBSaver(sync_client)
     
     _checkout_agent = workflow.compile(checkpointer=memory)
-    print("   ✓ Agent compiled successfully with MongoDB per-user memory attached.")
+    print("    Agent compiled successfully with MongoDB per-user memory attached.")
     return _checkout_agent
 
 
