@@ -9,7 +9,7 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
-from config.mogodbconfig import NoSqlClient
+from config.mogodbconfig import nosql_client
 from fastapi import FastAPI
 from config.database import db_connection 
 from routes import auth_routes, product_routes, user_routes, order_routes, checkout_routes
@@ -74,7 +74,7 @@ async def startup():
     
     
     print("Abh MongoDb se connect ho raha hai ...")
-    nosql_client = NoSqlClient()
+
     nosql_client.get_client()  # MongoDB client ko initialize karna
     print("✅ MongoDB ready hai.")
     
@@ -87,4 +87,4 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await db_connection.close()
-    
+    nosql_client.close()

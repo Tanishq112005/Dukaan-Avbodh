@@ -43,3 +43,7 @@ class NoSqlClient:
         """Closes the MongoDB connection."""
         if self._client:
             self._client.close()
+
+
+
+nosql_client = NoSqlClient() 
