@@ -4,31 +4,45 @@ import asyncio
 import json
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from agents.agentState import AgentState
 from config.chatModel import chatModel
 from repositories.cart_repository import cart_repository
 from dotenv import load_dotenv
-
+from config.mogodbconfig import nosql_client
+from langgraph.checkpoint.mongodb import AsyncMongoDBSaver
+ 
+ 
+    
 load_dotenv()
+
+
 
 MCP_URL = os.getenv("MCP_SERVER_URL", "http://127.0.0.1:8001/sse")
 FASTMCP_TOKEN = os.getenv("FASTMCP_TOKEN")
+
+
+
+
 
 mcp_config = {
     "url": MCP_URL,
     "transport": "streamable_http",
 }
 
+
+
 if FASTMCP_TOKEN:
     mcp_config["headers"] = {
         "Authorization": f"Bearer {FASTMCP_TOKEN}"
     }
 
+
+
 mcp_client = MultiServerMCPClient({
     "dukaan": mcp_config
 })
+
 
 
 _checkout_agent = None
@@ -282,9 +296,12 @@ NEVER list product details manually in text; the UI handles it.]"""
     workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", END: END})
     workflow.add_edge("tools", "agent")
 
-    memory = MemorySaver()
+    # User ke NoSqlClient ko use karte hue checkpointer banaya
+    mongo_client = nosql_client.get_client()
+    memory = AsyncMongoDBSaver(mongo_client)
+    
     _checkout_agent = workflow.compile(checkpointer=memory)
-    print("   ↳ Agent compiled successfully with per-user memory attached.")
+    print("   ✓ Agent compiled successfully with MongoDB per-user memory attached.")
     return _checkout_agent
 
 
