@@ -35,8 +35,10 @@ try:
             }
             if metadata:
                 doc["metadata"] = metadata
-                
-            await self.collection.insert_one(doc)
+            try:
+                await self.collection.insert_one(doc)
+            except Exception as e:
+                print(f"[AUDIT WARNING] Could not write to MongoDB (is it running?): {e}")
 
     # Poore project mein isi shared instance ko use karo
     audit_logger = MongoAuditLogger()
