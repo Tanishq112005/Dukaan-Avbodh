@@ -20,14 +20,18 @@ async def get_audit_logs(
     current_user: dict = Depends(require_role(UserRole.MERCHANT))
 ):
     """Fetch all money/action audit logs from MongoDB."""
-    cursor = audit_logger.collection.find().sort("timestamp", -1).limit(200)
-    logs = await cursor.to_list(length=200)
-    
-    # Convert ObjectId to string for JSON serialization
-    for log in logs:
-        log["_id"] = str(log["_id"])
+    try:
+        cursor = audit_logger.collection.find().sort("timestamp", -1).limit(200)
+        logs = await cursor.to_list(length=200)
         
-    return {"logs": logs}
+        # Convert ObjectId to string for JSON serialization
+        for log in logs:
+            log["_id"] = str(log["_id"])
+            
+        return {"logs": logs}
+    except Exception as e:
+        print(f"[MERCHANT] Could not fetch audit logs: {e}")
+        return {"logs": [], "error": "Audit database unavailable"}
 
 @router.get("/chat-threads")
 async def get_all_chat_threads(

@@ -37,7 +37,8 @@ async def calculate_combo_offer(user_id: int, discount_percent: float = 0.0) -> 
         "final_price": final_price,
         "effective_discount_percent": discount_percent,
         "discount_amount": discount_amount,
-        "total_items": total_items
+        "total_items": total_items,
+        "products": [{"id": p.get("id") or p.get("product_id"), "name": p.get("name"), "image": p.get("image_url")} for p in cart_items]
     }
     
     return {
