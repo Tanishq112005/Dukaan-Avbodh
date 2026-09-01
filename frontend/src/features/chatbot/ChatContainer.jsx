@@ -21,7 +21,9 @@ export function AgentWidget() {
     return () => disconnectAgent();
   }, []);
 
-  useEffect(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), [aiMessages, isAgentOpen, isAiTyping]);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [aiMessages, isAgentOpen, isAiTyping]);
 
   const handleSend = (e) => {
     e.preventDefault();

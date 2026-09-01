@@ -16,12 +16,12 @@ export function useMerchantData() {
           axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/merchant/audit-logs`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/orders/all`, {
+          axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/merchant/orders`, {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);
         setLogs(logsRes.data.logs || []);
-        setOrders(ordersRes.data || []);
+        setOrders(ordersRes.data.orders || []);
         setError("");
       } catch (err) {
         setError("Failed to fetch merchant data.");

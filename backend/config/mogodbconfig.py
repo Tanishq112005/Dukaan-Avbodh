@@ -18,7 +18,7 @@ class NoSqlClient:
 
     def _connect(self):
         try:
-            self._client = AsyncMongoClient(self.uri, serverSelectionTimeoutMS=1500, connectTimeoutMS=1500)
+            self._client = AsyncMongoClient(self.uri, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
         except ConnectionFailure as e:
             print(f"Could not connect to MongoDB: {e}")
             raise e

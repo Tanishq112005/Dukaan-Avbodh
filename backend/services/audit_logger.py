@@ -13,13 +13,12 @@ class DummyAuditLogger(AuditLogger):
         print(f"[AUDIT DUMMY] action={action} | reason={reason} | result={result} | user_id={user_id}")
 
 try:
-    from config.mogodbconfig import NoSqlClient
+    from config.mogodbconfig import nosql_client
     
     class MongoAuditLogger(AuditLogger):
         """MongoDB implementation for audit trailing - Merchant can view this data."""
         def __init__(self):
-            self.no_sql_client = NoSqlClient()
-            self.db = self.no_sql_client.get_database("dukaan_audit")
+            self.db = nosql_client.get_database("dukaan_audit")
             self.collection = self.db["audit_logs"]
 
         async def log_action(self, action: str, reason: str, result: str, user_id: int = None, metadata: dict = None) -> None:
