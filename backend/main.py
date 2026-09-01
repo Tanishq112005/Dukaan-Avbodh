@@ -37,9 +37,10 @@ app.include_router(order_routes.router)
 app.include_router(checkout_routes.router)
 app.include_router(payment_router, prefix="/api")
 
-from routes import chat_routes, a2a_routes
+from routes import chat_routes, a2a_routes, merchant_routes
 app.include_router(chat_routes.router)
 app.include_router(a2a_routes.router)
+app.include_router(merchant_routes.router)
 
 
 @app.on_event("startup")
