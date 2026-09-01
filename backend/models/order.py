@@ -10,9 +10,11 @@ if TYPE_CHECKING:
 class Order(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     product_id: int = Field(foreign_key="product.id")
-    user_id: int = Field(foreign_key="user.id")          # naya field — pehle "buyer_agent: str" tha
+    user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")          # naya field — pehle "buyer_agent: str" tha
     discount_applied: float = 0.0
     status: str = "pending"
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     product: Optional["Product"] = Relationship(back_populates="orders")

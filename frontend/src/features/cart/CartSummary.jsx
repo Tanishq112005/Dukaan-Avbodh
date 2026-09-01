@@ -2,10 +2,12 @@ import { ChevronRight } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { useStore } from "../../store/useStore";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 export function CartSummary() {
   const { cart: cartItems, token, clearCart, aiDiscount } = useStore();
+  const navigate = useNavigate();
 
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
   const discountAmount = subtotal * ((aiDiscount || 0) / 100);
@@ -34,7 +36,7 @@ export function CartSummary() {
     try {
       // 1. Create Order on Backend
       const amountPaise = Math.round(total * 100);
-      const orderResponse = await axios.post("http://localhost:8000/api/payment/create-order", {
+      const orderResponse = await axios.post(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/payment/create-order`, {
         amount: amountPaise,
         currency: "INR",
         receipt: `receipt_cart_${Date.now()}`
@@ -55,7 +57,7 @@ export function CartSummary() {
         handler: async function (response) {
           // 3. Verify Payment on Backend
           try {
-            const verifyRes = await axios.post("http://localhost:8000/api/payment/verify", {
+            const verifyRes = await axios.post(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/payment/verify`, {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature
@@ -64,19 +66,21 @@ export function CartSummary() {
             });
 
             if (verifyRes.data.success) {
-              alert("Payment Successful & Verified!");
-              
-              // Also call the old internal checkout to clear stock/log purchase if needed
+              // Also call the internal checkout to clear stock, log purchase, and save Razorpay IDs
               for (const item of cartItems) {
-                await axios.post("http://localhost:8000/checkout/", {
+                await axios.post(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/checkout/`, {
                   product_id: item.id,
-                  requested_discount: aiDiscount || 0.0
+                  requested_discount: aiDiscount || 0.0,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id
                 }, {
                   headers: { Authorization: `Bearer ${token}` }
                 });
               }
               
               clearCart();
+              // Navigate to the Order Confirmed page
+              navigate("/order-confirmed");
             }
           } catch (err) {
             console.error(err);

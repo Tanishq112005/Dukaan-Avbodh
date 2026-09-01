@@ -30,7 +30,9 @@ class CheckoutController:
             product_id=product.id,
             user_id=user_id,
             discount_applied=final_discount,
-            status="confirmed"
+            status="confirmed",
+            razorpay_order_id=payload.razorpay_order_id,
+            razorpay_payment_id=payload.razorpay_payment_id
         )
         created = await self.order_repo.create(order)
 

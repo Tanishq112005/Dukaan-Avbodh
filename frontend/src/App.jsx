@@ -10,6 +10,8 @@ import { LoginPage } from "./features/auth/LoginPage";
 import { SignupPage } from "./features/auth/SignupPage";
 import { MerchantDashboard } from "./features/merchant/MerchantDashboard";
 
+import { OrderConfirmedPage } from "./features/cart/OrderConfirmedPage";
+
 function App() {
   return (
     <Router>
@@ -23,6 +25,7 @@ function App() {
             <Route path="/products" element={<ProductListPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/cart" element={<CartPage />} />
+            <Route path="/order-confirmed" element={<OrderConfirmedPage />} />
             <Route path="/merchant" element={<MerchantDashboard />} />
           </Routes>
         </main>
