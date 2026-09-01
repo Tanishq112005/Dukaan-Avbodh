@@ -6,6 +6,8 @@ import { useStore } from "../../store/useStore";
 import { ProductGallery } from "./ProductGallery";
 import { ProductInfo } from "./ProductInfo";
 
+import { Loader } from "../../components/ui/Loader";
+
 export function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -33,7 +35,7 @@ export function ProductDetailPage() {
       });
   }, [id, products, token, trackActivity]);
 
-  if (loading || !product) return <div>Loading...</div>;
+  if (loading || !product) return <Loader />;
 
   const handleAddToCart = (qty, selSize, selColor) => {
     addToZustandCart(product, qty, selSize, selColor);

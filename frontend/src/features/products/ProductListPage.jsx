@@ -1,25 +1,37 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { useStore } from "../../store/useStore";
 import { FilterSidebar } from "./FilterSidebar";
 import { ProductCard } from "../../components/ui/ProductCard";
 import { ChevronRight } from "lucide-react";
+import { Loader } from "../../components/ui/Loader";
 
 export function ProductListPage() {
   const { products, setProducts, searchQuery, selectedType, maxPrice } = useStore();
+  const [loading, setLoading] = useState(products.length === 0);
 
   useEffect(() => {
     if (products.length === 0) {
       axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/product/catalog`)
-        .then(res => setProducts(res.data.products || res.data))
-        .catch(() => setProducts([
-          { id: 1, name: "Gradient Graphic T-shirt", price: 145, rating: 3.5, discount: 0, type: "t-shirt", brand: "ZARA", description: "Awesome gradient t-shirt for summer.", sizes: "S,M,L" },
-          { id: 2, name: "Polo with Tipping Details", price: 180, rating: 4.5, discount: 0, type: "shirt", brand: "GUCCI", description: "Classic polo shirt with tipping details.", sizes: "M,L,XL" },
-          { id: 3, name: "Black Striped T-shirt", price: 120, rating: 5, discount: 30, type: "t-shirt", brand: "VERSACE", description: "Elegant black striped t-shirt.", sizes: "S,M,L,XL" },
-          { id: 4, name: "Skinny Fit Jeans", price: 240, rating: 3.5, discount: 20, type: "jeans", brand: "Calvin Klein", description: "Comfortable skinny fit jeans.", sizes: "M,L" },
-        ]));
+        .then(res => {
+          setProducts(res.data.products || res.data);
+          setLoading(false);
+        })
+        .catch(() => {
+          setProducts([
+            { id: 1, name: "Gradient Graphic T-shirt", price: 145, rating: 3.5, discount: 0, type: "t-shirt", brand: "ZARA", description: "Awesome gradient t-shirt for summer.", sizes: "S,M,L" },
+            { id: 2, name: "Polo with Tipping Details", price: 180, rating: 4.5, discount: 0, type: "shirt", brand: "GUCCI", description: "Classic polo shirt with tipping details.", sizes: "M,L,XL" },
+            { id: 3, name: "Black Striped T-shirt", price: 120, rating: 5, discount: 30, type: "t-shirt", brand: "VERSACE", description: "Elegant black striped t-shirt.", sizes: "S,M,L,XL" },
+            { id: 4, name: "Skinny Fit Jeans", price: 240, rating: 3.5, discount: 20, type: "jeans", brand: "Calvin Klein", description: "Comfortable skinny fit jeans.", sizes: "M,L" },
+          ]);
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
     }
   }, []);
+
+  if (loading) return <Loader />;
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());

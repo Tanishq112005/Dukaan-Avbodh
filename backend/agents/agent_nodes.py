@@ -42,6 +42,12 @@ def create_agent_node(fast_llm):
         mod_messages = [sys_msg] + modified_messages + [SystemMessage(content=get_system_reminder())]
         response = await fast_llm.ainvoke(mod_messages)
 
+        print(f"\n[AGENT] Generated response.")
+        if response.tool_calls:
+            print(f"[AGENT] Decided to execute {len(response.tool_calls)} tools: {[t['name'] for t in response.tool_calls]}")
+        elif response.content:
+            print(f"[AGENT] Sending text response back to user.")
+
         final_text = response.content if not response.tool_calls else ""
         if final_text:
             final_text = re.sub(r'<thought>.*?</thought>', '', final_text, flags=re.DOTALL).strip()
@@ -62,8 +68,11 @@ def create_tools_node(tools_dict):
             tool_args = dict(tool_call["args"])
             tool_args["user_id"] = tool_args.get("user_id", state.get("user_id", 0))
 
+            print(f"[TOOL START] Executing '{tool_name}' with args: {tool_args}")
+
             tool = tools_dict.get(tool_name)
             if tool is None:
+                print(f"[TOOL ERROR] Unknown tool '{tool_name}'")
                 tool_messages.append(ToolMessage(content='{"error": "Unknown tool"}', tool_call_id=tool_call["id"]))
                 continue
 
@@ -73,10 +82,16 @@ def create_tools_node(tools_dict):
             try:
                 raw_res = await tool.ainvoke(tool_args)
             except Exception as e:
+                print(f"[TOOL ERROR] Exception in '{tool_name}': {str(e)}")
                 tool_messages.append(ToolMessage(content=f'{{"error": "{str(e)}"}}', tool_call_id=tool_call["id"]))
                 continue
 
             res_text = _extract_text(raw_res)
+            
+            # Print truncated result for logging
+            log_res = res_text if len(res_text) < 300 else res_text[:300] + "... [TRUNCATED]"
+            print(f"[TOOL FINISHED] '{tool_name}' returned: {log_res}")
+            
             parsed = _safe_parse(res_text)
 
             if isinstance(parsed, dict) and parsed.get("success"):

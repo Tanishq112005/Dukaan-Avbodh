@@ -1,4 +1,5 @@
 import React from 'react';
+import { Loader } from "../../components/ui/Loader";
 
 export function AuditLogsTab({ logs, loading, error }) {
   return (
@@ -9,7 +10,7 @@ export function AuditLogsTab({ logs, loading, error }) {
           <p className="text-sm text-gray-500">Transparent logs of all AI negotiations, profit margins, and strict bounds enforcement.</p>
         </div>
       </div>
-      {loading ? <p>Loading logs...</p> : error ? <p className="text-red-500">{error}</p> : logs.length === 0 ? <p className="text-gray-400">No audit logs found yet.</p> : (
+      {loading ? <Loader /> : error ? <p className="text-red-500">{error}</p> : logs.length === 0 ? <p className="text-gray-400">No audit logs found yet.</p> : (
         <div className="grid md:grid-cols-2 gap-6">
           {logs.map((log) => (
             <div key={log._id} className="bg-gray-100 p-5 rounded-lg text-sm border-l-4 border-black">

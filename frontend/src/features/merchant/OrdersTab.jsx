@@ -1,10 +1,11 @@
 import React from 'react';
+import { Loader } from "../../components/ui/Loader";
 
 export function OrdersTab({ orders, loading }) {
   return (
     <div>
       <h2 className="text-2xl font-bold mb-6">Recent Orders</h2>
-      {loading ? <p>Loading orders...</p> : orders.length === 0 ? <p className="text-gray-400">No orders placed yet.</p> : (
+      {loading ? <Loader /> : orders.length === 0 ? <p className="text-gray-400">No orders placed yet.</p> : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {orders.map((order) => (
             <div key={order.id} className="border border-gray-200 rounded-xl p-6 bg-white shadow-sm hover:shadow-md transition">
