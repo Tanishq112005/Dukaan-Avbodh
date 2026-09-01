@@ -1,6 +1,8 @@
 import os
 from typing import Optional
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorCollection
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import ConnectionFailure
 from dotenv import load_dotenv
 
@@ -10,31 +12,29 @@ class NoSqlClient:
  
     
     def __init__(self):
-        # You can pass the URI directly, or it will fallback to environment variables
         self.uri = os.getenv("MONGODB_URL", "mongodb://localhost:27017/")
-        self._client: Optional[AsyncIOMotorClient] = None
+        self._client: Optional[AsyncMongoClient] = None
         self._connect()
 
     def _connect(self):
         try:
-            self._client = AsyncIOMotorClient(self.uri)
-            # Motor doesn't block on connection, but we can verify it later if needed
+            self._client = AsyncMongoClient(self.uri)
         except ConnectionFailure as e:
             print(f"Could not connect to MongoDB: {e}")
             raise e
 
-    def get_client(self) -> AsyncIOMotorClient:
-        """Returns the raw AsyncIOMotorClient instance."""
+    def get_client(self) -> AsyncMongoClient:
+        """Returns the raw AsyncMongoClient instance."""
         if self._client is None:
             self._connect()
         return self._client
 
-    def get_database(self, db_name: str) -> AsyncIOMotorDatabase:
+    def get_database(self, db_name: str) -> AsyncDatabase:
         """Returns a specific MongoDB database."""
         client = self.get_client()
         return client[db_name]
 
-    def get_collection(self, db_name: str, collection_name: str) -> AsyncIOMotorCollection:
+    def get_collection(self, db_name: str, collection_name: str) -> AsyncCollection:
         """Returns a specific MongoDB collection from a specific database."""
         db = self.get_database(db_name)
         return db[collection_name]
@@ -43,7 +43,5 @@ class NoSqlClient:
         """Closes the MongoDB connection."""
         if self._client:
             self._client.close()
-
-
 
 nosql_client = NoSqlClient() 

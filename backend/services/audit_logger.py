@@ -41,7 +41,7 @@ try:
     # Poore project mein isi shared instance ko use karo
     audit_logger = MongoAuditLogger()
 except ImportError:
-    print("[WARNING] 'motor' (MongoDB client) is not installed. Using DummyAuditLogger.")
+    print("[WARNING] 'pymongo' (MongoDB client) is not installed. Using DummyAuditLogger.")
     audit_logger = DummyAuditLogger()
 
 
