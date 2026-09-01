@@ -12,7 +12,7 @@ class Cart(SQLModel, table=True):
     """Har user ka ek hi active cart hota hai — yeh backend mein authoritative source hai,
     frontend ka cart sirf isi ka mirror hai."""
     id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="user.id", unique=True)
+    user_id: int = Field(foreign_key="user.id", unique=True, ondelete="CASCADE")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

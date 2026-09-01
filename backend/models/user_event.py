@@ -17,7 +17,7 @@ class EventType(str, Enum):
 
 class UserEvent(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="user.id")
+    user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
     product_id: Optional[int] = Field(default=None, foreign_key="product.id")   # Optional — session events ke liye product nahi hota
     event_type: EventType
     category: str = "session"                        # session events ke liye default "session"

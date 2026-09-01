@@ -8,6 +8,8 @@ import asyncio
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
+
+from config.mogodbconfig import NoSqlClient
 from fastapi import FastAPI
 from config.database import db_connection 
 from routes import auth_routes, product_routes, user_routes, order_routes, checkout_routes
@@ -61,13 +63,22 @@ async def startup():
     print("📦 Vector database (Pinecone) se connect ho raha hai...")
     vectorDB.get_index()
     print("✅ Vector database ready hai.")
-      
+    
+    
+    
     # MCP server (mcp_server/main.py) ek ALAG process ke roop mein pehle se chal
     # raha hona chahiye (python -m mcp_server.main), tabhi yeh connect ho payega.
     print("🔧 MCP server se tools load ho rahe hain (agent ban raha hai)...")
     await agent_service.init_agent()
     print("✅ Agent ready hai, saare tools connected hain.")
-
+    
+    
+    print("Abh MongoDb se connect ho raha hai ...")
+    nosql_client = NoSqlClient()
+    nosql_client.get_client()  # MongoDB client ko initialize karna
+    print("✅ MongoDB ready hai.")
+    
+    
     print("=" * 60)
     print("🎉 Dukaan backend poori tarah ready hai — requests handle karne ke liye taiyar!")
     print("=" * 60 + "\n")
