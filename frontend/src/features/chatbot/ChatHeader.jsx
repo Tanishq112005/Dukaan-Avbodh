@@ -1,10 +1,10 @@
-import { Bot, X } from 'lucide-react';
+import { Bot, X, Maximize2, Minimize2 } from 'lucide-react';
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
-export function ChatHeader({ isAiConnected, setIsAgentOpen }) {
+export function ChatHeader({ isAiConnected, setIsAgentOpen, isFullScreen, setIsFullScreen }) {
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
       <div className="flex items-center gap-2">
@@ -17,9 +17,14 @@ export function ChatHeader({ isAiConnected, setIsAgentOpen }) {
           </div>
         </div>
       </div>
-      <button onClick={() => setIsAgentOpen(false)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-md transition-colors">
-        <X size={18} />
-      </button>
+      <div className="flex items-center gap-2">
+        <button onClick={() => setIsFullScreen(!isFullScreen)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-md transition-colors">
+          {isFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </button>
+        <button onClick={() => setIsAgentOpen(false)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-md transition-colors">
+          <X size={18} />
+        </button>
+      </div>
     </div>
   );
 }
