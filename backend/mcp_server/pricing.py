@@ -73,11 +73,23 @@ async def negotiate_discount(
 
     from services.audit_logger import audit_logger
     
+    # Extract product info safely
+    product_meta = []
+    if result.get("products"):
+        for p in result["products"]:
+            product_meta.append({
+                "id": p.id,
+                "name": p.name,
+                "price": p.price,
+                "image_url": p.image_url
+            })
+            
     await audit_logger.log_action(
         action="negotiate_discount",
         reason=result.get("agent_internal_reasoning", "Negotiation logic evaluated"),
         result=f"Requested: {requested_discount_percent}%, Counter: {result.get('counter_offer_percent', 0.0)}%, Accepted: {result.get('accepted', False)}",
-        user_id=user_id
+        user_id=user_id,
+        metadata={"products": product_meta} if product_meta else None
     )
 
     if not result.get("products"):

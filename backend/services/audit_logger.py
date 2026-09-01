@@ -4,7 +4,7 @@ from config.mogodbconfig import NoSqlClient
 
 class AuditLogger(ABC):
     @abstractmethod
-    async def log_action(self, action: str, reason: str, result: str, user_id: int = None) -> None:
+    async def log_action(self, action: str, reason: str, result: str, user_id: int = None, metadata: dict = None) -> None:
         pass
 
 
@@ -15,17 +15,21 @@ class MongoAuditLogger(AuditLogger):
         self.db = self.no_sql_client.get_database("dukaan_audit")
         self.collection = self.db["audit_logs"]
 
-    async def log_action(self, action: str, reason: str, result: str, user_id: int = None) -> None:
+    async def log_action(self, action: str, reason: str, result: str, user_id: int = None, metadata: dict = None) -> None:
         # Also print to console for local debugging
         print(f"[AUDIT] action={action} | reason={reason} | result={result} | user_id={user_id}")
         
-        await self.collection.insert_one({
+        doc = {
             "action": action,
             "reason": reason,
             "result": result,
             "user_id": user_id,
             "timestamp": datetime.utcnow()
-        })
+        }
+        if metadata:
+            doc["metadata"] = metadata
+            
+        await self.collection.insert_one(doc)
 
 
 # Poore project mein isi shared instance ko use karo
