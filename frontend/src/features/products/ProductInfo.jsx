@@ -9,7 +9,6 @@ export function ProductInfo({ product, addToCart }) {
   const [selColor, setSelColor] = useState('Dark');
 
   const productSizes = product.sizes ? product.sizes.split(',') : ['Small', 'Medium', 'Large', 'X-Large'];
-  const originalPrice = product.discount ? (product.price / (1 - product.discount / 100)).toFixed(0) : product.price;
 
   return (
     <div className="md:w-1/2 py-4">
@@ -21,8 +20,6 @@ export function ProductInfo({ product, addToCart }) {
       </div>
       <div className="flex items-center gap-3 mb-6">
         <span className="font-bold text-3xl">₹{product.price}</span>
-        {product.discount > 0 && <span className="font-bold text-3xl text-gray-400 line-through">₹{originalPrice}</span>}
-        {product.discount > 0 && <span className="bg-red-100 text-red-500 font-bold px-3 py-1 rounded-full">-{product.discount}%</span>}
       </div>
       <p className="text-gray-500 mb-6">{product.description}</p>
       <hr className="my-6" />
