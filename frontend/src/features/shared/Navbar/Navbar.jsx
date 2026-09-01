@@ -50,7 +50,6 @@ export function Navbar() {
             <Link to="/" className="text-2xl font-black tracking-tighter">DUKKAN</Link>
             <div className="hidden md:flex space-x-6">
               <Link to="/products" className="text-sm font-medium">Shop</Link>
-              <Link to="/products" className="text-sm font-medium">Brands</Link>
               <Link to="/merchant" className="text-sm font-medium text-red-500">Merchant</Link>
             </div>
           </div>
