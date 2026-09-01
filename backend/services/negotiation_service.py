@@ -24,54 +24,23 @@ class NegotiationService:
         agent_step = policy.agent_step_percent if policy else 2.5
         min_loyalty = policy.min_loyalty_score if policy else 5.0
         
-        # 3. Security Check: Never exceed merchant's strict minimum profit limit
-        # Even if policy says 30%, if cost_price prevents it, we cap it.
-        profit_cap = ((product.price - (product.cost_price * (1 + product.min_profit_margin_percent / 100))) / product.price) * 100
-        absolute_max = max(0.0, min(max_discount, profit_cap))
+        # 3. Security Check
+        from utils.pricing_math import calculate_absolute_max, calculate_next_offer
+        absolute_max = calculate_absolute_max(product, max_discount)
         
         # 4. Check User Loyalty
         scores = await behavior_scorer.get_category_affinity(user_id)
         user_loyalty_score = sum(scores.values()) if scores else 0.0
         
-        # If user is a guest/new, shrink their max allowable discount
         if user_loyalty_score < min_loyalty:
-            absolute_max = absolute_max * 0.75  # Sirf loyal customers ko pura discount milega
-            
-        absolute_max = round(absolute_max, 2)
+            absolute_max = round(absolute_max * 0.75, 2)
             
         # 5. Negotiation Logic
-        # User requested less than what we are already giving
-        if requested_discount <= current_discount:
-            return {
-                "accepted": True, 
-                "counter_offer_percent": current_discount, 
-                "agent_internal_reasoning": "User asked for less/same discount. Accept current."
-            }
-            
-        # User asked for more than our absolute maximum
-        if requested_discount > absolute_max:
-            # We step up from our current offer, but cap it at absolute_max
-            next_offer = min(current_discount + agent_step, absolute_max)
-            next_offer = round(next_offer, 2)
-            
-            if next_offer <= current_discount:
-                return {
-                    "accepted": False, 
-                    "counter_offer_percent": current_discount, 
-                    "agent_internal_reasoning": f"Hit strict margin limit. Cannot exceed {absolute_max}%."
-                }
-                
-            return {
-                "accepted": False, 
-                "counter_offer_percent": next_offer, 
-                "agent_internal_reasoning": f"Requested {requested_discount}% is too high. Countering with {next_offer}%."
-            }
-            
-        # User requested an amount within our safe limits
+        res = calculate_next_offer(requested_discount, current_discount, absolute_max, agent_step)
         return {
-            "accepted": True, 
-            "counter_offer_percent": requested_discount, 
-            "agent_internal_reasoning": "Requested discount is within safe margins and loyalty limits. Accept."
+            "accepted": res["accepted"], 
+            "counter_offer_percent": res["counter"], 
+            "agent_internal_reasoning": res["reason"]
         }
 
     async def evaluate_combo_negotiation(self, user_id: int, requested_discount: float, current_discount: float) -> dict:
@@ -132,46 +101,13 @@ class NegotiationService:
         absolute_max = round(absolute_max, 2)
         
         # 4. Asymptotic / Strict Haggling Logic
-        # Agent will only yield a maximum of 'agent_step' (e.g., 5%) per negotiation round.
-        agent_step = 5.0
-        
-        if requested_discount <= current_discount:
-            return {
-                "accepted": True, 
-                "counter_offer_percent": current_discount, 
-                "agent_internal_reasoning": "User asked for less/same on combo. Accept.",
-                "products": cart_products
-            }
-            
-        # Calculate the maximum the agent is willing to offer in THIS specific round
-        next_offer = current_discount + agent_step
-        
-        # Cap it by the absolute maximum allowed for the user
-        next_offer = min(next_offer, absolute_max)
-        next_offer = round(next_offer * 2) / 2  # Round to nearest 0.5%
-
-        # 5. Evaluate the User's Request against this round's limit
-        if requested_discount <= next_offer:
-            return {
-                "accepted": True, 
-                "counter_offer_percent": requested_discount, 
-                "agent_internal_reasoning": f"Requested {requested_discount}% is within this round's step limit ({next_offer}%). Accept!",
-                "products": cart_products
-            }
-        else:
-            if next_offer <= current_discount or next_offer >= absolute_max:
-                return {
-                    "accepted": False, 
-                    "counter_offer_percent": absolute_max, 
-                    "agent_internal_reasoning": f"Hit margin limits. Max allowed is {absolute_max}%.",
-                    "products": cart_products
-                }
-                
-            return {
-                "accepted": False, 
-                "counter_offer_percent": next_offer, 
-                "agent_internal_reasoning": f"User wants {requested_discount}%, but I'm restricting increments to protect merchant profit. Countering with {next_offer}%.",
-                "products": cart_products
-            }
+        from utils.pricing_math import calculate_next_offer
+        res = calculate_next_offer(requested_discount, current_discount, absolute_max, 5.0)
+        return {
+            "accepted": res["accepted"], 
+            "counter_offer_percent": res["counter"], 
+            "agent_internal_reasoning": res["reason"],
+            "products": cart_products
+        }
 
 negotiation_service = NegotiationService()

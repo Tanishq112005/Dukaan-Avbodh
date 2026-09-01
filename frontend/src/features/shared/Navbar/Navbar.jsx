@@ -1,21 +1,12 @@
-import { Search, ShoppingCart, User } from "lucide-react";
+import { Search as SearchIcon, ShoppingCart, User } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { Input } from "../ui/input";
-import { useStore } from "../../store/useStore";
-
-function NavSearch({ searchQuery, setSearchQuery, handleSearch }) {
-  return (
-    <div className="hidden md:flex flex-1 max-w-md mx-8 relative">
-      <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-      <Input placeholder="Search for products..." className="pl-10 bg-gray-100 border-none" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={handleSearch} />
-    </div>
-  );
-}
+import { useStore } from "../../../store/useStore";
+import { Search } from "../Search/Search";
 
 function NavActions({ cartCount, user, handleAuth }) {
   return (
     <div className="flex items-center space-x-4">
-      <Search className="h-6 w-6 md:hidden" />
+      <SearchIcon className="h-6 w-6 md:hidden" />
       <Link to="/cart" className="relative">
         <ShoppingCart className="h-6 w-6" />
         {cartCount > 0 && <span className="absolute -top-2 -right-2 bg-black text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">{cartCount}</span>}
@@ -63,7 +54,7 @@ export function Navbar() {
               <Link to="/merchant" className="text-sm font-medium text-red-500">Merchant</Link>
             </div>
           </div>
-          <NavSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} />
+          <Search searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} />
           <NavActions cartCount={cartCount} user={user} handleAuth={handleAuth} />
         </div>
       </div>

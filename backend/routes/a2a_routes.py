@@ -1,59 +1,17 @@
-import json
-import uuid
 from fastapi import APIRouter
-from schemas.a2a_schemas import A2AInteractRequest, A2AInteractResponse, A2AStartSessionResponse
+from schemas.a2a_schemas import A2AStartSessionResponse
 from agents import agent_service
 from langchain_core.messages import HumanMessage
 from repositories import ProductRepository
-from config.database import db_connection
-from models.user import User, UserRole
-from sqlmodel import select
+from services.a2a_service import a2a_service
 
 router = APIRouter(tags=["A2A Protocol"])
 product_repo = ProductRepository()
 
 @router.post("/a2a/start_session", response_model=A2AStartSessionResponse)
 async def start_session():
-    """
-    Initializes a new session for a Buyer Agent. 
-    The Buyer Agent MUST call this first to get a chat_token.
-    """
-    token = f"a2a_{uuid.uuid4().hex[:12]}"
-    # We pre-create the user in the database so the session is established
-    async with db_connection.get_session() as session:
-        user = User(
-            name=f"Guest_{token[-4:]}",
-            role=UserRole.AI_AGENT,
-            identifier=token
-        )
-        session.add(user)
-        await session.commit()
-        
-    return A2AStartSessionResponse(
-        chat_token=token,
-        message="Session started. Please include this chat_token in all /a2a/interact requests."
-    )
-
-async def get_or_create_a2a_user(chat_token: str) -> int:
-    """
-    Finds or creates a real database User for the incoming Buyer Agent.
-    """
-    async with db_connection.get_session() as session:
-        result = await session.exec(select(User).where(User.identifier == chat_token))
-        user = result.first()
-        
-        if not user:
-            # Create a new Agent User profile in our DB if it somehow doesn't exist
-            user = User(
-                name=f"Agent {chat_token[-4:]}",
-                role=UserRole.AI_AGENT,
-                identifier=chat_token
-            )
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
-            
-        return user.id
+    token = await a2a_service.create_session()
+    return A2AStartSessionResponse(chat_token=token, message="Session started. Please include this chat_token in all /a2a/interact requests.")
 
 @router.get("/.well-known/agent-card.json", summary="A2A Agent Card")
 async def get_agent_card():
@@ -164,7 +122,7 @@ async def a2a_interact_jsonrpc(req: Request):
     
     # Call our agent
     agent = agent_service.get_agent()
-    a2a_user_id = await get_or_create_a2a_user(chat_token)
+    a2a_user_id = await a2a_service.get_or_create_user(chat_token)
     config = {"configurable": {"thread_id": chat_token}}
     
     prompt = f"[A2A EXTERNAL REQUEST] Intent: {intent}"

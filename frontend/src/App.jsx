@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { Navbar } from "./components/layout/Navbar";
-import { Footer } from "./components/layout/Footer";
-import { AgentWidget } from "./components/layout/AgentWidget";
+import { Navbar } from "./features/shared/Navbar/Navbar";
+import { Footer } from "./features/shared/Footer/Footer";
+import { AgentWidget } from "./features/chatbot/ChatContainer";
 import { HomePage } from "./features/home/HomePage";
 import { ProductListPage } from "./features/products/ProductListPage";
 import { ProductDetailPage } from "./features/products/ProductDetailPage";
