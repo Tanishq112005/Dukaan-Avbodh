@@ -1,36 +1,66 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Syne:wght@600;700;800&display=swap');
-
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=Archivo+Black&display=swap');
+
+@theme {
+  --color-ink: #121110;
+  --color-paper: #ffffff;
+  --color-stone-surface: #f0eee7;
+  --color-oxblood: #6e1423;
+  --color-oxblood-dark: #4c0d18;
+  --color-hairline: #dfdbd1;
+}
 
 @layer base {
   html {
     scroll-behavior: smooth;
   }
   body {
-    font-family: 'Manrope', sans-serif;
-    background: #FBF8F3;
-    color: #1A1612;
+    font-family: "Manrope", sans-serif;
+    background: var(--color-paper);
+    color: var(--color-ink);
   }
   h1, h2, h3, .font-display {
-    font-family: 'Syne', sans-serif;
+    font-family: "Inter", sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.02em;
   }
 }
-
 @keyframes marquee {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
 }
 
 .animate-marquee {
-  animation: marquee 28s linear infinite;
+  animation: marquee 32s linear infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee { animation: none; }
+  * { scroll-behavior: auto !important; }
+}
+
+/* Product image: subtle zoom on hover, GPU-friendly */
 .product-card-img {
-  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+.group:hover .product-card-img {
+  transform: scale(1.04);
 }
 
-.group:hover .product-card-img {
-  transform: scale(1.06);
+/* Skeleton shimmer for lazy-loading images */
+.img-frame {
+  background: var(--color-stone-surface);
+  position: relative;
+  overflow: hidden;
+}
+.img-frame img {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.img-frame img.loaded,
+.img-frame img[data-loaded="true"] {
+  opacity: 1;
 }
 
 /* Custom Scrollbar */
@@ -42,13 +72,13 @@
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #d6ccc2;
+  background: var(--color-hairline);
   border-radius: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #b8a99a;
+  background: #c7c0b2;
 }
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #d6ccc2 transparent;
+  scrollbar-color: var(--color-hairline) transparent;
 }
