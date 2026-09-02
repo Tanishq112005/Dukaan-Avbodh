@@ -11,12 +11,13 @@ import { SignupPage } from "./features/auth/SignupPage";
 import { MerchantDashboard } from "./features/merchant/MerchantDashboard";
 import { OrderConfirmedPage } from "./features/cart/OrderConfirmedPage";
 import { useStore } from "./store/useStore.js";
-
+import { Analytics } from "@vercel/analytics/next"
 function AppContent() {
   const token = useStore((state) => state.token);
 
   return (
     <div className="min-h-screen flex flex-col relative bg-[#FBF8F3]">
+      <Analytics />
       <Navbar />
       <main className="flex-grow">
         <Routes>
