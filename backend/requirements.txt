@@ -143,3 +143,4 @@ zstandard==0.25.0
 razorpay
 pymongo==4.9.0
 langgraph-checkpoint-mongodb
+motor
