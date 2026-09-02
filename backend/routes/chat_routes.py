@@ -60,8 +60,6 @@ async def chat_message(req: ChatRequest):
         combo_offer = result.get("combo_offer", None)
         suggested_products = result.get("suggested_products", [])
         payment_link = result.get("pending_payment_link")
-        if payment_link and payment_link not in (ai_reply or ""):
-            ai_reply = f"{ai_reply}\n\n[Pay now]({payment_link})\n{payment_link}".strip()
         
         # Fetch the updated cart state after the AI has potentially run MCP tools
         updated_cart = await cart_repository.get_cart_items(req.user_id)

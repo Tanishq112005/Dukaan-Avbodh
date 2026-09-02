@@ -6,6 +6,7 @@ from repositories import UserRepository
 user_repo = UserRepository()
 
 
+### for checking real user details
 def _is_real_email(identifier: Optional[str]) -> bool:
     if not identifier:
         return False
@@ -23,6 +24,7 @@ def _is_real_name(name: Optional[str]) -> bool:
 
 def _is_real_address(address: Optional[str]) -> bool:
     return bool(address and address.strip())
+
 
 
 def _profile_payload(user) -> dict:
