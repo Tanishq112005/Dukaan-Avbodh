@@ -1,6 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, Field
-from mcp_server_merchant import mcp
+from mcp_server_merchant.server import mcp
 from repositories import AnalyticsRepository
 
 analytics_repo = AnalyticsRepository()

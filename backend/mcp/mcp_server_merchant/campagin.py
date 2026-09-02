@@ -1,6 +1,6 @@
 from typing import Optional, List
 from pydantic import BaseModel, Field
-from mcp_server_merchant import mcp
+from mcp_server_merchant.server import mcp
 from models import CampaingType, CAMPAIGN_WEIGHTS
 from repositories import CampaignRepository
 
