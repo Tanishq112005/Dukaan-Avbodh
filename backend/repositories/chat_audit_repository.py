@@ -3,11 +3,9 @@ from models.chat_audit import ChatThread, ChatMessage, ThreadState
 from datetime import datetime
 from config.mogodbconfig import nosql_client    
 class ChatAuditRepository:
-    def __init__(self):
-        # Use the custom config created by the user
-        self.no_sql_client = nosql_client.get_client() 
-        self.db = self.no_sql_client.get_database("dukaan_audit")
-        self.collection = self.db["chat_threads"]
+    @property
+    def collection(self):
+        return nosql_client.get_collection("dukaan_audit", "chat_threads")
 
     async def get_or_create_thread(self, user_id: int, thread_id: str) -> dict:
         """Fetch a thread by user_id and thread_id, or create if it doesn't exist."""

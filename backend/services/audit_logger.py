@@ -16,10 +16,9 @@ try:
     from config.mogodbconfig import nosql_client
     
     class MongoAuditLogger(AuditLogger):
-        """MongoDB implementation for audit trailing - Merchant can view this data."""
-        def __init__(self):
-            self.db = nosql_client.get_database("dukaan_audit")
-            self.collection = self.db["audit_logs"]
+        @property
+        def collection(self):
+            return nosql_client.get_collection("dukaan_audit", "audit_logs")
 
         async def log_action(self, action: str, reason: str, result: str, user_id: int = None, thread_id: str = None, metadata: dict = None) -> None:
             # Also print to console for local debugging
