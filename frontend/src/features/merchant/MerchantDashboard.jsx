@@ -22,7 +22,7 @@ export function MerchantDashboard() {
     return (
       <div className="p-16 text-center">
         <h2 className="text-2xl font-bold text-red-500 mb-4">Access Denied</h2>
-        <p>You must be a Merchant to view this page.</p>
+        <p>Sorry You cannot access this webpage , this webpage is only for the Merchant</p>
         <p className="text-sm text-gray-400 mt-2">Current Role: {user?.role}</p>
       </div>
     );

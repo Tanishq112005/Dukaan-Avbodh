@@ -1,6 +1,5 @@
 export function MerchantTabs({ activeTab, setActiveTab }) {
   const tabs = [
-    { id: "audit", label: "Security & Audit Logs" },
     { id: "chats", label: "Chat Transcripts" },
     { id: "analytics", label: "Analytics & Revenue" },
     { id: "orders", label: "Recent Orders" },

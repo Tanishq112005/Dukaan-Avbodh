@@ -38,7 +38,7 @@ export function FilterSidebar() {
           type="range" 
           className="w-full accent-black mb-2" 
           min="0" 
-          max="3000" 
+          max="6000" 
           value={maxPrice}
           onChange={(e) => setMaxPrice(Number(e.target.value))}
         />

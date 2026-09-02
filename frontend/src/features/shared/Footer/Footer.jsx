@@ -6,7 +6,7 @@ export function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-4 gap-10 mb-12">
           <div className="md:col-span-2">
-            <h3 className="font-display text-3xl mb-4">Dukkan</h3>
+            <h3 className="font-display text-3xl mb-4">Dukaan</h3>
             <p className="text-white/50 text-sm max-w-sm leading-relaxed">
               Clothes that suit your style — and a stylist in the corner of
               the screen who can close the look.
@@ -28,7 +28,7 @@ export function Footer() {
           </div>
         </div>
         <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row justify-between items-center gap-3">
-          <p className="text-sm text-white/40">Dukkan © 2026. All rights reserved.</p>
+          <p className="text-sm text-white/40">Dukaan © 2026. All rights reserved.</p>
           <p className="text-xs text-white/30">Secure checkout, Razorpay</p>
         </div>
       </div>

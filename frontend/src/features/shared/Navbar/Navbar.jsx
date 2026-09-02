@@ -49,7 +49,7 @@ export function Navbar() {
   };
 
   const tickerItems = [
-    "Free shipping over ₹999",
+    "Free shipping over ₹29999",
     "Talk to the atelier stylist",
     "New drop this week",
     "Negotiate your price, live in chat",
@@ -69,7 +69,7 @@ export function Navbar() {
           <div className="flex justify-between items-center h-[72px]">
             <div className="flex items-center gap-10">
               <Link to="/" className="font-display text-[26px] leading-none tracking-tight">
-                Dukkan
+                Dukaan
               </Link>
               <div className="hidden md:flex gap-8">
                 <Link to="/products" className="text-sm text-ink/70 hover:text-ink">Shop</Link>
