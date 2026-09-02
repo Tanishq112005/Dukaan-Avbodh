@@ -7,7 +7,7 @@ export function Search({ searchQuery, setSearchQuery, handleSearch }) {
       <SearchIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
       <Input 
         placeholder="Search for products..." 
-        className="pl-10 bg-gray-100 border-none" 
+        className="pl-10 bg-[#EFE8DE] border-none rounded-full h-11" 
         value={searchQuery} 
         onChange={(e) => setSearchQuery(e.target.value)} 
         onKeyDown={handleSearch} 

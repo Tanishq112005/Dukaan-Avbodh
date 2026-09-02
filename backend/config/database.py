@@ -79,6 +79,17 @@ class DatabaseConnection:
             try:
                 async with self._engine.begin() as conn:
                     await conn.run_sync(SQLModel.metadata.create_all)
+                    from sqlalchemy import text
+                    for stmt in (
+                        'ALTER TABLE "order" ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR',
+                        'ALTER TABLE "order" ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR',
+                        'ALTER TABLE "order" ADD COLUMN IF NOT EXISTS razorpay_payment_link_id VARCHAR',
+                        'ALTER TABLE "order" ADD COLUMN IF NOT EXISTS payment_link_url VARCHAR',
+                    ):
+                        try:
+                            await conn.execute(text(stmt))
+                        except Exception as col_err:
+                            print(f"[DB] column migrate skipped: {col_err}")
                 return
             except Exception as e:
                 last_error = e

@@ -33,6 +33,33 @@ class UserRepository(BaseRepository[User]):
         )
         return await self.create(new_user)
 
+    async def update_profile(
+        self,
+        user_id: int,
+        name: Optional[str] = None,
+        email: Optional[str] = None,
+        address: Optional[str] = None,
+    ) -> Optional[User]:
+        async with db_connection.get_session() as session:
+            try:
+                result = await session.exec(select(User).where(User.id == user_id))
+                user = result.first()
+                if not user:
+                    return None
+                if name:
+                    user.name = name
+                if email:
+                    user.identifier = email
+                if address:
+                    user.address = address
+                session.add(user)
+                await session.commit()
+                await session.refresh(user)
+                return user
+            except Exception as e:
+                await session.rollback()
+                raise e
+
     async def update_address(self, user_id: int, address: str) -> Optional[User]:
         async with db_connection.get_session() as session:
             try:

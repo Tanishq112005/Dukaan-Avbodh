@@ -3,7 +3,6 @@ from services.combo_pricing_engine import combo_pricing_engine
 from services.negotiation_service import negotiation_service
 
 @mcp.tool()
-@mcp.tool()
 async def calculate_combo_offer(user_id: int, discount_percent: float = 0.0) -> dict:
     """
     Retrieves the cart contents and calculates the bundle offer based on a specific discount percentage.
@@ -59,6 +58,7 @@ async def negotiate_discount(
     LLM Instructions:
     - DO pass the 'user_id', 'current_discount_percent', and 'requested_discount_percent'. 
     - DO pass 'current_discount_percent' as 0.0 if this is the very first round of negotiation.
+    - Call this tool AGAIN every time the user asks for a different / higher discount. Never invent the next percentage yourself.
     - IF 'accepted' is True, confirm the deal with the user at the 'counter_offer_percent'.
     - IF 'accepted' is False, politely reject the user's request and make a counter-offer using ONLY the 'counter_offer_percent' returned by this tool.
     - DO NOT reveal internal reasoning, mathematical limits, or maximum possible discounts to the user.

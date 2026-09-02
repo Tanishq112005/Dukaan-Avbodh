@@ -59,6 +59,9 @@ async def chat_message(req: ChatRequest):
         ai_reply = result.get("final_response", "Sorry, system error.")
         combo_offer = result.get("combo_offer", None)
         suggested_products = result.get("suggested_products", [])
+        payment_link = result.get("pending_payment_link")
+        if payment_link and payment_link not in (ai_reply or ""):
+            ai_reply = f"{ai_reply}\n\n[Pay now]({payment_link})\n{payment_link}".strip()
         
         # Fetch the updated cart state after the AI has potentially run MCP tools
         updated_cart = await cart_repository.get_cart_items(req.user_id)
@@ -69,7 +72,9 @@ async def chat_message(req: ChatRequest):
             "combo_offer": combo_offer,
             "suggested_products": suggested_products,
             "cart": updated_cart,
-            "ai_discount": result.get("current_discount_percent", 0.0)
+            "ai_discount": result.get("current_discount_percent", 0.0),
+            "payment_link": payment_link,
+            "payment_link_id": result.get("pending_payment_link_id"),
         }
     except Exception as e:
         print(f"[ERROR] Chat agent failed: {e}")
@@ -81,6 +86,29 @@ async def chat_message(req: ChatRequest):
 async def chat_event(req: EventRequest):
     config = {"configurable": {"thread_id": str(req.user_id)}}
     
+    if req.event == "payment_completed":
+        hidden_msg = HumanMessage(content="[SYSTEM EVENT: payment] The customer says they finished paying. Call check_payment_status immediately and tell them the result.")
+        try:
+            result = await agent_service.get_agent().ainvoke({
+                "messages": [hidden_msg],
+                "user_id": req.user_id
+            }, config=config)
+            ai_reply = result.get("final_response")
+            updated_cart = await cart_repository.get_cart_items(req.user_id)
+            return {
+                "type": "chat_reply",
+                "message": ai_reply or "Checking your payment now...",
+                "combo_offer": result.get("combo_offer", None),
+                "suggested_products": result.get("suggested_products", []),
+                "cart": updated_cart,
+                "ai_discount": result.get("current_discount_percent", 0.0),
+            }
+        except Exception as e:
+            print(f"[ERROR] payment_completed event failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "error": "Could not verify payment yet."}
+
     if req.event in ["idle_timeout", "viewed_multiple_products", "viewed_checkout", "activity_threshold_reached"]:
         # Let's get the current state to check if we should ignore the trigger (Spam Filter)
         try:
@@ -103,6 +131,7 @@ async def chat_event(req: EventRequest):
 
         hidden_msg = HumanMessage(content="PROACTIVE_SUGGESTION_TRIGGER")
         try:
+            agent = agent_service.get_agent()
             result = await agent.ainvoke({
                 "messages": [hidden_msg],
                 "user_id": req.user_id

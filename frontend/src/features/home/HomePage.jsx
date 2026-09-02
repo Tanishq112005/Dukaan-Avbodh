@@ -28,7 +28,7 @@ export function HomePage() {
     <div>
       <Hero />
       <ProductSection title="NEW ARRIVALS" products={products} />
-      <hr className="max-w-7xl mx-auto border-gray-200" />
+      <hr className="max-w-7xl mx-auto border-stone-200" />
       <ProductSection title="TOP SELLING" products={[...products].reverse()} />
       <BrowseDressStyle />
     </div>

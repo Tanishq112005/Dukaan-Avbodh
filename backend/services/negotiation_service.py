@@ -19,24 +19,28 @@ class NegotiationService:
         except AttributeError:
             policy = None # Fallback if method not implemented
             
-        # 2. Extract Policy Rules or Apply Defaults
-        max_discount = policy.max_discount_percent if policy else 15.0
+        from utils.pricing_math import calculate_absolute_max, calculate_next_offer, AGENT_MAX_DISCOUNT_PERCENT
+        max_discount = min(policy.max_discount_percent, AGENT_MAX_DISCOUNT_PERCENT) if policy else AGENT_MAX_DISCOUNT_PERCENT
         agent_step = policy.agent_step_percent if policy else 2.5
         min_loyalty = policy.min_loyalty_score if policy else 5.0
         
         # 3. Security Check
-        from utils.pricing_math import calculate_absolute_max, calculate_next_offer
-        absolute_max = calculate_absolute_max(product, max_discount)
+        absolute_max = min(calculate_absolute_max(product, max_discount), AGENT_MAX_DISCOUNT_PERCENT)
         
-        # 4. Check User Loyalty
+        # 4. Check User Loyalty — better shoppers get a larger step toward the 5% cap
         scores = await behavior_scorer.get_category_affinity(user_id)
         user_loyalty_score = sum(scores.values()) if scores else 0.0
         
         if user_loyalty_score < min_loyalty:
             absolute_max = round(absolute_max * 0.75, 2)
+            step = min(agent_step, 1.0)
+        elif user_loyalty_score >= min_loyalty * 1.5:
+            step = min(max(agent_step, 2.0), 2.5)
+        else:
+            step = min(max(agent_step, 1.5), 2.0)
             
-        # 5. Negotiation Logic
-        res = calculate_next_offer(requested_discount, current_discount, absolute_max, agent_step)
+        # 5. Negotiation Logic — each call only steps once; next ask requires another tool call
+        res = calculate_next_offer(requested_discount, current_discount, absolute_max, step)
         return {
             "accepted": res["accepted"], 
             "counter_offer_percent": res["counter"], 
@@ -97,12 +101,17 @@ class NegotiationService:
         
         if user_loyalty_score < avg_min_loyalty:
             absolute_max = absolute_max * 0.70  # Only loyal users get the full max pool
+            step = 1.0
+        elif user_loyalty_score >= avg_min_loyalty * 1.5:
+            step = 2.0
+        else:
+            step = 1.5
             
-        absolute_max = round(absolute_max, 2)
+        from utils.pricing_math import calculate_next_offer, AGENT_MAX_DISCOUNT_PERCENT
+        absolute_max = round(min(absolute_max, AGENT_MAX_DISCOUNT_PERCENT), 2)
         
-        # 4. Asymptotic / Strict Haggling Logic
-        from utils.pricing_math import calculate_next_offer
-        res = calculate_next_offer(requested_discount, current_discount, absolute_max, 5.0)
+        # Each user ask must call this tool again to get the next step (never jump 5% in one go)
+        res = calculate_next_offer(requested_discount, current_discount, absolute_max, step)
         return {
             "accepted": res["accepted"], 
             "counter_offer_percent": res["counter"], 

@@ -15,6 +15,8 @@ class Order(SQLModel, table=True):
     status: str = "pending"
     razorpay_order_id: Optional[str] = None
     razorpay_payment_id: Optional[str] = None
+    razorpay_payment_link_id: Optional[str] = None
+    payment_link_url: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     product: Optional["Product"] = Relationship(back_populates="orders")

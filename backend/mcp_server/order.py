@@ -5,21 +5,16 @@ from models import Order
 from config.database import db_connection
 from sqlmodel import select
 from models.user import User
+from services.payment_service import rzp_client, check_user_payment_status
+from utils.pricing_math import AGENT_MAX_DISCOUNT_PERCENT
 import os
-import razorpay
+
 order_repo = OrderRepository()
 user_repo = UserRepository()
 product_repo = ProductRepository()
 discount_repo = DiscountPolicyRepository()
 
-
-RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_test_TWV2ichCwzRcvo")
-RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "9Ew8lMz1DUumk4hYVPBbf4dd")
-
-try:
-    rzp_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-except Exception as e:
-    rzp_client = None
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 
 @mcp.tool()
@@ -35,21 +30,18 @@ async def create_order(
     Creates a new order for multiple products, applies bounded discounts, and generates a Razorpay payment link.
     
     LLM Instructions:
-    - BEFORE calling this tool, you MUST ask the user (or Buyer Agent) for their delivery name, email, and address.
-    - Do not call this tool until you have collected all three pieces of information.
-    - Call this tool after the user confirms their cart contents and provides their details.
-    - Pass the user_id, product_ids, name, email, address, and the negotiated 'discount' percentage (float).
-    - When you receive the response, ALWAYS share the 'payment_link' URL with the user so they can pay.
+    - FIRST call get_user_details. Confirm saved address or collect only missing fields.
+    - Pass the confirmed name, email, address, user_id, product_ids, and negotiated discount.
+    - When you receive the response, ALWAYS share the 'payment_link' as a markdown link [Pay now](url)
+      AND as a raw URL on its own line so the customer can click it.
     """
-    # 1. Ensure user exists in the database
     await user_repo.ensure_guest_exists(user_id)
     
-    # Update the user's details with the provided name, email, and address
     async with db_connection.get_session() as session:
         user = (await session.exec(select(User).where(User.id == user_id))).first()
         if user:
             user.name = name
-            user.identifier = email # Using identifier as email for B2C, or storing it safely
+            user.identifier = email
             user.address = address
             session.add(user)
             await session.commit()
@@ -58,7 +50,6 @@ async def create_order(
     total_price = 0.0
     max_discount_allowed_amount = 0.0
     
-    # 2. Check stock and calculate maximum allowed discount across all products
     for pid in product_ids:
         product = await product_repo.get_by_id(pid)
         if not product or product.stock <= 0:
@@ -67,28 +58,26 @@ async def create_order(
         products.append(product)
         total_price += product.price
         
-        # Aggregate the maximum allowed discount in currency based on policies
         policy = await discount_repo.get_for_product(pid)
         if policy:
-            max_discount_allowed_amount += (product.price * policy.max_discount_percent / 100)
+            max_discount_allowed_amount += (product.price * min(policy.max_discount_percent, AGENT_MAX_DISCOUNT_PERCENT) / 100)
+        else:
+            max_discount_allowed_amount += (product.price * AGENT_MAX_DISCOUNT_PERCENT / 100)
     
-    # Calculate the max overall percentage we can allow for this whole cart
     max_overall_percent = (max_discount_allowed_amount / total_price) * 100 if total_price > 0 else 0.0
+    max_overall_percent = min(max_overall_percent, AGENT_MAX_DISCOUNT_PERCENT)
     
-    # Bound the LLM's requested discount by the maximum allowed by policy
     final_discount = min(discount, max_overall_percent)
     
-    # Calculate final price in INR
     final_total_price = round(total_price * (1 - final_discount / 100), 2)
     final_amount_paise = int(final_total_price * 100)
 
-    # GRACEFUL FAILURE HANDLING & RAZORPAY INTEGRATION (Hackathon Requirement)
     payment_link_url = None
+    payment_link_id = None
     razorpay_order_id = None
     
-    if rzp_client and final_amount_paise >= 100: # Razorpay minimum is 1 INR (100 paise)
+    if rzp_client and final_amount_paise >= 100:
         try:
-            # First, create a standard Razorpay Order (Audit Trail Requirement)
             rzp_order = rzp_client.order.create({
                 "amount": final_amount_paise,
                 "currency": "INR",
@@ -100,12 +89,11 @@ async def create_order(
             })
             razorpay_order_id = rzp_order.get("id")
             
-            # Second, generate a Payment Link for Conversational Checkout (Conversational Requirement)
             pl_response = rzp_client.payment_link.create({
                 "amount": final_amount_paise,
                 "currency": "INR",
                 "accept_partial": False,
-                "description": "Dukaan AI Shopping Agent Order",
+                "description": "Dukkan AI Shopping Agent Order",
                 "customer": {
                     "name": name,
                     "email": email,
@@ -114,39 +102,44 @@ async def create_order(
                     "email": True
                 },
                 "reminder_enable": True,
+                "callback_url": f"{FRONTEND_URL.rstrip('/')}/order-confirmed",
+                "callback_method": "get",
                 "notes": {
-                    "order_id": razorpay_order_id
+                    "order_id": razorpay_order_id,
+                    "user_id": str(user_id),
                 }
             })
             payment_link_url = pl_response.get("short_url")
+            payment_link_id = pl_response.get("id")
             
         except Exception as e:
-            # Graceful Failure: If API is down or keys are invalid, we handle it smoothly without crashing
             print(f"[RAZORPAY ERROR] Failed to create payment link: {e}")
             return {
                 "success": False,
                 "error": "I am so sorry, but our payment gateway (Razorpay) is temporarily down. Your cart is saved securely. Can we try again in a few minutes?"
             }
 
-    # 3. Create internal orders and update stock
     created_order_ids = []
     for product in products:
         order = Order(
             product_id=product.id,
             user_id=user_id,
             discount_applied=final_discount,
-            status="confirmed"
+            status="pending_payment",
+            razorpay_order_id=razorpay_order_id,
+            razorpay_payment_link_id=payment_link_id,
+            payment_link_url=payment_link_url,
         )
         created = await order_repo.create(order)
         created_order_ids.append(created.id)
         
-        # Deduct stock
         await product_repo.update_stock(product.id, product.stock - 1)
 
     return {
         "success": True,
         "order_ids": created_order_ids,
         "razorpay_order_id": razorpay_order_id,
+        "payment_link_id": payment_link_id,
         "payment_link": payment_link_url or "Payment Link Unavailable (API Error)",
         "requested_discount": discount,
         "discount_applied": final_discount,
@@ -154,3 +147,16 @@ async def create_order(
         "total_price_before_discount": round(total_price, 2),
         "final_total_price": final_total_price
     }
+
+
+@mcp.tool()
+async def check_payment_status(user_id: int) -> dict:
+    """
+    Checks whether the shopper finished paying on the Razorpay payment link.
+
+    LLM Instructions:
+    - Call this when the user says they paid, or on [SYSTEM EVENT: payment].
+    - If paid is true, congratulate them and then clear_cart.
+    - If paid is false, tell them payment is not confirmed yet and reshare payment_link.
+    """
+    return await check_user_payment_status(user_id)

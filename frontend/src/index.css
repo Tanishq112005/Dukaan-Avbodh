@@ -1,11 +1,36 @@
-@import url('https://fonts.googleapis.com/css2?family=Satoshi:wght@400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Syne:wght@600;700;800&display=swap');
 
 @import "tailwindcss";
 
 @layer base {
-  body {
-    font-family: 'Satoshi', sans-serif;
+  html {
+    scroll-behavior: smooth;
   }
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: #FBF8F3;
+    color: #1A1612;
+  }
+  h1, h2, h3, .font-display {
+    font-family: 'Syne', sans-serif;
+  }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+
+.product-card-img {
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.group:hover .product-card-img {
+  transform: scale(1.06);
 }
 
 /* Custom Scrollbar */
@@ -17,13 +42,13 @@
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #d6ccc2;
   border-radius: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #b8a99a;
 }
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: #d6ccc2 transparent;
 }

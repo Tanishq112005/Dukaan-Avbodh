@@ -10,3 +10,5 @@ class AgentState(TypedDict):
     combo_offer: Optional[dict]
     suggested_products: List[dict]
     final_response: str
+    pending_payment_link: Optional[str]
+    pending_payment_link_id: Optional[str]

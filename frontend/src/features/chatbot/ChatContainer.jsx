@@ -13,7 +13,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
 export function AgentWidget() {
   const [input, setInput] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const { aiMessages, aiMessagesLastUpdated, isAiTyping, sendAiMessage, isAiConnected, comboOffer, connectAgent, disconnectAgent, isAgentOpen, setIsAgentOpen } = useStore();
+  const { aiMessages, aiMessagesLastUpdated, isAiTyping, sendAiMessage, isAiConnected, comboOffer, connectAgent, disconnectAgent, isAgentOpen, setIsAgentOpen, openPaymentLink, pollPaymentStatus } = useStore();
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -29,6 +29,19 @@ export function AgentWidget() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [aiMessages, isAgentOpen, isAiTyping]);
+
+  useEffect(() => {
+    const onFocus = () => pollPaymentStatus();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') pollPaymentStatus();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [pollPaymentStatus]);
 
   useEffect(() => {
     if (isAgentOpen && isFullScreen) {
@@ -47,16 +60,24 @@ export function AgentWidget() {
   };
 
   return (
-    <div className={cn("fixed z-50 flex flex-col", isFullScreen ? "inset-0 items-stretch bg-white" : "bottom-6 right-6 items-end")}>
+    <div className={cn("fixed z-50 flex flex-col", isFullScreen ? "inset-0 items-stretch bg-[#FBF8F3]" : "bottom-6 right-6 items-end")}>
       {isAgentOpen && (
-        <div className={cn("bg-white flex flex-col transition-all overflow-hidden", isFullScreen ? "flex-1 w-full h-full border-0 rounded-none shadow-none" : "mb-4 w-[90vw] sm:w-[450px] border border-slate-200 rounded-xl shadow-2xl h-[70vh]")}>
+        <div className={cn(
+          "bg-white flex flex-col transition-all duration-300 overflow-hidden",
+          isFullScreen
+            ? "flex-1 w-full h-full border-0 rounded-none shadow-none"
+            : "mb-4 w-[92vw] sm:w-[420px] border border-stone-200/80 rounded-[28px] shadow-[0_24px_80px_-24px_rgba(20,16,12,0.45)] h-[72vh]"
+        )}>
           <ChatHeader isAiConnected={isAiConnected} setIsAgentOpen={(v) => { setIsAgentOpen(v); setIsFullScreen(false); }} isFullScreen={isFullScreen} setIsFullScreen={setIsFullScreen} />
-          <ChatMessages aiMessages={aiMessages} isAiTyping={isAiTyping} comboOffer={comboOffer} messagesEndRef={messagesEndRef} renderMessage={renderMessage} />
+          <ChatMessages aiMessages={aiMessages} isAiTyping={isAiTyping} comboOffer={comboOffer} messagesEndRef={messagesEndRef} renderMessage={renderMessage} onPayClick={openPaymentLink} />
           <ChatInput input={input} setInput={setInput} handleSend={handleSend} isAiConnected={isAiConnected} />
         </div>
       )}
       {!isFullScreen && (
-        <button onClick={() => setIsAgentOpen(!isAgentOpen)} className="bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-full shadow-lg transition-all flex items-center justify-center">
+        <button
+          onClick={() => setIsAgentOpen(!isAgentOpen)}
+          className="bg-stone-900 hover:bg-stone-800 text-white p-4 rounded-full shadow-[0_12px_40px_-8px_rgba(20,16,12,0.6)] transition-transform hover:scale-105 flex items-center justify-center"
+        >
           {isAgentOpen ? <X size={24} /> : <MessageCircle size={24} />}
         </button>
       )}

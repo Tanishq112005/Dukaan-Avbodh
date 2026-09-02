@@ -105,6 +105,11 @@ def create_tools_node(tools_dict):
                         updates["combo_offer"] = parsed["combo_offer"]
                 elif tool_name == "calculate_combo_offer" and "combo_offer" in parsed:
                     updates["combo_offer"] = parsed["combo_offer"]
+                elif tool_name == "create_order":
+                    if parsed.get("payment_link"):
+                        updates["pending_payment_link"] = parsed.get("payment_link")
+                    if parsed.get("payment_link_id"):
+                        updates["pending_payment_link_id"] = parsed.get("payment_link_id")
 
             tool_messages.append(ToolMessage(content=res_text, tool_call_id=tool_call["id"]))
 

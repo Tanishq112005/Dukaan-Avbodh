@@ -41,18 +41,21 @@ export function ProductListPage() {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-        <span>Home</span> <ChevronRight className="h-4 w-4" /> <span className="text-black capitalize">{selectedType || "Products"}</span>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex items-center gap-2 text-sm text-stone-400 mb-6">
+        <span>Home</span> <ChevronRight className="h-4 w-4" /> <span className="text-stone-900 capitalize">{selectedType || "Products"}</span>
       </div>
       <div className="flex flex-col md:flex-row gap-8">
         <FilterSidebar />
         <div className="flex-1">
-          <div className="flex justify-between items-center sticky top-[96px] bg-white z-10 py-4 pb-6">
-            <h1 className="text-3xl font-bold capitalize">{selectedType || "All Products"}</h1>
-            <p className="text-gray-500 text-sm">Showing {filteredProducts.length} Products</p>
+          <div className="flex justify-between items-end sticky top-[96px] bg-[#FBF8F3]/90 backdrop-blur z-10 py-4 pb-6">
+            <div>
+              <p className="text-[11px] tracking-[0.2em] uppercase text-[#C45C26] font-bold mb-1">Catalog</p>
+              <h1 className="font-display text-3xl font-extrabold capitalize">{selectedType || "All Products"}</h1>
+            </div>
+            <p className="text-stone-400 text-sm">{filteredProducts.length} pieces</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-5 md:gap-8">
             {filteredProducts.map((p, i) => <ProductCard key={i} {...p} />)}
           </div>
         </div>

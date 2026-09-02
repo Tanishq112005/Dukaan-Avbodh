@@ -15,7 +15,7 @@ import { OrderConfirmedPage } from "./features/cart/OrderConfirmedPage";
 function App() {
   return (
     <Router>
-      <div className="min-h-screen flex flex-col relative">
+      <div className="min-h-screen flex flex-col relative bg-[#FBF8F3]">
         <Navbar />
         <main className="flex-grow">
           <Routes>

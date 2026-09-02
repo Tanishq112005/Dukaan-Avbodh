@@ -110,7 +110,7 @@ export function CartSummary() {
   };
 
   return (
-    <div className="md:w-1/3 border border-gray-200 rounded-[20px] p-6 h-fit">
+    <div className="md:w-1/3 border border-stone-200 bg-white rounded-[24px] p-6 h-fit shadow-sm">
       <h2 className="text-xl font-bold mb-6">Order Summary</h2>
       <div className="space-y-4 text-gray-500 mb-6">
         <div className="flex justify-between"><span>Subtotal</span><span className="font-bold text-black">₹{subtotal.toFixed(0)}</span></div>
@@ -125,10 +125,10 @@ export function CartSummary() {
         <span>Total</span><span>₹{total.toFixed(0)}</span>
       </div>
       <div className="flex gap-2 mb-6">
-        <Input placeholder="Add promo code" className="bg-[#F0F0F0] border-none rounded-full" />
+        <Input placeholder="Add promo code" className="bg-[#EFE8DE] border-none rounded-full" />
         <Button className="rounded-full px-6">Apply</Button>
       </div>
-      <Button className="w-full rounded-full py-6 text-lg" onClick={handleCheckout}>
+      <Button className="w-full rounded-full py-6 text-lg bg-stone-900 hover:bg-stone-800" onClick={handleCheckout}>
         Go to Checkout <ChevronRight className="ml-2 w-5 h-5" />
       </Button>
     </div>
