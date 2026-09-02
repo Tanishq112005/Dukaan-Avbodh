@@ -67,6 +67,8 @@ def create_tools_node(tools_dict):
             tool_name = tool_call["name"]
             tool_args = dict(tool_call["args"])
             tool_args["user_id"] = tool_args.get("user_id", state.get("user_id", 0))
+            if tool_name in ["negotiate_discount", "create_order", "check_payment_status"]:
+                tool_args["thread_id"] = state.get("thread_id", str(state.get("user_id", 0)))
 
             print(f"[TOOL START] Executing '{tool_name}' with args: {tool_args}")
 

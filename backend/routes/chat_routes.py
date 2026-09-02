@@ -14,11 +14,13 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     user_id: int
     text: str
+    thread_id: Optional[str] = None
     cart: List[dict] = []
 
 class EventRequest(BaseModel):
     user_id: int
     event: str
+    thread_id: Optional[str] = None
     cart: List[dict] = []
 
 async def sync_cart_and_user(user_id: int, cart_data: list):
@@ -46,21 +48,37 @@ async def chat_message(req: ChatRequest):
     except Exception as e:
         print(f"[WARNING] sync_cart_and_user failed during chat_message: {e}")
     
-    config = {"configurable": {"thread_id": str(req.user_id)}}
+    config = {"configurable": {"thread_id": req.thread_id or str(req.user_id)}}
     human_msg = HumanMessage(content=req.text)
     
     initial_state = {
         "messages": [human_msg],
-        "user_id": req.user_id
+        "user_id": req.user_id,
+        "thread_id": req.thread_id or str(req.user_id)
     }
     
     try:
+        from repositories.chat_audit_repository import chat_audit_repo
+        from models.chat_audit import ChatMessage, ThreadState
+        thread_id_val = req.thread_id or str(req.user_id)
+        await chat_audit_repo.get_or_create_thread(req.user_id, thread_id_val)
+        await chat_audit_repo.add_message(req.user_id, thread_id_val, ChatMessage(sender="human", message=req.text))
+        
         result = await agent_service.get_agent().ainvoke(initial_state, config=config)
         ai_reply = result.get("final_response", "Sorry, system error.")
         combo_offer = result.get("combo_offer", None)
         suggested_products = result.get("suggested_products", [])
         payment_link = result.get("pending_payment_link")
         
+        # Save AI reply to audit log
+        await chat_audit_repo.add_message(req.user_id, thread_id_val, ChatMessage(sender="ai", message=ai_reply))
+        
+        # Update thread state
+        await chat_audit_repo.update_state_patch(req.user_id, thread_id_val, {
+            "current_discount_percent": result.get("current_discount_percent", 0.0),
+            "combo_offer": combo_offer
+        })
+
         # Fetch the updated cart state after the AI has potentially run MCP tools
         updated_cart = await cart_repository.get_cart_items(req.user_id)
         
@@ -82,14 +100,15 @@ async def chat_message(req: ChatRequest):
 
 @router.post("/chat/event")
 async def chat_event(req: EventRequest):
-    config = {"configurable": {"thread_id": str(req.user_id)}}
+    config = {"configurable": {"thread_id": req.thread_id or str(req.user_id)}}
     
     if req.event == "payment_completed":
         hidden_msg = HumanMessage(content="[SYSTEM EVENT: payment] The customer says they finished paying. Call check_payment_status immediately and tell them the result.")
         try:
             result = await agent_service.get_agent().ainvoke({
                 "messages": [hidden_msg],
-                "user_id": req.user_id
+                "user_id": req.user_id,
+                "thread_id": req.thread_id or str(req.user_id)
             }, config=config)
             ai_reply = result.get("final_response")
             updated_cart = await cart_repository.get_cart_items(req.user_id)
@@ -129,14 +148,27 @@ async def chat_event(req: EventRequest):
 
         hidden_msg = HumanMessage(content="PROACTIVE_SUGGESTION_TRIGGER")
         try:
+            from repositories.chat_audit_repository import chat_audit_repo
+            from models.chat_audit import ChatMessage, ThreadState
+            thread_id_val = req.thread_id or str(req.user_id)
+            await chat_audit_repo.get_or_create_thread(req.user_id, thread_id_val)
+            await chat_audit_repo.add_message(req.user_id, thread_id_val, ChatMessage(sender="system", message=f"Event triggered: {req.event}"))
+
             agent = agent_service.get_agent()
             result = await agent.ainvoke({
                 "messages": [hidden_msg],
-                "user_id": req.user_id
+                "user_id": req.user_id,
+                "thread_id": req.thread_id or str(req.user_id)
             }, config=config)
             
             ai_reply = result.get("final_response")
+            
             if ai_reply:
+                await chat_audit_repo.add_message(req.user_id, thread_id_val, ChatMessage(sender="ai", message=ai_reply))
+                await chat_audit_repo.update_state_patch(req.user_id, thread_id_val, {
+                    "current_discount_percent": result.get("current_discount_percent", 0.0),
+                    "combo_offer": result.get("combo_offer", None)
+                })
                 updated_cart = await cart_repository.get_cart_items(req.user_id)
                 return {
                     "type": "proactive_suggestion",

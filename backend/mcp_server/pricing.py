@@ -53,7 +53,7 @@ async def negotiate_discount(
     user_id: int,
     current_discount_percent: float,
     requested_discount_percent: float ,
-    thread_id : int 
+    thread_id : str = ""
 ) -> dict:
     """
     Evaluates a user's requested discount against dynamic safety margins and loyalty scores.
@@ -69,7 +69,7 @@ async def negotiate_discount(
     """
     
     # 1. Evaluate logic and fetch cart automatically inside the service
-    result = await negotiation_service.evaluate_combo_negotiation(
+    result  = await negotiation_service.evaluate_combo_negotiation(
         user_id=user_id,
         requested_discount=requested_discount_percent,
         current_discount=current_discount_percent
@@ -90,12 +90,28 @@ async def negotiate_discount(
             
     await audit_logger.log_action(
         action="negotiate_discount",
-        reason=result.get("agent_internal_reasoning", "Negotiation logic evaluated"),
+        reason=f"User requested {requested_discount_percent}%, current offer {current_discount_percent}%, accepted: {result.get('accepted', False)}, max_allowed: {result.get('absolute_max_discount_percent', 0.0)}%, step_size: {result.get('step_size', 0.0)}%, cost_price: {result.get('total_cart_cost', 0.0)}, min_profit: {result.get('total_cart_min_profit', 0.0)}, max_discount_amount: {result.get('max_discount_amount', 0.0)}, previous_recent: {result.get('user_orders_recent', False)}",
         result=f"Requested: {requested_discount_percent}%, Counter: {result.get('counter_offer_percent', 0.0)}%, Accepted: {result.get('accepted', False)}",
         user_id=user_id,
-        thread_id=thread_id,
+        thread_id=str(thread_id),
         metadata={"products": product_meta} if product_meta else None
     )
+    
+    # Save to Chat Audit Repository
+    from repositories.chat_audit_repository import chat_audit_repo
+    await chat_audit_repo.append_negotiation_log(user_id, str(thread_id), {
+        "requested": requested_discount_percent,
+        "agent_offered": result.get("counter_offer_percent", 0.0),
+        "accepted": result.get("accepted", False)
+    })
+    
+    # Also update static metrics like cost price
+    await chat_audit_repo.update_state_patch(user_id, str(thread_id), {
+        "cart_products": product_meta,
+        "max_discount_we_can_give": result.get('absolute_max_discount_percent', 0.0),
+        "total_cost_price": result.get('total_cart_cost', 0.0),
+        "total_selling_price": result.get('total_cart_price', 0.0)
+    })
 
     if not result.get("products"):
         return {"success": False, "error": result["agent_internal_reasoning"]}

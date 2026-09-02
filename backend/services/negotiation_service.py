@@ -82,7 +82,14 @@ class NegotiationService:
             "accepted": res["accepted"], 
             "counter_offer_percent": res["counter"], 
             "agent_internal_reasoning": res["reason"],
-            "products": cart_products
+            "products": cart_products , 
+            "absolute_max_discount_percent": absolute_max,
+            "step_size": step, 
+            "user_orders_recent": has_recent_order if user_orders else False,
+            "total_cart_price": limits["total_price"],
+            "total_cart_cost": limits["total_cost"],
+            "total_cart_min_profit": limits["total_min_profit"],
+            "max_discount_amount": limits["max_discount_amount"]
         }
 
 negotiation_service = NegotiationService()

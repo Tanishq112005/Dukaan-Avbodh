@@ -1,4 +1,4 @@
-AGENT_MAX_DISCOUNT_PERCENT = 5.0
+AGENT_MAX_DISCOUNT_PERCENT = 100.0
 
 
 def calculate_absolute_max(product, max_discount: float) -> float:

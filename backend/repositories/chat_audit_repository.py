@@ -40,6 +40,30 @@ class ChatAuditRepository:
                 }
             }
         )
+        
+    async def update_state_patch(self, user_id: int, thread_id: str, patch: dict):
+        """Partially update the thread state (e.g. state.order_placed)."""
+        set_dict = {"updated_at": datetime.utcnow()}
+        for k, v in patch.items():
+            set_dict[f"state.{k}"] = v
+            
+        await self.collection.update_one(
+            {"user_id": user_id, "thread_id": thread_id},
+            {
+                "$set": set_dict
+            }
+        )
+        
+    async def append_negotiation_log(self, user_id: int, thread_id: str, log: dict):
+        """Append a negotiation round to state.negotiation_log"""
+        log["timestamp"] = datetime.utcnow()
+        await self.collection.update_one(
+            {"user_id": user_id, "thread_id": thread_id},
+            {
+                "$push": {"state.negotiation_log": log},
+                "$set": {"updated_at": datetime.utcnow()}
+            }
+        )
 
     async def get_all_threads_for_user(self, user_id: int):
         """Retrieve all chat threads for a user (useful for merchant dashboard)."""

@@ -24,7 +24,8 @@ async def create_order(
     name: str, 
     email: str, 
     address: str, 
-    discount: float = 0.0
+    discount: float = 0.0,
+    thread_id: str = ""
 ) -> dict:
     """
     Creates a new order for multiple products, applies bounded discounts, and generates a Razorpay payment link.
@@ -134,6 +135,18 @@ async def create_order(
         created_order_ids.append(created.id)
         
         await product_repo.update_stock(product.id, product.stock - 1)
+        
+    try:
+        if thread_id:
+            from repositories.chat_audit_repository import chat_audit_repo
+            await chat_audit_repo.update_state_patch(user_id, thread_id, {
+                "order_placed": True,
+                "razorpay_id": razorpay_order_id,
+                "payment_status": "pending_payment",
+                "user_info": {"name": name, "email": email}
+            })
+    except Exception as e:
+        print(f"Failed to update chat audit for order: {e}")
 
     return {
         "success": True,
@@ -150,7 +163,7 @@ async def create_order(
 
 
 @mcp.tool()
-async def check_payment_status(user_id: int) -> dict:
+async def check_payment_status(user_id: int, thread_id: str = "") -> dict:
     """
     Checks whether the shopper finished paying on the Razorpay payment link.
 
@@ -159,4 +172,15 @@ async def check_payment_status(user_id: int) -> dict:
     - If paid is true, congratulate them and then clear_cart.
     - If paid is false, tell them payment is not confirmed yet and reshare payment_link.
     """
-    return await check_user_payment_status(user_id)
+    res = await check_user_payment_status(user_id)
+    
+    if thread_id and res.get("paid"):
+        try:
+            from repositories.chat_audit_repository import chat_audit_repo
+            await chat_audit_repo.update_state_patch(user_id, thread_id, {
+                "payment_status": "paid"
+            })
+        except Exception as e:
+            pass
+            
+    return res
