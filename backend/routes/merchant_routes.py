@@ -101,12 +101,13 @@ async def chat_with_merchant_agent(
 ):
     try:
         agent = merchant_agent_service.get_merchant_agent()
-        thread_id = req.thread_id or f"merchant_{current_user.id}"
+        user_id = current_user.get("user_id")
+        thread_id = req.thread_id or f"merchant_{user_id}"
         config = {"configurable": {"thread_id": thread_id}}
         
         initial_state = {
             "messages": [HumanMessage(content=req.text)],
-            "user_id": current_user.id,
+            "user_id": user_id,
             "thread_id": thread_id
         }
         

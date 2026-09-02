@@ -18,6 +18,12 @@ async def alter():
             print('Added razorpay_payment_id')
         except Exception as e:
             print(e)
+            
+        try:
+            await conn.execute(text('ALTER TABLE "product" ADD COLUMN importance_score INTEGER DEFAULT 0'))
+            print('Added importance_score to product')
+        except Exception as e:
+            print(e)
 
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())

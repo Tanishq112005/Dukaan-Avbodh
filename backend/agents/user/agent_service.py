@@ -11,7 +11,7 @@ from config.mogodbconfig import nosql_client
 from langgraph.checkpoint.mongodb import MongoDBSaver
 from agents.user.agent_prompts import get_system_prompt, get_system_reminder
 from agents.user.agent_graph import compile_agent_graph
-from config.mcp_config import mcp_client
+from config.mcp_config import mcp_user_client
 
 
 _checkout_agent = None
@@ -28,7 +28,7 @@ async def init_agent():
     
     for attempt in range(max_retries):
         try:
-            tools = await mcp_client.get_tools()
+            tools = await mcp_user_client.get_tools()
             if tools is not None:
                 break
         except Exception as e:

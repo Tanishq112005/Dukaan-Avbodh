@@ -10,7 +10,7 @@ from config.mogodbconfig import nosql_client
 from langgraph.checkpoint.mongodb import MongoDBSaver
 from agents.merchant.agent_prompts import get_system_prompt, get_system_reminder
 from agents.merchant.agent_graph import compile_agent_graph
-from config.merchant_mcp_config import mcp_merchant_client
+from config.mcp_config import mcp_merchant_client
 
 
 _merchant_agent = None

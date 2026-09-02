@@ -85,6 +85,7 @@ class DatabaseConnection:
                         'ALTER TABLE "order" ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR',
                         'ALTER TABLE "order" ADD COLUMN IF NOT EXISTS razorpay_payment_link_id VARCHAR',
                         'ALTER TABLE "order" ADD COLUMN IF NOT EXISTS payment_link_url VARCHAR',
+                        'ALTER TABLE "product" ADD COLUMN IF NOT EXISTS importance_score INTEGER DEFAULT 0',
                     ):
                         try:
                             await conn.execute(text(stmt))
