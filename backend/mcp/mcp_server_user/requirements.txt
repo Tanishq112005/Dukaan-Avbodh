@@ -1,0 +1,7 @@
+fastmcp==3.4.7
+pydantic
+sqlmodel
+pymongo
+asyncpg
+python-dotenv
+razorpay
