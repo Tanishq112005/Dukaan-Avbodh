@@ -1,6 +1,8 @@
 from mcp_server.server import mcp
 from services.combo_pricing_engine import combo_pricing_engine
 from services.negotiation_service import negotiation_service
+from services.audit_logger import audit_logger
+from repositories.cart_repository import cart_repository
 
 @mcp.tool()
 async def calculate_combo_offer(user_id: int, discount_percent: float = 0.0) -> dict:
@@ -14,7 +16,7 @@ async def calculate_combo_offer(user_id: int, discount_percent: float = 0.0) -> 
     - DO use this tool's response to tell the user their exact savings ('discount_amount').
     - DO NOT negotiate if this tool returns an error. Inform the user that combo offers require at least 2 items.
     """
-    from repositories.cart_repository import cart_repository
+    
     
     cart_items = await cart_repository.get_cart_items(user_id)
     
@@ -72,7 +74,7 @@ async def negotiate_discount(
         current_discount=current_discount_percent
     )
 
-    from services.audit_logger import audit_logger
+    
     
     # Extract product info safely
     product_meta = []

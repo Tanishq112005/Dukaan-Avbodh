@@ -19,7 +19,7 @@ class Product(SQLModel, table=True):
     name: str
     price: float
     cost_price: float = 0.0
-    min_profit_margin_percent: float = 10.0   # naya — merchant chahta hai kam se kam itna % profit
+    min_profit_margin_percent: float = 20.0   # naya — merchant chahta hai kam se kam itna % profit
     stock: int
     type: ProductType = ProductType.T_SHIRT
     brand: Optional[str] = None

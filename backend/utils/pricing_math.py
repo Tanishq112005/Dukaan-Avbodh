@@ -27,9 +27,9 @@ def calculate_next_offer(requested: float, current: float, absolute_max: float, 
             "max_allowed": ceiling,
             "reason": "User asked for less than or equal to the current offer.",
         }
-
+    
     next_offer = round(min(current + step, requested, ceiling), 2)
-
+    
     if next_offer <= current and current >= ceiling:
         return {
             "accepted": False,

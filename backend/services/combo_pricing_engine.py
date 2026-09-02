@@ -8,13 +8,14 @@ class ComboPricingEngine:
     merchant ka minimum profit margin kabhi cross nahi hota, chahe kitna bhi discount stack ho.
     """
 
-    COMBO_BONUS_PERCENT = 5.0   # combo lene pe extra thoda discount
+    COMBO_BONUS_PERCENT = 5.0   
 
         
     def get_negotiation_limits(self, products: list[Product]) -> dict:
         """
         Returns the mathematical limits for a combo, exactly defining the available 
         discount pool (playable amount) before hitting merchant's minimum profit.
+        
         """
         total_price = sum(p.price for p in products)
         total_cost = sum(p.cost_price for p in products)
