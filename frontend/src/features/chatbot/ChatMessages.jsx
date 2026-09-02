@@ -23,7 +23,7 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
           ? "bg-stone-900 text-white rounded-tr-sm"
           : "bg-white border border-stone-100 text-stone-800 rounded-tl-sm"
       )}>
-        <div className="whitespace-pre-wrap">{renderMessage(msg.text)}</div>
+        <div className="whitespace-pre-wrap">{renderMessage(msg.text, msg.payment_link)}</div>
         {msg.payment_link && (
           <button
             type="button"

@@ -11,7 +11,7 @@ export function ChatHeader({ isAiConnected, setIsAgentOpen, isFullScreen, setIsF
         <div className="flex items-center gap-2.5">
         <div className="bg-[#C45C26] p-1.5 rounded-full"><Bot size={18} className="text-white" /></div>
         <div>
-          <h3 className="font-semibold text-sm tracking-tight">Dukkan Stylist</h3>
+          <h3 className="font-semibold text-sm tracking-tight">Dukaan Stylist AI Agent</h3>
           <div className="flex items-center gap-1.5 mt-0.5">
             <div className={cn("w-1.5 h-1.5 rounded-full", isAiConnected ? "bg-emerald-400" : "bg-red-400")} />
             <p className="text-[10px] uppercase font-medium tracking-[0.14em] text-stone-400">

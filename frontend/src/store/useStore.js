@@ -4,6 +4,7 @@ import { createAuthSlice } from './createAuthSlice'
 import { createProductSlice } from './createProductSlice'
 import { createCartSlice } from './createCartSlice'
 import { createChatSlice } from './createChatSlice'
+import { ThumbsDownIcon } from 'lucide-react';
 
 export const useStore = create(
   persist(
@@ -24,7 +25,8 @@ export const useStore = create(
         aiMessagesLastUpdated: state.aiMessagesLastUpdated,
         comboOffer: state.comboOffer,
         isAgentOpen: state.isAgentOpen,
-        guestId: state.guestId
+        guestId: state.guestId,
+        thread : state.threadId 
       })
     }
   )

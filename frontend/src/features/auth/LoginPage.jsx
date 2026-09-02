@@ -20,7 +20,9 @@ export function LoginPage() {
       });
       login({ email: identifier, id: res.data.user_id, role: res.data.role }, res.data.access_token);
       navigate("/");
-    } catch (err) { setError("Invalid credentials. Please try again."); }
+    } catch (err) {
+       console.error("Login error:", err);
+       setError("Invalid credentials. Please try again."); }
   };
 
   return (

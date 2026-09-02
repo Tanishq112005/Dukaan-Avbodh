@@ -13,7 +13,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
 export function AgentWidget() {
   const [input, setInput] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const { aiMessages, aiMessagesLastUpdated, isAiTyping, sendAiMessage, isAiConnected, comboOffer, connectAgent, disconnectAgent, isAgentOpen, setIsAgentOpen, openPaymentLink, pollPaymentStatus, startNewChat } = useStore();
+  const { aiMessages, aiMessagesLastUpdated, isAiTyping, sendAiMessage, isAiConnected, comboOffer, connectAgent, disconnectAgent, isAgentOpen, setIsAgentOpen, openPaymentLink, pollPaymentStatus, startNewChat , threadId} = useStore();
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
