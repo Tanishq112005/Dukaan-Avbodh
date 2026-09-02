@@ -20,52 +20,55 @@ class BehaviorScorer:
     def __init__(self):
         self.event_repo = UserEventRepository()
 
-    async def get_category_affinity(self, user_id: int) -> dict[str, float]:
-        # 1. User ke saare personal events
+    def _event_weight(self, event, current_session_start, now: datetime) -> float:
+        weight = self.EVENT_WEIGHTS.get(event.event_type.value, 0.0)
+        days_old = (now - event.timestamp).days
+        recency_factor = max(0.2, 1.0 - (days_old / 60))
+        if current_session_start and event.timestamp >= current_session_start:
+            return weight * recency_factor * self.CURRENT_SESSION_BOOST
+        return weight * recency_factor * self.PAST_SESSION_BOOST
+
+    async def get_affinity_maps(self, user_id: int) -> tuple[dict[str, float], dict[int, float]]:
+        """Single pass over events: category affinity + per-product event relevance."""
         user_events = await self.event_repo.get_events_for_user(user_id)
-        
-        # 2. Dusre users (Global/Crowd) ke recent events
         global_events = await self.event_repo.get_recent_global_events(limit=200)
 
         session_starts = [e.timestamp for e in user_events if e.event_type == EventType.SESSION_START]
         current_session_start = max(session_starts) if session_starts else None
 
-        scores: dict[str, float] = {}
+        category_scores: dict[str, float] = {}
+        product_scores: dict[int, float] = {}
         now = datetime.utcnow()
 
-        # Phase 1: Score User's own events (Current + Past)
         for event in user_events:
-            if event.event_type == EventType.SESSION_START or not event.category:
+            if event.event_type == EventType.SESSION_START:
                 continue
+            final_weight = self._event_weight(event, current_session_start, now)
+            if event.category:
+                category_scores[event.category] = category_scores.get(event.category, 0.0) + final_weight
+            if event.product_id:
+                product_scores[event.product_id] = product_scores.get(event.product_id, 0.0) + final_weight
 
-            weight = self.EVENT_WEIGHTS.get(event.event_type.value, 0.0)
-            
-            # Recency factor: naye events ko zyada importance
-            days_old = (now - event.timestamp).days
-            recency_factor = max(0.2, 1.0 - (days_old / 60))
-
-            # Agar yeh event current session ka hai, toh highest boost
-            if current_session_start and event.timestamp >= current_session_start:
-                final_weight = weight * recency_factor * self.CURRENT_SESSION_BOOST
-            else:
-                # Agar previous sessions ka hai
-                final_weight = weight * recency_factor * self.PAST_SESSION_BOOST
-
-            scores[event.category] = scores.get(event.category, 0.0) + final_weight
-
-        # Phase 2: Score Other Users (Global Trends) to handle Cold Starts
         for event in global_events:
-            # Apne khud ke events ya invalid events exclude karo
             if event.user_id == user_id or event.event_type == EventType.SESSION_START or not event.category:
-                continue 
-                
+                continue
             weight = self.EVENT_WEIGHTS.get(event.event_type.value, 0.0)
-            
-            # Crowd events get the lowest multiplier
             final_weight = weight * self.GLOBAL_TREND_BOOST
-            scores[event.category] = scores.get(event.category, 0.0) + final_weight
+            category_scores[event.category] = category_scores.get(event.category, 0.0) + final_weight
 
-        return scores
+        return category_scores, product_scores
+
+    async def get_category_affinity(self, user_id: int) -> dict[str, float]:
+        category_scores, _ = await self.get_affinity_maps(user_id)
+        return category_scores
+
+    def top_viewed_categories(self, user_events, limit: int = 3) -> list[str]:
+        counts: dict[str, int] = {}
+        for event in user_events:
+            if event.event_type != EventType.VIEWED or not event.category or event.category == "session":
+                continue
+            counts[event.category] = counts.get(event.category, 0) + 1
+        return [cat for cat, _ in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:limit]]
 
     def estimate_purchase_probability(self, category_score: float) -> float:
         """Category affinity score ko ek estimated purchase probability % mein convert karta hai."""

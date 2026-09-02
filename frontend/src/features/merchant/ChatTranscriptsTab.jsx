@@ -154,6 +154,41 @@ export function ChatTranscriptsTab({ threads, loading }) {
             )}
           </div>
 
+          {/* Applied Campaigns Section */}
+          <div className="bg-white rounded-xl border border-stone-200 p-6 shadow-sm">
+            <h4 className="text-sm font-bold uppercase tracking-wider text-stone-400 mb-4 border-b pb-2">
+              Applied Campaigns (Pre-Negotiation)
+            </h4>
+            {s.applied_campaigns && s.applied_campaigns.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {s.applied_campaigns.map((camp, idx) => (
+                  <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border border-purple-100 bg-purple-50 gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-purple-200 text-purple-700 font-bold text-xs rounded-full px-2 py-1 flex items-center justify-center shrink-0">
+                        {camp.type || "CAMPAIGN"}
+                      </div>
+                      <p className="text-sm font-semibold text-stone-800">
+                        {camp.agenda || `Campaign ID: ${camp.campaign_id}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 ml-8 sm:ml-0">
+                      <p className="text-sm text-stone-700">
+                        Discount Stacked:{" "}
+                        <span className="font-bold text-purple-700">
+                          {camp.discount_percentage}%
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-stone-500 italic">
+                No campaigns were active for these products.
+              </p>
+            )}
+          </div>
+
           {/* Negotiation Log */}
           <div className="bg-white rounded-xl border border-stone-200 p-6 shadow-sm">
             <h4 className="text-sm font-bold uppercase tracking-wider text-stone-400 mb-4 border-b pb-2">

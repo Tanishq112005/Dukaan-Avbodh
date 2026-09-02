@@ -67,7 +67,7 @@ def create_tools_node(tools_dict):
             tool_name = tool_call["name"]
             tool_args = dict(tool_call["args"])
             tool_args["user_id"] = tool_args.get("user_id", state.get("user_id", 0))
-            if tool_name in ["negotiate_discount", "create_order", "check_payment_status"]:
+            if tool_name in ["negotiate_discount", "create_order", "check_payment_status", "calculate_combo_offer", "recommend_products"]:
                 tool_args["thread_id"] = state.get("thread_id", str(state.get("user_id", 0)))
 
             print(f"[TOOL START] Executing '{tool_name}' with args: {tool_args}")
@@ -101,6 +101,8 @@ def create_tools_node(tools_dict):
                     updates["suggested_products"] = parsed.get("products", [])
                 elif tool_name == "recommend_products":
                     updates["suggested_products"] = parsed.get("suggested_products", [])
+                    if parsed.get("combo_offer"):
+                        updates["combo_offer"] = parsed["combo_offer"]
                 elif tool_name == "negotiate_discount":
                     updates["current_discount_percent"] = parsed.get("counter_offer_percent", 0.0)
                     if "combo_offer" in parsed and parsed["combo_offer"].get("effective_discount_percent", 0) > 0:

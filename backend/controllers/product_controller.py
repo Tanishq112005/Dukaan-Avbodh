@@ -9,6 +9,7 @@ from repositories.user_repository import UserRepository
 from models import Product, UserEvent, ProductType
 from models.user_event import EventType
 from services.audit_logger import audit_logger
+from services.pricing_service import pricing_service
 
 logger = logging.getLogger(__name__)
 

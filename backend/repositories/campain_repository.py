@@ -1,5 +1,6 @@
-from typing import Optional, List
+from typing import Optional, List, Dict
 from sqlmodel import select
+from sqlalchemy.orm import selectinload
 from config.database import db_connection
 from models import Campaign, Product, CampaignProductLink, CAMPAIGN_WEIGHTS, CampaingType
 from .base_repository import BaseRepository
@@ -15,6 +16,60 @@ class CampaignRepository(BaseRepository[Campaign]):
                 select(Campaign).offset(skip).limit(limit)
             )
             return result.all()
+
+    async def get_campaigns_by_product_ids(self, product_ids: List[int]) -> Dict[int, List[Campaign]]:
+        """Maps each product id to the campaigns currently linked to it."""
+        mapping: Dict[int, List[Campaign]] = {pid: [] for pid in product_ids}
+        if not product_ids:
+            return mapping
+        async with db_connection.get_session() as session:
+            rows = (await session.exec(
+                select(CampaignProductLink.product_id, Campaign)
+                .join(Campaign, Campaign.id == CampaignProductLink.campaign_id)
+                .where(CampaignProductLink.product_id.in_(product_ids))
+            )).all()
+            seen: Dict[int, set] = {pid: set() for pid in product_ids}
+            for product_id, campaign in rows:
+                if campaign.id in seen.get(product_id, set()):
+                    continue
+                seen.setdefault(product_id, set()).add(campaign.id)
+                mapping.setdefault(product_id, []).append(campaign)
+            return mapping
+
+    async def get_all_campaigns_with_products(self, skip: int = 0, limit: int = 100) -> list[dict]:
+        """Campaigns with linked products, serialized before the session closes."""
+        async with db_connection.get_session() as session:
+            result = await session.execute(
+                select(Campaign)
+                .options(selectinload(Campaign.products))
+                .offset(skip)
+                .limit(limit)
+            )
+            campaigns = result.scalars().unique().all()
+            rows = []
+            for campaign in campaigns:
+                products = []
+                for product in campaign.products:
+                    products.append({
+                        "id": product.id,
+                        "name": product.name,
+                        "price": product.price,
+                        "image_url": product.image_url,
+                        "type": product.type.value if hasattr(product.type, "value") else product.type,
+                        "importance_score": product.importance_score,
+                        "stock": product.stock,
+                    })
+                rows.append({
+                    "id": campaign.id,
+                    "agenda": campaign.agenda,
+                    "discount_percentage": campaign.discount_percentage,
+                    "priority": campaign.priority,
+                    "type": campaign.type.value if hasattr(campaign.type, "value") else campaign.type,
+                    "total_items_sold": campaign.total_items_sold,
+                    "total_products": campaign.total_products,
+                    "products": products,
+                })
+            return rows
 
     async def create_campaign(
         self, agenda: str, discount_percentage: float, priority: int, 

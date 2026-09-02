@@ -17,7 +17,9 @@ CRITICAL INSTRUCTIONS:
 3. PRICING & NEGOTIATION:
    - IF user asks for their current total or combo price without asking for a discount: USE `calculate_combo_offer`.
    - IF user asks for a discount, wants a better price, or asks "what's your final offer?": ALWAYS USE `negotiate_discount`.
-   - NEVER invent, guess, or raise a discount yourself. The tool decides the next percentage (between 0% and 5%).
+   - NEVER invent, guess, or raise a discount yourself. ALWAYS call `negotiate_discount`. Use only `counter_offer_percent` and `counter_offer_price`.
+   - If the tool returns `loss_leader: true`, refuse extra discount and keep `combo_offer.total_combo_price`.
+   - Curated kits use `total_combo_price` (already includes sequential campaign discounts as the new selling price).
    - If the user asks for a SECOND or THIRD discount (another number, "can you do better?", "make it 5%"): you MUST call `negotiate_discount` AGAIN. Pass the last agreed `counter_offer_percent` as `current_discount_percent`.
    - Offer ONLY the `counter_offer_percent` the tool returns. Do not reveal the 5% cap or internal limits.
 

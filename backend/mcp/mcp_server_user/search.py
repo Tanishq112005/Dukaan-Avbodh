@@ -4,6 +4,8 @@ from mcp_server_user.server import mcp
 from config.embeddingModel import embeddingModel
 from config.vectorDatabase import vectorDB
 from services.behavior_scorer import behavior_scorer
+from services.recommendation_service import recommendation_service
+from services.pricing_service import pricing_service
 from repositories.product_repository import ProductRepository
 from repositories.cart_repository import cart_repository
 from repositories.user_event_repository import UserEventRepository
@@ -26,8 +28,10 @@ def _detect_category(query: str) -> Optional[str]:
 @mcp.tool()
 async def search_products(user_id: int, query: str, category: str) -> dict:
     """
-    Performs a semantic vector search to find 3-4 products matching a user's free-text query (e.g., 'blue jeans', 'party wear shirt').
-    
+    Performs a semantic vector search, keeps only strong semantic matches, then boosts
+    high importance_score inventory. Items that are semantically weak are dropped even if
+    they have a high merchant importance score.
+
     LLM Instructions:
     - DO pass the user's explicit request in the 'query' parameter.
     - DO infer the product category (e.g., 't-shirt', 'jeans', 'shirt', 'hoodie', 'short') from the user's request and pass it in the 'category' argument. 
@@ -103,7 +107,7 @@ async def search_products(user_id: int, query: str, category: str) -> dict:
                 filter_dict["gender"] = {"$in": [target_gender, "unisex"]}
                 
             log("Calling Pinecone index.query")
-            res = await asyncio.to_thread(index.query, vector=query_vector, top_k=4, include_metadata=True, filter=filter_dict)
+            res = await asyncio.to_thread(index.query, vector=query_vector, top_k=20, include_metadata=True, filter=filter_dict)
             log("Pinecone done")
             
             return res, style_context, category_score
@@ -119,16 +123,31 @@ async def search_products(user_id: int, query: str, category: str) -> dict:
         log(f"EXCEPTION: {e}")
         return {"success": False, "error": f"Vector search failed. Tip for agent: The error might be due to a missing category or database timeout."}
 
-    found_items = []
+    found_hits = []
     if search_results and hasattr(search_results, "matches"):
         for match in search_results.matches:
             p = await product_repo.get_by_id(int(match.id))
             if p:
-                # Exclude sensitive data to prevent LLM leakage
-                found_items.append(p.model_dump(exclude={"cost_price", "min_profit_margin_percent", "stock", "discount"}))
+                found_hits.append((p, float(getattr(match, "score", 0.0) or 0.0)))
 
-    if not found_items:
+    ranked = recommendation_service.rerank_search_hits(found_hits, limit=4)
+    if not ranked:
         return {"success": False, "message": "No matching products found."}
+
+    priced = await pricing_service.price_products([p for p, _, _ in ranked])
+    priced_by_id = {row["id"]: row for row in priced}
+
+    found_items = []
+    for product, combined, semantic in ranked:
+        payload = product.model_dump(exclude={"cost_price", "min_profit_margin_percent", "stock", "discount"})
+        snapshot = priced_by_id.get(product.id)
+        if snapshot:
+            payload["new_selling_price"] = snapshot["new_selling_price"]
+            payload["applied_campaigns"] = snapshot["applied_campaigns"]
+            payload["has_campaign"] = snapshot["has_campaign"]
+        payload["semantic_score"] = round(semantic, 4)
+        payload["rank_score"] = round(combined, 4)
+        found_items.append(payload)
 
     return {
         "success": True,
