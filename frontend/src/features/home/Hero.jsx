@@ -49,7 +49,7 @@ export function Hero() {
           {/* Right: image */}
           <div className="md:col-span-6 lg:col-span-5 flex justify-center md:justify-end">
             <img
-              src="https://e-commerce.alkanaziz.com/images/hero/hero-small.png"
+              src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800&auto=format&fit=crop"
               alt="Model wearing the new season edit"
               className="w-full max-h-[46vh] md:max-h-[665px] object-contain object-bottom"
               width="1200"
