@@ -3,8 +3,11 @@ import sys
 import os
 import asyncio
 
-# Fix Python path for cloud deployments so it finds 'mcp_server' module
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Fix Python path for cloud deployments so it finds 'mcp_server' and backend modules
+mcp_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+backend_dir = os.path.dirname(mcp_dir)
+sys.path.insert(0, mcp_dir)
+sys.path.insert(0, backend_dir)
 
 # Windows par asyncpg (SSL connections) ProactorEventLoop ke saath fail hota hai
 # (ConnectionResetError: WinError 64/10054). Selector loop policy set karna hoga,
