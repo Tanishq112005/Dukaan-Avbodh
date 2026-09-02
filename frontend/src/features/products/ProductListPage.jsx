@@ -6,6 +6,8 @@ import { ProductCard } from "../../components/ui/ProductCard";
 import { ChevronRight } from "lucide-react";
 import { Loader } from "../../components/ui/Loader";
 
+import { Link } from "react-router-dom";
+
 export function ProductListPage() {
   const { products, setProducts, searchQuery, selectedType, maxPrice } = useStore();
   const [loading, setLoading] = useState(products.length === 0);
@@ -43,7 +45,7 @@ export function ProductListPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center gap-2 text-sm text-stone-400 mb-6">
-        <span>Home</span> <ChevronRight className="h-4 w-4" /> <span className="text-stone-900 capitalize">{selectedType || "Products"}</span>
+        <Link to="/" className="hover:text-stone-900 cursor-pointer">Home</Link> <ChevronRight className="h-4 w-4" /> <span className="text-stone-900 capitalize">{selectedType || "Products"}</span>
       </div>
       <div className="flex flex-col md:flex-row gap-8">
         <FilterSidebar />
