@@ -4,7 +4,7 @@ import axios from "axios";
 import { useStore } from "../../store/useStore";
 import { Input } from "../../components/ui/input";
 import { AuthForm } from "./AuthForm";
-
+import { PasswordInput } from "./PasswordInput";
 export function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -31,7 +31,7 @@ export function SignupPage() {
       <Input placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} required />
       <Input placeholder="Email Address" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
       <Input placeholder="Delivery Address / Location" type="text" value={address} onChange={(e) => setAddress(e.target.value)} required />
-      <Input placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+      <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} required />
     </AuthForm>
   );
 }
