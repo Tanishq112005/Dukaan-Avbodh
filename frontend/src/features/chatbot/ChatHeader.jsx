@@ -1,10 +1,10 @@
-import { Bot, X, Maximize2, Minimize2 } from 'lucide-react';
+import { Bot, X, Maximize2, Minimize2, Plus } from 'lucide-react';
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
-export function ChatHeader({ isAiConnected, setIsAgentOpen, isFullScreen, setIsFullScreen }) {
+export function ChatHeader({ isAiConnected, setIsAgentOpen, isFullScreen, setIsFullScreen, startNewChat }) {
   return (
     <div className="flex items-center justify-between px-4 py-3.5 bg-stone-900 text-white">
       <div className="flex items-center gap-2.5">
@@ -14,12 +14,15 @@ export function ChatHeader({ isAiConnected, setIsAgentOpen, isFullScreen, setIsF
           <div className="flex items-center gap-1.5 mt-0.5">
             <div className={cn("w-1.5 h-1.5 rounded-full", isAiConnected ? "bg-emerald-400" : "bg-red-400")} />
             <p className="text-[10px] uppercase font-medium tracking-[0.14em] text-stone-400">
-              {isAiConnected ? 'Online · ready to style' : 'Offline'}
+              {isAiConnected ? 'Online \u00B7 ready to style' : 'Offline'}
             </p>
           </div>
         </div>
       </div>
       <div className="flex items-center gap-1">
+        <button title="Start New Chat" onClick={startNewChat} className="text-stone-400 hover:text-white hover:bg-white/10 p-1.5 rounded-md transition-colors mr-1">
+          <Plus size={18} />
+        </button>
         <button onClick={() => setIsFullScreen(!isFullScreen)} className="text-stone-400 hover:text-white hover:bg-white/10 p-1.5 rounded-md transition-colors">
           {isFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
         </button>

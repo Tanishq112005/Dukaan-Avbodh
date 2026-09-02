@@ -13,7 +13,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
 export function AgentWidget() {
   const [input, setInput] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const { aiMessages, aiMessagesLastUpdated, isAiTyping, sendAiMessage, isAiConnected, comboOffer, connectAgent, disconnectAgent, isAgentOpen, setIsAgentOpen, openPaymentLink, pollPaymentStatus } = useStore();
+  const { aiMessages, aiMessagesLastUpdated, isAiTyping, sendAiMessage, isAiConnected, comboOffer, connectAgent, disconnectAgent, isAgentOpen, setIsAgentOpen, openPaymentLink, pollPaymentStatus, startNewChat } = useStore();
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export function AgentWidget() {
             ? "flex-1 w-full h-full border-0 rounded-none shadow-none"
             : "mb-4 w-[92vw] sm:w-[420px] border border-stone-200/80 rounded-[28px] shadow-[0_24px_80px_-24px_rgba(20,16,12,0.45)] h-[72vh]"
         )}>
-          <ChatHeader isAiConnected={isAiConnected} setIsAgentOpen={(v) => { setIsAgentOpen(v); setIsFullScreen(false); }} isFullScreen={isFullScreen} setIsFullScreen={setIsFullScreen} />
+          <ChatHeader isAiConnected={isAiConnected} setIsAgentOpen={(v) => { setIsAgentOpen(v); setIsFullScreen(false); }} isFullScreen={isFullScreen} setIsFullScreen={setIsFullScreen} startNewChat={startNewChat} />
           <ChatMessages aiMessages={aiMessages} isAiTyping={isAiTyping} comboOffer={comboOffer} messagesEndRef={messagesEndRef} renderMessage={renderMessage} onPayClick={openPaymentLink} />
           <ChatInput input={input} setInput={setInput} handleSend={handleSend} isAiConnected={isAiConnected} />
         </div>

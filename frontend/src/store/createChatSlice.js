@@ -5,10 +5,23 @@ export const createChatSlice = (set, get) => ({
   comboOffer: null,
   isAiConnected: false,
   isAgentOpen: false,
+  thread_id: window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
   setIsAgentOpen: (isOpen) => set({ isAgentOpen: isOpen }),
   guestId: Math.floor(Math.random() * 1000000) + 10000,
   pendingPayment: null,
   paymentWatchTimer: null,
+
+  startNewChat: () => {
+    const timer = get().paymentWatchTimer;
+    if (timer) clearInterval(timer);
+    set({
+      aiMessages: [],
+      thread_id: window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
+      comboOffer: null,
+      pendingPayment: null,
+      paymentWatchTimer: null
+    });
+  },
 
   connectAgent: () => set({ isAiConnected: true }),
   disconnectAgent: () => {
@@ -97,7 +110,12 @@ export const createChatSlice = (set, get) => ({
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/chat/message`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: get().user?.id || get().guestId, text, cart: get().cart })
+        body: JSON.stringify({ 
+          user_id: get().user?.id || get().guestId, 
+          thread_id: get().thread_id,
+          text, 
+          cart: get().cart 
+        })
       });
       get()._handleChatResponse(await res.json());
     } catch(e) {
@@ -112,7 +130,12 @@ export const createChatSlice = (set, get) => ({
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/chat/event`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: get().user?.id || get().guestId, event: eventName, cart: get().cart })
+        body: JSON.stringify({ 
+          user_id: get().user?.id || get().guestId, 
+          thread_id: get().thread_id,
+          event: eventName, 
+          cart: get().cart 
+        })
       });
       get()._handleChatResponse(await res.json());
     } catch(e) {

@@ -52,7 +52,8 @@ async def calculate_combo_offer(user_id: int, discount_percent: float = 0.0) -> 
 async def negotiate_discount(
     user_id: int,
     current_discount_percent: float,
-    requested_discount_percent: float
+    requested_discount_percent: float ,
+    thread_id : int 
 ) -> dict:
     """
     Evaluates a user's requested discount against dynamic safety margins and loyalty scores.
@@ -92,6 +93,7 @@ async def negotiate_discount(
         reason=result.get("agent_internal_reasoning", "Negotiation logic evaluated"),
         result=f"Requested: {requested_discount_percent}%, Counter: {result.get('counter_offer_percent', 0.0)}%, Accepted: {result.get('accepted', False)}",
         user_id=user_id,
+        thread_id=thread_id,
         metadata={"products": product_meta} if product_meta else None
     )
 

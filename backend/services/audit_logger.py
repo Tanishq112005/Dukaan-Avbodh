@@ -4,13 +4,13 @@ from datetime import datetime
 
 class AuditLogger(ABC):
     @abstractmethod
-    async def log_action(self, action: str, reason: str, result: str, user_id: int = None, metadata: dict = None) -> None:
+    async def log_action(self, action: str, reason: str, result: str, user_id: int = None, thread_id: str = None, metadata: dict = None) -> None:
         pass
 
 
 class DummyAuditLogger(AuditLogger):
-    async def log_action(self, action: str, reason: str, result: str, user_id: int = None, metadata: dict = None) -> None:
-        print(f"[AUDIT DUMMY] action={action} | reason={reason} | result={result} | user_id={user_id}")
+    async def log_action(self, action: str, reason: str, result: str, user_id: int = None, thread_id: str = None, metadata: dict = None) -> None:
+        print(f"[AUDIT DUMMY] action={action} | reason={reason} | result={result} | user_id={user_id} | thread_id={thread_id}")
 
 try:
     from config.mogodbconfig import nosql_client
@@ -21,15 +21,16 @@ try:
             self.db = nosql_client.get_database("dukaan_audit")
             self.collection = self.db["audit_logs"]
 
-        async def log_action(self, action: str, reason: str, result: str, user_id: int = None, metadata: dict = None) -> None:
+        async def log_action(self, action: str, reason: str, result: str, user_id: int = None, thread_id: str = None, metadata: dict = None) -> None:
             # Also print to console for local debugging
-            print(f"[AUDIT] action={action} | reason={reason} | result={result} | user_id={user_id}")
+            print(f"[AUDIT] action={action} | reason={reason} | result={result} | user_id={user_id} | thread_id={thread_id}")
             
             doc = {
                 "action": action,
                 "reason": reason,
                 "result": result,
                 "user_id": user_id,
+                "thread_id": thread_id,
                 "timestamp": datetime.utcnow()
             }
             if metadata:
