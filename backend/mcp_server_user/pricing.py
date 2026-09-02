@@ -1,4 +1,4 @@
-from mcp_server.server import mcp
+from mcp_server_user.server import mcp
 from services.combo_pricing_engine import combo_pricing_engine
 from services.negotiation_service import negotiation_service
 from services.audit_logger import audit_logger

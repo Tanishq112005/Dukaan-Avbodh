@@ -1,4 +1,4 @@
-from mcp_server.server import mcp
+from mcp_server_user.server import mcp
 from repositories import ProductRepository
 from models.product import ProductType
 

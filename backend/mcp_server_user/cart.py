@@ -1,5 +1,5 @@
 from typing import Optional
-from mcp_server.server import mcp
+from mcp_server_user.server import mcp
 from repositories.cart_repository import cart_repository
 
 

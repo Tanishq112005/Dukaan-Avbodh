@@ -13,20 +13,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-from mcp_server.server import mcp
-
-import mcp_server.product
-import mcp_server.order
-import mcp_server.user
-
-# Naye imports add karo:
-import mcp_server.pricing
-
-# Track 1+2 unification ke naye tools:
-import mcp_server.cart
-import mcp_server.recommendation
-import mcp_server.search
+from mcp_server_merchant.server import mcp
+from mcp_server_merchant import campagin
+from mcp_server_merchant import analytics   
 
 if __name__ == "__main__":
-    print("[READY] Starting MCP Server on http://127.0.0.1:8001 (SSE)")
-    mcp.run(transport="sse", port=8001)
+    print("[READY] Starting MCP Server on http://127.0.0.1:8002 (SSE)")
+    mcp.run(transport="sse", port=8002)

@@ -1,6 +1,6 @@
 # mcp/user.py
 from typing import Optional
-from mcp_server.server import mcp
+from mcp_server_user.server import mcp
 from repositories import UserRepository
 
 user_repo = UserRepository()

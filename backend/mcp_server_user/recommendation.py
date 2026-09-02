@@ -1,5 +1,5 @@
 # mcp_server/recommendation.py
-from mcp_server.server import mcp
+from mcp_server_user.server import mcp
 from services.upsell_service import upsell_service
 from services.behavior_scorer import behavior_scorer
 from repositories.cart_repository import cart_repository

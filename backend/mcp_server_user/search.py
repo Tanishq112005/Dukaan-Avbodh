@@ -1,6 +1,6 @@
 from typing import Optional
 import asyncio
-from mcp_server.server import mcp
+from mcp_server_user.server import mcp
 from config.embeddingModel import embeddingModel
 from config.vectorDatabase import vectorDB
 from services.behavior_scorer import behavior_scorer

@@ -1,5 +1,5 @@
 from typing import List, Optional
-from mcp_server.server import mcp
+from mcp_server_user.server import mcp
 from repositories import OrderRepository, UserRepository, ProductRepository, DiscountPolicyRepository
 from models import Order
 from config.database import db_connection

@@ -1,5 +1,5 @@
 from fastmcp import FastMCP
-mcp = FastMCP("Merchant MCP Server") 
+mcp = FastMCP("Merchant MCP Merchant Server") 
 
 
 
