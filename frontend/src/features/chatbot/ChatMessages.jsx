@@ -45,7 +45,7 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
   );
 });
 
-export function ChatMessages({ aiMessages, isAiTyping, comboOffer, messagesEndRef, renderMessage, onPayClick, isFullScreen }) {
+export function ChatMessages({ aiMessages, isAiTyping, comboOffer, chatContainerRef, renderMessage, onPayClick, isFullScreen }) {
   // Memoize the rendered list so it only recomputes when aiMessages actually changes
   const renderedMessages = useMemo(() => (
     aiMessages.map((msg, idx) => (
@@ -59,7 +59,7 @@ export function ChatMessages({ aiMessages, isAiTyping, comboOffer, messagesEndRe
   ), [aiMessages, renderMessage, onPayClick]);
 
   return (
-    <div className={cn("flex-1 overflow-y-auto custom-scrollbar space-y-6 bg-[#FBF8F3]", isFullScreen ? "px-8 md:px-16 py-8" : "p-4")}>
+    <div ref={chatContainerRef} className={cn("flex-1 overflow-y-auto custom-scrollbar space-y-6 bg-[#FBF8F3]", isFullScreen ? "px-8 md:px-16 py-8" : "p-4")}>
       {aiMessages.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full text-stone-400 space-y-3">
           <div className="bg-white p-4 rounded-full shadow-sm border border-stone-100">
@@ -84,7 +84,6 @@ export function ChatMessages({ aiMessages, isAiTyping, comboOffer, messagesEndRe
         </div>
       )}
       <ComboBanner comboOffer={comboOffer} />
-      <div ref={messagesEndRef} />
     </div>
   );
 }

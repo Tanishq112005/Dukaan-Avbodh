@@ -14,7 +14,6 @@ export function AgentWidget() {
   const [input, setInput] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
   const { aiMessages, aiMessagesLastUpdated, isAiTyping, sendAiMessage, isAiConnected, comboOffer, connectAgent, disconnectAgent, isAgentOpen, setIsAgentOpen, openPaymentLink, pollPaymentStatus, startNewChat , threadId} = useStore();
-  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     connectAgent();
@@ -26,8 +25,15 @@ export function AgentWidget() {
     return () => disconnectAgent();
   }, []);
 
+  const chatContainerRef = useRef(null);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   }, [aiMessages, isAgentOpen, isAiTyping]);
 
   useEffect(() => {
@@ -70,7 +76,7 @@ export function AgentWidget() {
         )}>
           <ChatHeader isAiConnected={isAiConnected} setIsAgentOpen={(v) => { setIsAgentOpen(v); setIsFullScreen(false); }} isFullScreen={isFullScreen} setIsFullScreen={setIsFullScreen} startNewChat={startNewChat} />
           <div className={cn("flex-1 overflow-hidden flex flex-col", isFullScreen ? "max-w-4xl mx-auto w-full" : "")}>
-            <ChatMessages aiMessages={aiMessages} isAiTyping={isAiTyping} comboOffer={comboOffer} messagesEndRef={messagesEndRef} renderMessage={renderMessage} onPayClick={openPaymentLink} isFullScreen={isFullScreen} />
+            <ChatMessages aiMessages={aiMessages} isAiTyping={isAiTyping} comboOffer={comboOffer} chatContainerRef={chatContainerRef} renderMessage={renderMessage} onPayClick={openPaymentLink} isFullScreen={isFullScreen} />
           </div>
           <div className={cn(isFullScreen ? "bg-[#FBF8F3]" : "")}>
             <ChatInput input={input} setInput={setInput} handleSend={handleSend} isAiConnected={isAiConnected} isFullScreen={isFullScreen} />

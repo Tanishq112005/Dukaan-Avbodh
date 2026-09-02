@@ -11,8 +11,15 @@ export function MerchantAgentTab() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
 
+  const chatContainerRef = useRef(null);
+
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   };
 
   useEffect(() => {
@@ -54,7 +61,7 @@ export function MerchantAgentTab() {
   return (
     <div className="flex flex-col h-[70vh] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-[#FBF8F3]">
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-[#FBF8F3]">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-stone-400 space-y-3">
             <div className="bg-white p-4 rounded-full shadow-sm border border-stone-100">
