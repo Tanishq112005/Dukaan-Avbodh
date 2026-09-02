@@ -11,7 +11,7 @@ import { SignupPage } from "./features/auth/SignupPage";
 import { MerchantDashboard } from "./features/merchant/MerchantDashboard";
 import { OrderConfirmedPage } from "./features/cart/OrderConfirmedPage";
 import { useStore } from "./store/useStore.js";
-import { Analytics } from "@vercel/analytics/next"
+import { Analytics } from "@vercel/analytics/react"
 function AppContent() {
   const token = useStore((state) => state.token);
 
