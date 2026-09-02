@@ -19,7 +19,7 @@ if sys.platform == "win32":
 from mcp_server_merchant.server import mcp
 from mcp_server_merchant import campagin
 from mcp_server_merchant import analytics   
-
+from mcp_server_merchant import product
 if __name__ == "__main__":
     print("[READY] Starting MCP Server on http://127.0.0.1:8002 (SSE)")
     mcp.run(transport="sse", port=8002)
