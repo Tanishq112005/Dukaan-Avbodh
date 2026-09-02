@@ -7,10 +7,11 @@ import { AuditLogsTab } from "./AuditLogsTab";
 import { OrdersTab } from "./OrdersTab";
 import { ChatTranscriptsTab } from "./ChatTranscriptsTab";
 import { useMerchantData } from "./useMerchantData";
+import { MerchantAgentTab } from "./MerchantAgentTab";
 
 export function MerchantDashboard() {
   const { token, user } = useStore();
-  const [activeTab, setActiveTab] = useState("audit");
+  const [activeTab, setActiveTab] = useState("agent");
   const { logs, orders, threads, loading, error } = useMerchantData();
 
   if (!token) {
@@ -38,6 +39,14 @@ export function MerchantDashboard() {
       {/* Tab Content */}
       <div className="mt-8">
         
+        {/* AGENT TAB */}
+        {activeTab === "agent" && (
+          <div>
+            <h2 className="text-2xl font-bold mb-6">Merchant AI Co-Pilot</h2>
+            <MerchantAgentTab />
+          </div>
+        )}
+
         {/* ANALYTICS TAB */}
         {activeTab === "analytics" && (
           <div>
