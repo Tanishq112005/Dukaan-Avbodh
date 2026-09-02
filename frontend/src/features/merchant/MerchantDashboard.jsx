@@ -5,12 +5,13 @@ import { MerchantAnalytics } from "./MerchantAnalytics";
 import { MerchantTabs } from "./MerchantTabs";
 import { AuditLogsTab } from "./AuditLogsTab";
 import { OrdersTab } from "./OrdersTab";
+import { ChatTranscriptsTab } from "./ChatTranscriptsTab";
 import { useMerchantData } from "./useMerchantData";
 
 export function MerchantDashboard() {
   const { token, user } = useStore();
   const [activeTab, setActiveTab] = useState("audit");
-  const { logs, orders, loading, error } = useMerchantData();
+  const { logs, orders, threads, loading, error } = useMerchantData();
 
   if (!token) {
     return <div className="p-16 text-center text-red-500 font-bold">Please login first!</div>;
@@ -44,6 +45,9 @@ export function MerchantDashboard() {
             <MerchantAnalytics />
           </div>
         )}
+
+        {/* CHATS TAB */}
+        {activeTab === "chats" && <ChatTranscriptsTab threads={threads} loading={loading} />}
 
         {/* ADD PRODUCT TAB */}
         {activeTab === "add_product" && (

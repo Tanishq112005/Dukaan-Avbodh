@@ -63,14 +63,18 @@ export function AgentWidget() {
     <div className={cn("fixed z-50 flex flex-col", isFullScreen ? "inset-0 items-stretch bg-[#FBF8F3]" : "bottom-6 right-6 items-end")}>
       {isAgentOpen && (
         <div className={cn(
-          "bg-white flex flex-col transition-all duration-300 overflow-hidden",
+          "flex flex-col transition-all duration-300 overflow-hidden",
           isFullScreen
-            ? "flex-1 w-full h-full border-0 rounded-none shadow-none"
-            : "mb-4 w-[92vw] sm:w-[420px] border border-stone-200/80 rounded-[28px] shadow-[0_24px_80px_-24px_rgba(20,16,12,0.45)] h-[72vh]"
+            ? "flex-1 w-full h-full bg-[#FBF8F3]"
+            : "bg-white mb-4 w-[92vw] sm:w-[420px] border border-stone-200/80 rounded-[28px] shadow-[0_24px_80px_-24px_rgba(20,16,12,0.45)] h-[72vh]"
         )}>
           <ChatHeader isAiConnected={isAiConnected} setIsAgentOpen={(v) => { setIsAgentOpen(v); setIsFullScreen(false); }} isFullScreen={isFullScreen} setIsFullScreen={setIsFullScreen} startNewChat={startNewChat} />
-          <ChatMessages aiMessages={aiMessages} isAiTyping={isAiTyping} comboOffer={comboOffer} messagesEndRef={messagesEndRef} renderMessage={renderMessage} onPayClick={openPaymentLink} />
-          <ChatInput input={input} setInput={setInput} handleSend={handleSend} isAiConnected={isAiConnected} />
+          <div className={cn("flex-1 overflow-hidden flex flex-col", isFullScreen ? "max-w-4xl mx-auto w-full" : "")}>
+            <ChatMessages aiMessages={aiMessages} isAiTyping={isAiTyping} comboOffer={comboOffer} messagesEndRef={messagesEndRef} renderMessage={renderMessage} onPayClick={openPaymentLink} isFullScreen={isFullScreen} />
+          </div>
+          <div className={cn(isFullScreen ? "bg-[#FBF8F3]" : "")}>
+            <ChatInput input={input} setInput={setInput} handleSend={handleSend} isAiConnected={isAiConnected} isFullScreen={isFullScreen} />
+          </div>
         </div>
       )}
       {!isFullScreen && (

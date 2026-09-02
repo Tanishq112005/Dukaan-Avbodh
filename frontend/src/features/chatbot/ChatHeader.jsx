@@ -6,8 +6,9 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 export function ChatHeader({ isAiConnected, setIsAgentOpen, isFullScreen, setIsFullScreen, startNewChat }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3.5 bg-stone-900 text-white">
-      <div className="flex items-center gap-2.5">
+    <div className="bg-stone-900 text-white">
+      <div className={cn("flex items-center justify-between px-4 py-3.5", isFullScreen ? "max-w-4xl mx-auto w-full" : "")}>
+        <div className="flex items-center gap-2.5">
         <div className="bg-[#C45C26] p-1.5 rounded-full"><Bot size={18} className="text-white" /></div>
         <div>
           <h3 className="font-semibold text-sm tracking-tight">Dukkan Stylist</h3>
@@ -29,6 +30,7 @@ export function ChatHeader({ isAiConnected, setIsAgentOpen, isFullScreen, setIsF
         <button onClick={() => setIsAgentOpen(false)} className="text-stone-400 hover:text-white hover:bg-white/10 p-1.5 rounded-md transition-colors">
           <X size={18} />
         </button>
+      </div>
       </div>
     </div>
   );
