@@ -1,7 +1,7 @@
 import os
 from langgraph.graph import StateGraph, END
-from agents.agentState import AgentState
-from agents.agent_nodes import create_agent_node, create_tools_node
+from agents.merchant.agent_state import AgentState
+from agents.merchant.agent_node import create_agent_node, create_tools_node
 from langgraph.checkpoint.mongodb import MongoDBSaver
 from pymongo import MongoClient
 

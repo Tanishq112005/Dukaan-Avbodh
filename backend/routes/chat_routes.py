@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
 from langchain_core.messages import HumanMessage
-from agents import agent_service
+from agents.user import agent_service
 from config.database import db_connection
 from models.user import User, UserRole
 from sqlmodel import select

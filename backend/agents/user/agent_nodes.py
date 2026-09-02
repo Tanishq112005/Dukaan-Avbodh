@@ -1,8 +1,8 @@
 import json
 import re
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
-from agents.agentState import AgentState
-from agents.agent_prompts import get_system_prompt, get_system_reminder
+from agents.user.agentState import AgentState
+from agents.user.agent_prompts import get_system_prompt, get_system_reminder
 from repositories.cart_repository import cart_repository
 
 def _extract_text(res) -> str:

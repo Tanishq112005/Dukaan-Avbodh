@@ -85,3 +85,40 @@ async def get_all_orders(
             })
             
         return {"orders": order_list}
+
+from pydantic import BaseModel
+from langchain_core.messages import HumanMessage
+from agents.merchant import agent_service as merchant_agent_service
+
+class MerchantChatRequest(BaseModel):
+    text: str
+    thread_id: str = None
+
+@router.post("/chat")
+async def chat_with_merchant_agent(
+    req: MerchantChatRequest,
+    current_user: dict = Depends(require_role(UserRole.MERCHANT))
+):
+    try:
+        agent = merchant_agent_service.get_merchant_agent()
+        thread_id = req.thread_id or f"merchant_{current_user.id}"
+        config = {"configurable": {"thread_id": thread_id}}
+        
+        initial_state = {
+            "messages": [HumanMessage(content=req.text)],
+            "user_id": current_user.id,
+            "thread_id": thread_id
+        }
+        
+        result = await agent.ainvoke(initial_state, config=config)
+        ai_reply = result.get("final_response", "Sorry, system error.")
+        
+        return {
+            "type": "merchant_chat_reply",
+            "message": ai_reply
+        }
+    except Exception as e:
+        print(f"[ERROR] Merchant Chat agent failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"type": "merchant_chat_reply", "message": "Sorry, something went wrong with the merchant assistant."}

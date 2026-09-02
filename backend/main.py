@@ -17,7 +17,7 @@ from config.chatModel import chatModel
 from fastapi.middleware.cors import CORSMiddleware
 from config.embeddingModel import embeddingModel
 from config.vectorDatabase import vectorDB
-from agents import agent_service
+from agents.user import agent_service
 app = FastAPI(title="Sauda API")
 
 app.add_middleware(
@@ -69,12 +69,16 @@ async def startup():
     
     
     
-    # MCP server (mcp_server/main.py) ek ALAG process ke roop mein pehle se chal
-    # raha hona chahiye (python -m mcp_server.main), tabhi yeh connect ho payega.
-    print("[MCP] MCP server se tools load ho rahe hain (agent ban raha hai)...")
+    # MCP server (mcp/main.py) ek ALAG process ke roop mein pehle se chal
+    # raha hona chahiye.
+    print("[MCP] MCP user server se tools load ho rahe hain (user agent ban raha hai)...")
     await agent_service.init_agent()
-    print("[OK] Agent ready hai, saare tools connected hain.")
+    print("[OK] User Agent ready hai, saare tools connected hain.")
     
+    from agents.merchant import agent_service as merchant_agent_service
+    print("[MCP] MCP merchant server se tools load ho rahe hain (merchant agent ban raha hai)...")
+    await merchant_agent_service.init_merchant_agent()
+    print("[OK] Merchant Agent ready hai.")
     
     print("Abh MongoDb se connect ho raha hai ...")
 
