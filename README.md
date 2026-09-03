@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/Dukaan-Avbodh-orange?style=for-the-badge&logo=shopify&logoColor=white" alt="Dukaan Avbodh" />
+  <img src="frontend/src/assets/logo.png" alt="Dukaan — Your E-Commerce AI Agent" width="400" />
 </p>
 
-<h1 align="center">🛍️ Dukaan — AI-Powered E-Commerce Platform</h1>
+<h1 align="center">Dukaan — AI-Powered E-Commerce Platform</h1>
 
 <p align="center">
   <strong>An intelligent fashion e-commerce platform where AI agents handle product discovery, price negotiation, upselling, and checkout — all through natural conversation.</strong>
