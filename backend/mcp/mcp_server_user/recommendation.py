@@ -57,8 +57,8 @@ async def recommend_products(user_id: int, thread_id: str = "") -> dict:
         metadata={
             "kind": "combo_kit",
             "is_order": False,
-            "combo_offer": combo,
-            "applied_campaigns": combo.get("applied_campaigns", []),
+            "combo_offer": combo_offer,
+            "applied_campaigns": combo_offer.get("applied_campaigns", []),
         },
     )
 
