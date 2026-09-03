@@ -83,7 +83,7 @@ export const createChatSlice = (set, get) => ({
 
   pollPaymentStatus: async () => {
     const pending = get().pendingPayment;
-    if (pending?.notified) return;
+    if (!pending || pending?.notified) return;
     const userId = get().user?.id || get().guestId;
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/payment/status/${userId}`);
