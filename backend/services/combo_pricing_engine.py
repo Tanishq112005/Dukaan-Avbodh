@@ -39,6 +39,7 @@ class ComboPricingEngine:
                 "total_combo_price": 0.0,
                 "final_price": 0.0,
                 "effective_discount_percent": 0.0,
+                "extra_discount_percent": 0.0,
                 "discount_amount": 0.0,
                 "campaign_savings": 0.0,
                 "total_items": 0,
@@ -63,11 +64,17 @@ class ComboPricingEngine:
                 seen.add(cid)
                 campaigns.append(campaign)
 
+        extra_discount_percent = round(max(0.0, float(discount_percent or 0.0)), 2)
+        campaign_discount_percent = ((subtotal_base - total_combo_price) / subtotal_base * 100) if subtotal_base > 0 else 0.0
+        overall_discount_percent = ((subtotal_base - final_price) / subtotal_base * 100) if subtotal_base > 0 else 0.0
+
         return {
             "subtotal": round(subtotal_base, 2),
             "total_combo_price": round(total_combo_price, 2),
             "final_price": final_price,
-            "effective_discount_percent": discount_percent,
+            "extra_discount_percent": extra_discount_percent,
+            "effective_discount_percent": round(overall_discount_percent, 2),
+            "campaign_discount_percent": round(campaign_discount_percent, 2),
             "discount_amount": discount_amount,
             "campaign_savings": campaign_savings,
             "total_items": sum(int(p.get("quantity", 1)) for p in priced_items),

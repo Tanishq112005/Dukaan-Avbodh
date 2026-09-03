@@ -1,5 +1,5 @@
 from sqlmodel import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload
 from config.database import db_connection
 from models import Order, Product
 from datetime import datetime
@@ -9,7 +9,7 @@ class AnalyticsService:
     @staticmethod
     async def get_dashboard_metrics():
         async with db_connection.get_session() as session:
-            statement = select(Order).options(selectinload(Order.product)).where(Order.status == "confirmed")
+            statement = select(Order).options(joinedload(Order.product)).where(Order.status == "confirmed")
             results = await session.execute(statement)
             orders = results.scalars().all()
 
@@ -19,7 +19,7 @@ class AnalyticsService:
             total_original_revenue = 0.0
             
             category_data = defaultdict(lambda: {"revenue": 0.0, "profit": 0.0, "count": 0})
-            trend_data = defaultdict(lambda: {"revenue": 0.0, "profit": 0.0, "discount_given": 0.0})
+            trend_data = defaultdict(lambda: {"revenue": 0.0, "profit": 0.0, "discount_given": 0.0, "order_count": 0})
 
             for order in orders:
                 if not order.product:
@@ -50,6 +50,7 @@ class AnalyticsService:
                 trend_data[date_str]["revenue"] += final_price
                 trend_data[date_str]["profit"] += profit
                 trend_data[date_str]["discount_given"] += discount_amount
+                trend_data[date_str]["order_count"] += 1
                 
             total_profit = total_revenue - total_cost
             avg_profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
@@ -72,7 +73,8 @@ class AnalyticsService:
                     "date": date_str,
                     "revenue": round(data["revenue"], 2),
                     "profit": round(data["profit"], 2),
-                    "discount_given": round(data["discount_given"], 2)
+                    "discount_given": round(data["discount_given"], 2),
+                    "orders": data["order_count"]
                 })
                 
             return {

@@ -12,4 +12,4 @@ class AgentState(TypedDict):
     final_response: str
     pending_payment_link: Optional[str]
     pending_payment_link_id: Optional[str]
-    thread_id : int 
+    thread_id : str

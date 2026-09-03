@@ -1,21 +1,19 @@
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from .interfaces import IChatModels
 
-class Groq(IChatModels):
+class Google(IChatModels):
     
     api_key : str 
-    model : ChatGroq
+    model : ChatGoogleGenerativeAI
     
     def setModel(self , uri: str):
         try:
             self.api_key = uri
             print("Initalizing the model")
-            self.model = ChatGroq(
+            self.model = ChatGoogleGenerativeAI(
                 api_key=self.api_key, 
-                model="groq/compound", 
-                temperature=0, 
-                timeout=None, 
-                max_retries=2
+                model="gemini-3.8-flash", 
+                thinking_level='medium'      
             )
             
             print("Initilization is completed") 

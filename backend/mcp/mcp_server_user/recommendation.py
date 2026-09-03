@@ -55,9 +55,10 @@ async def recommend_products(user_id: int, thread_id: str = "") -> dict:
         user_id=user_id,
         thread_id=str(thread_id) if thread_id else None,
         metadata={
-            "suggested_ids": [p.get("id") for p in suggested],
-            "combo_offer": combo_offer,
-            "applied_campaigns": combo_offer.get("applied_campaigns", []),
+            "kind": "combo_kit",
+            "is_order": False,
+            "combo_offer": combo,
+            "applied_campaigns": combo.get("applied_campaigns", []),
         },
     )
 

@@ -2,6 +2,9 @@
 from langchain_groq import ChatGroq
 from .groq import Groq
 from .openrouter import OpenRouter
+from .google import Google
+from .nvidia import Nvidia
+
 
 class ChatModelFactory:
     
@@ -25,6 +28,18 @@ class ChatModelFactory:
             
             return model.getModel() 
         
+        elif model_type == "google": 
+           
+            model =  Google() 
+            model.setModel(uri=access_key)
+            
+            return model.getModel() 
+        
+        elif model_type == "nvidia":
+            model =  Nvidia() 
+            model.setModel(uri=access_key)
+            
+            return model.getModel() 
              
             
         

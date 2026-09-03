@@ -75,20 +75,42 @@ class Product(SQLModel, table=True):
         back_populates="products", link_model=CampaignProductLink
     )
 
-# 4. Trigger: Fetch campaign type and decrease score dynamically
-@event.listens_for(CampaignProductLink, "after_delete")
-def reduce_product_importance(mapper, connection, target: CampaignProductLink):
-    # Get the campaign type to determine how much score to subtract
-    campaign_stmt = select(Campaign.type).where(Campaign.id == target.campaign_id)
-    campaign_type = connection.scalar(campaign_stmt)
+# 4. Trigger: recompute a product's importance_score whenever its campaign links change.
+#
+# Formula: importance_score = current_stock * sum(priority weight of every campaign
+# the product is still linked to). This way the score reflects how much stock is
+# actually riding on active campaigns, not just how many campaigns touched it.
+# Stock-driven recompute (order placed -> stock drops -> score drops) lives in
+# ProductRepository.update_stock, which calls the same helper below.
+def recompute_product_importance(connection, product_id: Optional[int]) -> None:
+    if product_id is None:
+        return
 
-    score_to_subtract = CAMPAIGN_WEIGHTS.get(campaign_type, 1)
+    stock = connection.scalar(select(Product.stock).where(Product.id == product_id))
+    if stock is None:
+        return
 
-    # Deduct the corresponding score from the product
+    linked_types = connection.execute(
+        select(Campaign.type)
+        .select_from(CampaignProductLink)
+        .join(Campaign, Campaign.id == CampaignProductLink.campaign_id)
+        .where(CampaignProductLink.product_id == product_id)
+    ).scalars().all()
+
+    total_weight = sum(CAMPAIGN_WEIGHTS.get(t, 1) for t in linked_types)
+
     connection.execute(
         Product.__table__.update()
-        .where(Product.__table__.c.id == target.product_id)
-        .values(
-            importance_score=Product.__table__.c.importance_score - score_to_subtract
-        )
+        .where(Product.__table__.c.id == product_id)
+        .values(importance_score=stock * total_weight)
     )
+
+
+@event.listens_for(CampaignProductLink, "after_insert")
+def _on_campaign_link_added(mapper, connection, target: CampaignProductLink):
+    recompute_product_importance(connection, target.product_id)
+
+
+@event.listens_for(CampaignProductLink, "after_delete")
+def _on_campaign_link_removed(mapper, connection, target: CampaignProductLink):
+    recompute_product_importance(connection, target.product_id)

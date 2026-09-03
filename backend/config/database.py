@@ -45,6 +45,9 @@ class DatabaseConnection:
                 pool_size=5,        
                 max_overflow=10,      
                 pool_pre_ping=True, 
+                pool_recycle=180,   # Neon pooler idle connections ko kuch der baad hi close kar deta hai —
+                                    # is se pehle hi humara pool unhe proactively recycle kar dega, taaki
+                                    # "connection was closed in the middle of operation" errors kam ho
                 connect_args={
                     "ssl": "require",
                     "statement_cache_size": 0,  # Neon pooler (PgBouncer, transaction mode) ke saath

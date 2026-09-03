@@ -10,8 +10,6 @@ import {
   Tooltip as RechartsTooltip,
   Legend,
   ResponsiveContainer,
-  LineChart,
-  Line,
 } from "recharts";
 
 export function MerchantAnalytics() {
@@ -50,7 +48,7 @@ export function MerchantAnalytics() {
   return (
     <div className="space-y-8">
       {/* Top Level Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
           <p className="text-sm font-semibold text-gray-500 uppercase">
             Total Revenue
@@ -74,43 +72,27 @@ export function MerchantAnalytics() {
           </p>
           <p className="text-3xl font-black mt-2">{metrics.total_orders}</p>
         </div>
-        <div className="bg-white p-6 rounded-xl border border-red-200 shadow-sm bg-red-50">
-          <p className="text-sm font-semibold text-red-600 uppercase">
-            Discounts by AI
-          </p>
-          <p className="text-3xl font-black mt-2 text-red-700">
-            ₹{metrics.total_ai_discount_amount}
-          </p>
-        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-8">
-        {/* Revenue Trend Chart */}
+        {/* Orders Per Day Chart */}
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <h3 className="text-lg font-bold mb-4">Revenue & Discount Trend</h3>
+          <h3 className="text-lg font-bold mb-4">Orders Placed Per Day</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={revenue_trend}>
+              <BarChart data={revenue_trend}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="date" />
-                <YAxis />
+                <YAxis allowDecimals={false} />
                 <RechartsTooltip />
                 <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#16a34a"
-                  strokeWidth={3}
-                  name="Revenue (₹)"
+                <Bar
+                  dataKey="orders"
+                  fill="#16a34a"
+                  name="Orders"
+                  radius={[4, 4, 0, 0]}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="discount_given"
-                  stroke="#dc2626"
-                  strokeWidth={2}
-                  name="AI Discount (₹)"
-                />
-              </LineChart>
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>

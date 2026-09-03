@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict
-from sqlmodel import select
+from sqlmodel import select, func
 from sqlalchemy.orm import selectinload
 from config.database import db_connection
 from models import Campaign, Product, CampaignProductLink, CAMPAIGN_WEIGHTS, CampaingType
@@ -66,7 +66,11 @@ class CampaignRepository(BaseRepository[Campaign]):
                     "priority": campaign.priority,
                     "type": campaign.type.value if hasattr(campaign.type, "value") else campaign.type,
                     "total_items_sold": campaign.total_items_sold,
+                    # total_products = distinct products linked; total_stock_units = actual
+                    # unit count currently sitting in the campaign (sum of each product's stock).
+                    # Use total_stock_units when answering "how many items are in this campaign".
                     "total_products": campaign.total_products,
+                    "total_stock_units": sum(p["stock"] for p in products),
                     "products": products,
                 })
             return rows
@@ -88,17 +92,14 @@ class CampaignRepository(BaseRepository[Campaign]):
                 session.add(campaign)
                 await session.flush()
 
-                weight = CAMPAIGN_WEIGHTS.get(type, 1)
-
                 if product_ids:
-                    products = (await session.exec(
-                        select(Product).where(Product.id.in_(product_ids))
-                    )).all()
-
-                    for product in products:
-                        product.importance_score += weight
-                        session.add(product)
-                        session.add(CampaignProductLink(campaign_id=campaign.id, product_id=product.id))
+                    # importance_score for each linked product is recomputed automatically
+                    # (stock * sum of linked campaign weights) by the after_insert trigger
+                    # on CampaignProductLink in models/product.py — no manual increment here.
+                    session.add_all([
+                        CampaignProductLink(campaign_id=campaign.id, product_id=pid)
+                        for pid in product_ids
+                    ])
 
                 await session.commit()
                 await session.refresh(campaign)
@@ -115,6 +116,18 @@ class CampaignRepository(BaseRepository[Campaign]):
             )
             return result.first()
 
+    async def get_campaign_stock_units(self, campaign_id: int) -> int:
+        """Sum of current stock across every product still linked to this campaign —
+        i.e. how many actual items (not distinct products) are riding on the campaign."""
+        async with db_connection.get_session() as session:
+            total = await session.scalar(
+                select(func.coalesce(func.sum(Product.stock), 0))
+                .select_from(CampaignProductLink)
+                .join(Product, Product.id == CampaignProductLink.product_id)
+                .where(CampaignProductLink.campaign_id == campaign_id)
+            )
+            return int(total or 0)
+
     async def update_campaign(
         self, campaign_id: int, agenda: Optional[str] = None, 
         discount_percentage: Optional[float] = None, priority: Optional[int] = None, 
@@ -126,51 +139,49 @@ class CampaignRepository(BaseRepository[Campaign]):
                 campaign = (await session.exec(select(Campaign).where(Campaign.id == campaign_id))).first()
                 if not campaign: return None
 
+                type_changed = type is not None and type != campaign.type
+
                 if agenda is not None: campaign.agenda = agenda
                 if discount_percentage is not None: campaign.discount_percentage = discount_percentage
                 if priority is not None: campaign.priority = priority
 
-                old_weight = CAMPAIGN_WEIGHTS.get(campaign.type, 1)
                 if type is not None: campaign.type = type
-                new_weight = CAMPAIGN_WEIGHTS.get(campaign.type, 1)
+
+                current_links = (await session.exec(
+                    select(CampaignProductLink).where(CampaignProductLink.campaign_id == campaign_id)
+                )).all()
+                current_product_ids = {link.product_id for link in current_links}
 
                 if product_ids is not None:
-                    current_links = (await session.exec(
-                        select(CampaignProductLink).where(CampaignProductLink.campaign_id == campaign_id)
-                    )).all()
-                    current_product_ids = {link.product_id for link in current_links}
                     target_product_ids = set(product_ids)
 
                     removed_ids = current_product_ids - target_product_ids
                     added_ids = target_product_ids - current_product_ids
 
+                    # importance_score for affected products is recomputed automatically
+                    # (stock * sum of linked campaign weights) by the after_insert/after_delete
+                    # triggers on CampaignProductLink in models/product.py.
                     if removed_ids:
                         campaign.total_products -= len(removed_ids)
-                        
-                        removed_products = (await session.exec(
-                            select(Product).where(Product.id.in_(removed_ids))
-                        )).all()
-                        for prod in removed_products:
-                            prod.importance_score = max(0, prod.importance_score - old_weight)
-                            session.add(prod)
                         for link in current_links:
                             if link.product_id in removed_ids:
                                 await session.delete(link)
 
                     if added_ids:
                         campaign.total_products += len(added_ids)
-                        
-                        added_products = (await session.exec(
-                            select(Product).where(Product.id.in_(added_ids))
-                        )).all()
-                        for prod in added_products:
-                            prod.importance_score += new_weight
-                            session.add(prod)
-                            session.add(CampaignProductLink(campaign_id=campaign_id, product_id=prod.id))
-                            
+                        for pid in added_ids:
+                            session.add(CampaignProductLink(campaign_id=campaign_id, product_id=pid))
+
                     campaign.total_products = max(0, campaign.total_products)
 
                 session.add(campaign)
+                await session.flush()
+
+                if type_changed and current_product_ids:
+                    # Links didn't change but the weight per link did — the insert/delete
+                    # triggers won't fire here, so recompute explicitly.
+                    await self.recompute_scores_for_products(session, list(current_product_ids))
+
                 await session.commit()
                 await session.refresh(campaign)
                 return campaign
@@ -179,23 +190,16 @@ class CampaignRepository(BaseRepository[Campaign]):
                 raise e
 
     async def delete_campaign(self, campaign_id: int) -> bool:
-        """Deletes a campaign and subtracts its importance score weight from all linked products."""
+        """Deletes a campaign; linked products' importance_score is recomputed automatically
+        (stock * remaining campaign weights) by the after_delete trigger on CampaignProductLink."""
         async with db_connection.get_session() as session:
             try:
                 campaign = (await session.exec(select(Campaign).where(Campaign.id == campaign_id))).first()
                 if not campaign: return False
 
-                weight = CAMPAIGN_WEIGHTS.get(campaign.type, 1)
                 links = (await session.exec(
                     select(CampaignProductLink).where(CampaignProductLink.campaign_id == campaign_id)
                 )).all()
-                
-                product_ids = [link.product_id for link in links]
-                if product_ids:
-                    products = (await session.exec(select(Product).where(Product.id.in_(product_ids)))).all()
-                    for prod in products:
-                        prod.importance_score = max(0, prod.importance_score - weight)
-                        session.add(prod)
 
                 for link in links:
                     await session.delete(link)
@@ -206,6 +210,25 @@ class CampaignRepository(BaseRepository[Campaign]):
             except Exception as e:
                 await session.rollback()
                 raise e
+
+    async def recompute_scores_for_products(self, session, product_ids: List[int]) -> None:
+        """Recomputes importance_score (stock * sum of linked campaign weights) for the given
+        products within an existing session/transaction. Use this after a campaign's `type`
+        (priority) changes without its product links changing, since the insert/delete
+        triggers only fire when a link row is added or removed."""
+        if not product_ids:
+            return
+        products = (await session.exec(select(Product).where(Product.id.in_(product_ids)))).all()
+        for product in products:
+            types = (await session.exec(
+                select(Campaign.type)
+                .select_from(CampaignProductLink)
+                .join(Campaign, Campaign.id == CampaignProductLink.campaign_id)
+                .where(CampaignProductLink.product_id == product.id)
+            )).all()
+            total_weight = sum(CAMPAIGN_WEIGHTS.get(t, 1) for t in types)
+            product.importance_score = product.stock * total_weight
+            session.add(product)
 
     async def record_product_sale(self, product_id: int, quantity_sold: int = 1) -> None:
         """Finds all campaigns linked to a sold product and increments their total_items_sold counter."""

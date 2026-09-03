@@ -102,6 +102,20 @@ async def chat_message(req: ChatRequest):
 async def chat_event(req: EventRequest):
     config = {"configurable": {"thread_id": req.thread_id or str(req.user_id)}}
     
+    if req.event == "combo_declined":
+        thread_id_val = req.thread_id or str(req.user_id)
+        try:
+            agent = agent_service.get_agent()
+            await agent.aupdate_state(config, {"combo_offer": None})
+        except Exception as e:
+            print(f"[WARNING] combo_declined langgraph update failed: {e}")
+        try:
+            from repositories.chat_audit_repository import chat_audit_repo
+            await chat_audit_repo.update_state_patch(req.user_id, thread_id_val, {"combo_offer": None})
+        except Exception as e:
+            print(f"[WARNING] combo_declined audit update failed: {e}")
+        return {"type": "combo_cleared", "combo_offer": None}
+
     if req.event == "payment_completed":
         hidden_msg = HumanMessage(content="[SYSTEM EVENT: payment] The customer says they finished paying. Call check_payment_status immediately and tell them the result.")
         try:

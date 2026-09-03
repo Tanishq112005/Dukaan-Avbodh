@@ -37,6 +37,11 @@ def create_agent_node(fast_llm):
             print(f"[MERCHANT AGENT] Sending text response back to merchant.")
 
         final_text = response.content if not response.tool_calls else ""
+        if isinstance(final_text, list):
+            final_text = "\n".join([str(x) if isinstance(x, str) else x.get("text", "") for x in final_text if isinstance(x, (str, dict))])
+        elif not isinstance(final_text, str):
+            final_text = str(final_text)
+
         if final_text:
             final_text = re.sub(r'<thought>.*?</thought>', '', final_text, flags=re.DOTALL).strip()
 

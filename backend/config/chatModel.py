@@ -8,7 +8,7 @@ class ChatModel:
     def get_chat_model(self):
      
         if self._chat_model is None:
-            api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPEN_ROUTER_KEY")
+            api_key = os.getenv("OPEN_ROUTER_KEYS") or os.getenv("OPEN_ROUTER_KEYS")
             self._chat_model = ChatModelFactory.get_method("openrouter", api_key)
             
         return self._chat_model

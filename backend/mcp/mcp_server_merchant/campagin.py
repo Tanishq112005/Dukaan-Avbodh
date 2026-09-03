@@ -85,12 +85,20 @@ async def create_campaign(input_data: CreateCampaignInput) -> dict:
 
 @mcp.tool()
 async def get_campaign_by_id(input_data: GetCampaignByIdInput) -> dict:
-    """Retrieves a specific campaign by its ID, including total products linked and total items sold."""
+    """Retrieves a specific campaign by its ID, including total items sold and how many actual
+    units (total_stock_units, i.e. current stock summed across every linked product) are in it.
+
+    LLM Instructions:
+    - When the merchant asks "how many items are in this campaign", answer with total_stock_units,
+      NOT total_products — total_products only counts distinct products, not units of stock.
+    """
     campaign = await campaign_repo.get_campaign_by_id(input_data.campaign_id)
     if not campaign:
         return {"status": "error", "message": f"Campaign with ID {input_data.campaign_id} not found."}
-    
-    return {"status": "success", "data": campaign.model_dump()}
+
+    data = campaign.model_dump()
+    data["total_stock_units"] = await campaign_repo.get_campaign_stock_units(input_data.campaign_id)
+    return {"status": "success", "data": data}
 
 
 @mcp.tool()
@@ -153,21 +161,27 @@ async def record_product_sale(input_data: RecordProductSaleInput) -> dict:
 
 @mcp.tool()
 async def get_campaign_sales_summary(input_data: GetAllCampaignsInput) -> dict:
-    """Provides a breakdown of each campaign's active items (total_products) vs sales performance (total_items_sold)."""
+    """Provides a breakdown of each campaign's distinct linked products (total_products_linked),
+    the actual unit count currently in it (total_stock_units), and sales performance (total_items_sold).
+
+    LLM Instructions:
+    - Report total_stock_units, not total_products_linked, when the merchant asks how many
+      items/pieces are in a campaign — total_products_linked only counts distinct products.
+    """
     campaigns = await campaign_repo.get_all_campaigns(skip=input_data.skip, limit=input_data.limit)
-    
-    summary = [
-        {
+
+    summary = []
+    for c in campaigns:
+        summary.append({
             "campaign_id": c.id,
             "agenda": c.agenda,
             "type": c.type,
             "discount_percentage": c.discount_percentage,
             "total_products_linked": c.total_products,
+            "total_stock_units": await campaign_repo.get_campaign_stock_units(c.id),
             "total_items_sold": c.total_items_sold,
-        }
-        for c in campaigns
-    ]
-    
+        })
+
     return {
         "status": "success",
         "campaign_count": len(summary),

@@ -19,7 +19,16 @@ from config.embeddingModel import embeddingModel
 from config.vectorDatabase import vectorDB
 from agents.user import agent_service
 app = FastAPI(title="Sauda API")
+import warnings
+warnings.filterwarnings("ignore", message="Key 'additionalProperties' is not supported")
+import logging
+class SchemaWarningFilter(logging.Filter):
+    def filter(self, record):
+        return "Key 'additionalProperties' is not supported in schema" not in record.getMessage()
 
+logging.getLogger().addFilter(SchemaWarningFilter())
+logging.getLogger("langchain_google_genai").addFilter(SchemaWarningFilter())
+logging.getLogger("google.generativeai").addFilter(SchemaWarningFilter())
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],

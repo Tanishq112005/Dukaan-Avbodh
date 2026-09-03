@@ -33,9 +33,13 @@ def create_agent_node(fast_llm):
         cart_items = await cart_repository.get_cart_items(state.get("user_id", 0))
         cart_desc = ", ".join([f"{item['name']} (x{item.get('quantity', 1)})" for item in cart_items]) if cart_items else "Empty"
 
+        combo = state.get("combo_offer") or {}
+        campaign_discount = combo.get("campaign_discount_percent", 0.0)
+
         sys_msg = SystemMessage(content=get_system_prompt(
             user_id=state.get("user_id", 0),
             current_discount=state.get("current_discount_percent", 0.0),
+            campaign_discount=campaign_discount,
             cart_desc=cart_desc
         ))
 
@@ -49,12 +53,20 @@ def create_agent_node(fast_llm):
             print(f"[AGENT] Sending text response back to user.")
 
         final_text = response.content if not response.tool_calls else ""
+        if isinstance(final_text, list):
+            final_text = "\n".join([str(x) if isinstance(x, str) else x.get("text", "") for x in final_text if isinstance(x, (str, dict))])
+        elif not isinstance(final_text, str):
+            final_text = str(final_text)
+
         if final_text:
             final_text = re.sub(r'<thought>.*?</thought>', '', final_text, flags=re.DOTALL).strip()
 
         updates = {"messages": [response], "final_response": final_text}
+        # New customer turn: drop the previous kit so a decline / "just my cart"
+        # cannot leave a stale combo in LangGraph (and then the chat UI).
         if messages and isinstance(messages[-1], HumanMessage):
             updates["suggested_products"] = []
+            updates["combo_offer"] = None
         return updates
     return agent_node
 
@@ -66,11 +78,6 @@ def create_tools_node(tools_dict):
         for tool_call in last_message.tool_calls:
             tool_name = tool_call["name"]
             tool_args = dict(tool_call["args"])
-            tool_args["user_id"] = tool_args.get("user_id", state.get("user_id", 0))
-            if tool_name in ["negotiate_discount", "create_order", "check_payment_status", "calculate_combo_offer", "recommend_products"]:
-                tool_args["thread_id"] = state.get("thread_id", str(state.get("user_id", 0)))
-
-            print(f"[TOOL START] Executing '{tool_name}' with args: {tool_args}")
 
             tool = tools_dict.get(tool_name)
             if tool is None:
@@ -78,7 +85,22 @@ def create_tools_node(tools_dict):
                 tool_messages.append(ToolMessage(content='{"error": "Unknown tool"}', tool_call_id=tool_call["id"]))
                 continue
 
-            if tool_name == "negotiate_discount" and "current_discount_percent" not in tool_args:
+            # Only auto-inject params the tool's own schema actually accepts,
+            # so tools that don't declare user_id/thread_id/etc. (e.g.
+            # get_products_by_type) don't get rejected with an
+            # "unexpected keyword argument" validation error.
+            accepted_params = getattr(tool, "args", {}) or {}
+
+            if "user_id" in accepted_params:
+                tool_args["user_id"] = tool_args.get("user_id", state.get("user_id", 0))
+
+            if tool_name in ["negotiate_discount", "create_order", "check_payment_status", "calculate_combo_offer", "recommend_products"]:
+                if "thread_id" in accepted_params:
+                    tool_args["thread_id"] = state.get("thread_id", str(state.get("user_id", 0)))
+
+            print(f"[TOOL START] Executing '{tool_name}' with args: {tool_args}")
+
+            if tool_name == "negotiate_discount" and "current_discount_percent" not in tool_args and "current_discount_percent" in accepted_params:
                 tool_args["current_discount_percent"] = state.get("current_discount_percent", 0.0)
 
             try:
@@ -105,11 +127,13 @@ def create_tools_node(tools_dict):
                         updates["combo_offer"] = parsed["combo_offer"]
                 elif tool_name == "negotiate_discount":
                     updates["current_discount_percent"] = parsed.get("counter_offer_percent", 0.0)
-                    if "combo_offer" in parsed and parsed["combo_offer"].get("effective_discount_percent", 0) > 0:
-                        updates["combo_offer"] = parsed["combo_offer"]
-                elif tool_name == "calculate_combo_offer" and "combo_offer" in parsed:
-                    updates["combo_offer"] = parsed["combo_offer"]
+                    updates["combo_offer"] = parsed.get("combo_offer")
+                elif tool_name == "calculate_combo_offer":
+                    updates["combo_offer"] = parsed.get("combo_offer")
+                elif tool_name in ["add_to_cart", "remove_from_cart", "update_cart_item_quantity", "clear_cart", "decline_combo_offer"]:
+                    updates["combo_offer"] = None
                 elif tool_name == "create_order":
+                    updates["combo_offer"] = None
                     if parsed.get("payment_link"):
                         updates["pending_payment_link"] = parsed.get("payment_link")
                     if parsed.get("payment_link_id"):

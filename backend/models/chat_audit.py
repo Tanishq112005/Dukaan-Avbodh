@@ -28,6 +28,8 @@ class ThreadState(BaseModel):
     current_discount_percent: float = 0.0
     suggested_products: List[Any] = []
     combo_offer: Optional[Dict[str, Any]] = None
+    kit_products: List[Dict[str, Any]] = []
+    ordered_products: List[Dict[str, Any]] = []
     
     # New fields for merchant dashboard visualization
     negotiation_log: List[NegotiationLog] = []

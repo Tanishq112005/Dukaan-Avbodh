@@ -1,6 +1,7 @@
 from typing import List, Optional
 from mcp_server_user.server import mcp
 from repositories import OrderRepository, UserRepository, ProductRepository, DiscountPolicyRepository
+from repositories.campain_repository import CampaignRepository
 from models import Order
 from config.database import db_connection
 from sqlmodel import select
@@ -13,6 +14,7 @@ order_repo = OrderRepository()
 user_repo = UserRepository()
 product_repo = ProductRepository()
 discount_repo = DiscountPolicyRepository()
+campaign_repo = CampaignRepository()
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
@@ -50,13 +52,19 @@ async def create_order(
     from services.combo_pricing_engine import combo_pricing_engine
     from services.pricing_service import pricing_service
     
-    # 1. Fetch exact priced items with all campaign rules stacked
+    from repositories.cart_repository import cart_repository
+    cart_items = await cart_repository.get_cart_items(user_id)
+    if not cart_items:
+        return {"success": False, "reason": "Cart is empty."}
+        
     db_products = []
-    for pid in product_ids:
-        product = await product_repo.get_by_id(pid)
+    for item in cart_items:
+        product = await product_repo.get_by_id(item["id"])
         if not product or product.stock <= 0:
-            return {"success": False, "reason": f"Product ID {pid} is out of stock or does not exist."}
-        db_products.append(product)
+            return {"success": False, "reason": f"Product {item['name']} is out of stock or does not exist."}
+        # handle multiple quantities if needed, though mostly 1 in dukaan
+        for _ in range(item.get("quantity", 1)):
+            db_products.append(product)
         
     priced_items = await pricing_service.price_cart_items([
         {"id": p.id, "quantity": 1, "product": p, "type": p.type, "price": p.price}
@@ -147,6 +155,44 @@ async def create_order(
         created_order_ids.append(created.id)
         
         await product_repo.update_stock(product.id, product.stock - 1)
+        # Keeps each linked campaign's total_items_sold counter (sales performance) in sync.
+        await campaign_repo.record_product_sale(product.id, 1)
+        
+    from services.audit_logger import audit_logger
+    ordered_meta = [
+        {
+            "id": product.id,
+            "name": product.name,
+            "price": product.price,
+            "image_url": product.image_url,
+        }
+        for product in db_products
+    ]
+    order_group_id = razorpay_order_id or payment_link_id or f"order_{user_id}_{created_order_ids[0] if created_order_ids else 'na'}"
+    await audit_logger.log_action(
+        action="create_order",
+        reason=(
+            f"Placed one checkout for {len(db_products)} item(s). "
+            f"extra_discount={final_discount}%, effective={total_effective_discount_percent}%"
+        ),
+        result=(
+            f"order_ids={created_order_ids} total={final_total_price} "
+            f"list={round(total_price, 2)} status=pending_payment"
+        ),
+        user_id=user_id,
+        thread_id=str(thread_id) if thread_id else None,
+        metadata={
+            "kind": "order",
+            "is_order": True,
+            "order_group_id": order_group_id,
+            "order_ids": created_order_ids,
+            "products": ordered_meta,
+            "discount_applied": total_effective_discount_percent,
+            "extra_discount_percent": final_discount,
+            "final_total_price": final_total_price,
+            "subtotal": round(total_price, 2),
+        },
+    )
         
     try:
         if thread_id:
@@ -155,7 +201,10 @@ async def create_order(
                 "order_placed": True,
                 "razorpay_id": razorpay_order_id,
                 "payment_status": "pending_payment",
-                "user_info": {"name": name, "email": email}
+                "user_info": {"name": name, "email": email},
+                "ordered_products": ordered_meta,
+                "cart_products": ordered_meta,
+                "combo_offer": None,
             })
     except Exception as e:
         print(f"Failed to update chat audit for order: {e}")
