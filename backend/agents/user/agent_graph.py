@@ -4,6 +4,22 @@ from agents.user.agentState import AgentState
 from agents.user.agent_nodes import create_agent_node, create_tools_node
 from langgraph.checkpoint.mongodb import MongoDBSaver
 from pymongo import MongoClient
+import asyncio
+
+# --- Monkey-patch MongoDBSaver for async support ---
+async def _aget_tuple(self, config):
+    return await asyncio.to_thread(self.get_tuple, config)
+
+async def _aput(self, config, checkpoint, metadata, new_versions):
+    return await asyncio.to_thread(self.put, config, checkpoint, metadata, new_versions)
+
+async def _aput_writes(self, config, writes, task_id):
+    return await asyncio.to_thread(self.put_writes, config, writes, task_id)
+
+MongoDBSaver.aget_tuple = _aget_tuple
+MongoDBSaver.aput = _aput
+MongoDBSaver.aput_writes = _aput_writes
+# ----------------------------------------------------
 
 def compile_agent_graph(fast_llm, tools_dict):
     workflow = StateGraph(AgentState)

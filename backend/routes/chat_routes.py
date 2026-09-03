@@ -64,8 +64,7 @@ async def chat_message(req: ChatRequest):
         await chat_audit_repo.get_or_create_thread(req.user_id, thread_id_val)
         await chat_audit_repo.add_message(req.user_id, thread_id_val, ChatMessage(sender="human", message=req.text))
         
-        import asyncio
-        result = await asyncio.to_thread(agent_service.get_agent().invoke, initial_state, config)
+        result = await agent_service.get_agent().ainvoke(initial_state, config=config)
         ai_reply = result.get("final_response", "Sorry, system error.")
         combo_offer = result.get("combo_offer", None)
         suggested_products = result.get("suggested_products", [])
@@ -106,16 +105,11 @@ async def chat_event(req: EventRequest):
     if req.event == "payment_completed":
         hidden_msg = HumanMessage(content="[SYSTEM EVENT: payment] The customer says they finished paying. Call check_payment_status immediately and tell them the result.")
         try:
-            import asyncio
-            result = await asyncio.to_thread(
-                agent_service.get_agent().invoke,
-                {
-                    "messages": [hidden_msg],
-                    "user_id": req.user_id,
-                    "thread_id": req.thread_id or str(req.user_id)
-                },
-                config
-            )
+            result = await agent_service.get_agent().ainvoke({
+                "messages": [hidden_msg],
+                "user_id": req.user_id,
+                "thread_id": req.thread_id or str(req.user_id)
+            }, config=config)
             ai_reply = result.get("final_response")
             updated_cart = await cart_repository.get_cart_items(req.user_id)
             return {
@@ -161,16 +155,11 @@ async def chat_event(req: EventRequest):
             await chat_audit_repo.add_message(req.user_id, thread_id_val, ChatMessage(sender="system", message=f"Event triggered: {req.event}"))
 
             agent = agent_service.get_agent()
-            import asyncio
-            result = await asyncio.to_thread(
-                agent.invoke,
-                {
-                    "messages": [hidden_msg],
-                    "user_id": req.user_id,
-                    "thread_id": req.thread_id or str(req.user_id)
-                },
-                config
-            )
+            result = await agent.ainvoke({
+                "messages": [hidden_msg],
+                "user_id": req.user_id,
+                "thread_id": req.thread_id or str(req.user_id)
+            }, config=config)
             
             ai_reply = result.get("final_response")
             
