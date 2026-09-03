@@ -222,16 +222,16 @@ export function ChatTranscriptsTab({ threads, loading }) {
                         </span>
                       </p>
                       <span
-                        className={`text-xs px-2 py-0.5 rounded font-bold ${log.accepted ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
+                        className={`text-xs px-2 py-0.5 rounded font-bold ${log.accepted ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
                       >
-                        {log.accepted ? "ACCEPTED" : "NOT ACCEPTED"}
+                        {log.accepted ? "AGREED" : "COUNTERED"}
                       </span>
                     </div>
                   </div>
                 ))}
                 {discountApplied > 0 && (
                   <div className="mt-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm font-semibold flex items-center">
-                    🎉 Discount of {discountApplied}% is confirmed!
+                    ✨ Discount of {discountApplied}% is confirmed!
                   </div>
                 )}
               </div>

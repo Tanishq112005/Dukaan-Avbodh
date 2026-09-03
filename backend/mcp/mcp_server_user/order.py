@@ -47,30 +47,42 @@ async def create_order(
             session.add(user)
             await session.commit()
     
-    products = []
-    total_price = 0.0
-    max_discount_allowed_amount = 0.0
+    from services.combo_pricing_engine import combo_pricing_engine
+    from services.pricing_service import pricing_service
     
+    # 1. Fetch exact priced items with all campaign rules stacked
+    db_products = []
     for pid in product_ids:
         product = await product_repo.get_by_id(pid)
         if not product or product.stock <= 0:
             return {"success": False, "reason": f"Product ID {pid} is out of stock or does not exist."}
+        db_products.append(product)
         
-        products.append(product)
-        total_price += product.price
-        
-        policy = await discount_repo.get_for_product(pid)
-        if policy:
-            max_discount_allowed_amount += (product.price * min(policy.max_discount_percent, AGENT_MAX_DISCOUNT_PERCENT) / 100)
-        else:
-            max_discount_allowed_amount += (product.price * AGENT_MAX_DISCOUNT_PERCENT / 100)
+    priced_items = await pricing_service.price_cart_items([
+        {"id": p.id, "quantity": 1, "product": p, "type": p.type, "price": p.price}
+        for p in db_products
+    ])
     
-    max_overall_percent = (max_discount_allowed_amount / total_price) * 100 if total_price > 0 else 0.0
-    max_overall_percent = min(max_overall_percent, AGENT_MAX_DISCOUNT_PERCENT)
+    # 2. Get the actual negotiated discount from the thread state (or fallback to LLM's discount)
+    final_discount = discount
+    if thread_id:
+        from repositories.chat_audit_repository import chat_audit_repo
+        thread = await chat_audit_repo.collection.find_one({"user_id": user_id, "thread_id": thread_id})
+        if thread and "state" in thread:
+            # We trust the state's discount more than the LLM's hallucinated args
+            state_discount = thread["state"].get("current_discount_percent", 0.0)
+            if state_discount > 0:
+                final_discount = state_discount
+
+    # 3. Calculate exact combo price including sequential campaigns + extra discount
+    combo = combo_pricing_engine.calculate_combo_price(priced_items, final_discount)
     
-    final_discount = min(discount, max_overall_percent)
+    final_total_price = combo.get("final_price", 0.0)
+    total_price = combo.get("subtotal", 0.0)
+    # This represents the TOTAL discount percentage (campaigns + extra) off the original list price
+    # which is what Analytics Service and Order DB need.
+    total_effective_discount_percent = combo.get("effective_discount_percent", 0.0)
     
-    final_total_price = round(total_price * (1 - final_discount / 100), 2)
     final_amount_paise = int(final_total_price * 100)
 
     payment_link_url = None
@@ -121,11 +133,11 @@ async def create_order(
             }
 
     created_order_ids = []
-    for product in products:
+    for product in db_products:
         order = Order(
             product_id=product.id,
             user_id=user_id,
-            discount_applied=final_discount,
+            discount_applied=total_effective_discount_percent,
             status="pending_payment",
             razorpay_order_id=razorpay_order_id,
             razorpay_payment_link_id=payment_link_id,
@@ -155,8 +167,7 @@ async def create_order(
         "payment_link_id": payment_link_id,
         "payment_link": payment_link_url or "Payment Link Unavailable (API Error)",
         "requested_discount": discount,
-        "discount_applied": final_discount,
-        "capped": discount > max_overall_percent,
+        "discount_applied": total_effective_discount_percent,
         "total_price_before_discount": round(total_price, 2),
         "final_total_price": final_total_price
     }
