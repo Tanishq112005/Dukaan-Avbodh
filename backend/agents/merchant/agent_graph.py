@@ -21,6 +21,14 @@ MongoDBSaver.aput = _aput
 MongoDBSaver.aput_writes = _aput_writes
 # ----------------------------------------------------
 
+# --- Monkey-patch JsonPlusSerializer for Render compatibility ---
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+if not hasattr(JsonPlusSerializer, "dumps"):
+    JsonPlusSerializer.dumps = JsonPlusSerializer.dumps_typed
+if not hasattr(JsonPlusSerializer, "loads"):
+    JsonPlusSerializer.loads = JsonPlusSerializer.loads_typed
+# ----------------------------------------------------
+
 def compile_agent_graph(fast_llm, tools_dict):
     workflow = StateGraph(AgentState)
     
