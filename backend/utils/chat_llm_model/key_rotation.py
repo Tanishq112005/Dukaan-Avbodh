@@ -1,3 +1,4 @@
+import asyncio
 import itertools
 from threading import Lock
 
@@ -25,6 +26,12 @@ class RotatingChatModel:
     between them on every invoke/ainvoke/stream call. The provider-
     specific construction logic lives in client_builder, so this class
     doesn't need to know anything about OpenRouter vs Nvidia vs Groq.
+
+    On failure (bad key, rate limit, or a transient "Provider returned
+    error" from the upstream model) it retries on the NEXT key/client in
+    the rotation instead of blowing up the whole chat turn -- up to one
+    full pass over all available keys, with a short backoff between
+    attempts. Only raises if every key in the rotation fails.
     """
 
     def __init__(self, api_keys, client_builder, _bound_tools=None, _label="model"):
@@ -60,14 +67,56 @@ class RotatingChatModel:
         )
 
     async def ainvoke(self, *args, **kwargs):
-        return await self._next_client().ainvoke(*args, **kwargs)
+        last_err = None
+        n = len(self._clients)
+        for attempt in range(n):
+            client = self._next_client()
+            try:
+                return await client.ainvoke(*args, **kwargs)
+            except Exception as e:
+                last_err = e
+                print(f"[{self._label}] ainvoke attempt {attempt + 1}/{n} failed: {e}")
+                if attempt < n - 1:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+        raise last_err
 
     def invoke(self, *args, **kwargs):
-        return self._next_client().invoke(*args, **kwargs)
+        last_err = None
+        n = len(self._clients)
+        for attempt in range(n):
+            client = self._next_client()
+            try:
+                return client.invoke(*args, **kwargs)
+            except Exception as e:
+                last_err = e
+                print(f"[{self._label}] invoke attempt {attempt + 1}/{n} failed: {e}")
+        raise last_err
 
     async def astream(self, *args, **kwargs):
-        async for chunk in self._next_client().astream(*args, **kwargs):
-            yield chunk
+        last_err = None
+        n = len(self._clients)
+        for attempt in range(n):
+            client = self._next_client()
+            try:
+                async for chunk in client.astream(*args, **kwargs):
+                    yield chunk
+                return
+            except Exception as e:
+                last_err = e
+                print(f"[{self._label}] astream attempt {attempt + 1}/{n} failed: {e}")
+                if attempt < n - 1:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+        raise last_err
 
     def stream(self, *args, **kwargs):
-        yield from self._next_client().stream(*args, **kwargs)
+        last_err = None
+        n = len(self._clients)
+        for attempt in range(n):
+            client = self._next_client()
+            try:
+                yield from client.stream(*args, **kwargs)
+                return
+            except Exception as e:
+                last_err = e
+                print(f"[{self._label}] stream attempt {attempt + 1}/{n} failed: {e}")
+        raise last_err
