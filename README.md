@@ -803,6 +803,8 @@ npm run dev
 
 ## 🔗 A2A Protocol (Agent-to-Agent)
 
+**🎥 Watch how Dukaan's A2A Protocol works:** [YouTube Video Demo](https://www.youtube.com/watch?v=cWfC2f-2MW0)
+
 Dukaan implements Google's **Agent-to-Agent (A2A) protocol**, enabling external AI buyer agents to interact with the store programmatically:
 
 ### 1. Discover the Agent
