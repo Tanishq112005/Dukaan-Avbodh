@@ -9,6 +9,11 @@
 </p>
 
 <p align="center">
+  <a href="https://dukaan-avbodh.onrender.com/"><strong>🚀 View Live Demo</strong></a><br><br>
+  <em>Demo Merchant Account</em> 👉 <strong>Email:</strong> <code>hello@gmail.com</code> | <strong>Password:</strong> <code>123456</code>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" />
   <img src="https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black" />
   <img src="https://img.shields.io/badge/LangGraph-FF6F00?style=flat-square&logo=langchain&logoColor=white" />
