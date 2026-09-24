@@ -1,11 +1,12 @@
 from mcp_server_user.server import mcp
 from repositories import ProductRepository
 from models.product import ProductType
-
+from langsmith import traceable
 product_repo = ProductRepository()
 
 
 @mcp.resource("catalog://product-types")
+@traceable(run_type="tool" , name="list_product_types") 
 async def list_product_types() -> dict:
     """
     Returns a list of all available product categories in the merchant's catalog.
@@ -20,6 +21,7 @@ async def list_product_types() -> dict:
 
 
 @mcp.tool()
+@traceable(run_type="tool" , name="get_catalog")  
 async def get_catalog() -> dict:
     """
     Retrieves the complete catalog of currently available (in-stock) products.
@@ -42,6 +44,7 @@ async def get_catalog() -> dict:
 
 
 @mcp.tool()
+@traceable(run_type="tool" , name="get_product_by_type")
 async def get_products_by_type(product_type: str) -> dict:
     """
     Retrieves a list of in-stock products for a specific category (e.g., 't-shirt', 'jeans').

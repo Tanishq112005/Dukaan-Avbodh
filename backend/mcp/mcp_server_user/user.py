@@ -2,7 +2,7 @@
 from typing import Optional
 from mcp_server_user.server import mcp
 from repositories import UserRepository
-
+from langsmith import traceable
 user_repo = UserRepository()
 
 
@@ -53,6 +53,7 @@ def _profile_payload(user) -> dict:
 
 
 @mcp.tool()
+@traceable(run_type="tool" , name="register_buyer") 
 async def register_buyer(name: str, buyer_role: str, identifier: str) -> dict:
     """Ek naya buyer (customer ya agent) register karta hai, taaki baad mein order create kar sake."""
     user = await user_repo.get_or_create(name=name, role=buyer_role, identifier=identifier)
@@ -60,6 +61,7 @@ async def register_buyer(name: str, buyer_role: str, identifier: str) -> dict:
 
 
 @mcp.tool()
+@traceable(runt_type="tool" , name="get_user_details") 
 async def get_user_details(user_id: int) -> dict:
     """
     Fetch saved checkout details (name, email, address) for this shopper.
@@ -89,6 +91,7 @@ async def get_user_details(user_id: int) -> dict:
 
 
 @mcp.tool()
+@traceable(runt_type="tool" , name="update_user_details") 
 async def update_user_details(
     user_id: int,
     name: Optional[str] = None,
