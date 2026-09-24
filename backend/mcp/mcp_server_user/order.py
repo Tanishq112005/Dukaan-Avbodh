@@ -9,13 +9,15 @@ from models.user import User
 from services.payment_service import rzp_client, check_user_payment_status
 from utils.pricing_math import AGENT_MAX_DISCOUNT_PERCENT
 import os
-
+from dotenv import load_dotenv
 order_repo = OrderRepository()
 user_repo = UserRepository()
 product_repo = ProductRepository()
 discount_repo = DiscountPolicyRepository()
 campaign_repo = CampaignRepository()
 
+
+load_dotenv()
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 
