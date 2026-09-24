@@ -6,7 +6,6 @@ product_repo = ProductRepository()
 
 
 @mcp.resource("catalog://product-types")
-@traceable(run_type="tool" , name="list_product_types") 
 async def list_product_types() -> dict:
     """
     Returns a list of all available product categories in the merchant's catalog.
