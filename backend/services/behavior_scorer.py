@@ -28,10 +28,17 @@ class BehaviorScorer:
             return weight * recency_factor * self.CURRENT_SESSION_BOOST
         return weight * recency_factor * self.PAST_SESSION_BOOST
 
-    async def get_affinity_maps(self, user_id: int) -> tuple[dict[str, float], dict[int, float]]:
+    async def get_affinity_maps(self, user_id: int, events=None) -> tuple[dict[str, float], dict[int, float]]:
         """Single pass over events: category affinity + per-product event relevance."""
-        user_events = await self.event_repo.get_events_for_user(user_id)
-        global_events = await self.event_repo.get_recent_global_events(limit=200)
+        import asyncio
+        if events is None:
+            user_events, global_events = await asyncio.gather(
+                self.event_repo.get_events_for_user(user_id),
+                self.event_repo.get_recent_global_events(limit=200)
+            )
+        else:
+            user_events = events
+            global_events = await self.event_repo.get_recent_global_events(limit=200)
 
         session_starts = [e.timestamp for e in user_events if e.event_type == EventType.SESSION_START]
         current_session_start = max(session_starts) if session_starts else None
@@ -58,8 +65,8 @@ class BehaviorScorer:
 
         return category_scores, product_scores
 
-    async def get_category_affinity(self, user_id: int) -> dict[str, float]:
-        category_scores, _ = await self.get_affinity_maps(user_id)
+    async def get_category_affinity(self, user_id: int, events=None) -> dict[str, float]:
+        category_scores, _ = await self.get_affinity_maps(user_id, events=events)
         return category_scores
 
     def top_viewed_categories(self, user_events, limit: int = 3) -> list[str]:
@@ -74,7 +81,7 @@ class BehaviorScorer:
         """Category affinity score ko ek estimated purchase probability % mein convert karta hai."""
         return round(min(95.0, max(5.0, category_score * 10)), 2)
 
-    async def get_current_gender_context(self, user_id: int, limit: int = 10) -> str | None:
+    async def get_current_gender_context(self, user_id: int, limit: int = 10, events=None) -> str | None:
         """
         User abhi kis gender section mein browse kar raha hai, yeh detect karta hai
         recent VIEWED events se. Cart khali hone par bhi (jo normal hai jab tak user
@@ -87,7 +94,8 @@ class BehaviorScorer:
         from repositories.product_repository import ProductRepository
         product_repo = ProductRepository()
 
-        events = await self.event_repo.get_events_for_user(user_id)
+        if events is None:
+            events = await self.event_repo.get_events_for_user(user_id)
 
         session_starts = [e.timestamp for e in events if e.event_type == EventType.SESSION_START]
         current_session_start = max(session_starts) if session_starts else None
@@ -101,9 +109,13 @@ class BehaviorScorer:
 
         viewed_sorted = sorted(viewed, key=lambda e: e.timestamp, reverse=True)[:limit]
 
+        product_ids = [e.product_id for e in viewed_sorted]
+        products = await product_repo.get_by_ids(product_ids) if product_ids else []
+        products_by_id = {p.id: p for p in products}
+
         genders = []
         for e in viewed_sorted:
-            p = await product_repo.get_by_id(e.product_id)
+            p = products_by_id.get(e.product_id)
             if p and p.gender and p.gender != "unisex":
                 genders.append(p.gender)
 

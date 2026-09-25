@@ -7,10 +7,10 @@ class EmbeddingModel:
     
     def getModel(self):
         if self._model is None:
-            api_key = os.getenv("HUGGINGFACE_API_KEY")
-            self._model = EmbeddingModelFactory.get_method("hugging_face", {
+            api_key = os.getenv("JINA_API_KEY")
+            self._model = EmbeddingModelFactory.get_method("jina", {
                 "api_key": api_key,
-                "model_name": "sentence-transformers/all-MiniLM-L6-v2"
+                "model_name": "jina-embeddings-v5-omni-nano"
             })
             
         return self._model

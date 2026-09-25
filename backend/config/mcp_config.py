@@ -19,16 +19,14 @@ mcp_merchant_config= {
 
 mcp_user_config = {
     "url": MCP_USER_URL,
-    "transport": "streamable_http",
+    "transport": "sse",
 }
 
 
 
 
 if FASTMCP_TOKEN:
-    mcp_user_config["headers"] = {
-        "Authorization": f"Bearer {FASTMCP_TOKEN}"
-    }
+    
     
     mcp_merchant_config["headers"] = {
         "Authorization": f"Bearer {FASTMCP_TOKEN}"

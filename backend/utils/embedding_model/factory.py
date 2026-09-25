@@ -1,5 +1,6 @@
-from .schemas import HuggingFaceEmbeddingModelConfig , OpenRouterEmbeddingModelCofig
+from .schemas import HuggingFaceEmbeddingModelConfig , OpenRouterEmbeddingModelCofig , JinaEmbeddingModelConfig
 from .huggingFace import HuggingFace
+from .jina import Jina
 from .openrouter import OpenRouter
 
 
@@ -25,4 +26,16 @@ class EmbeddingModelFactory:
             
             return embeddingModel.get_model() 
         
+        elif (model_type == "jina"):
+            validated_data = JinaEmbeddingModelConfig(**config) 
+            embeddingModel = Jina() 
+            
+            api_key = config.get("api_key", getattr(validated_data, "api_key", None))
+            embeddingModel.set_model(model_name=validated_data.model_name, api_key=api_key)
+            
+            return embeddingModel.get_model() 
+        
+        
+            
+            
         

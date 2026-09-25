@@ -13,3 +13,11 @@ class HuggingFaceEmbeddingModelConfig(BaseModel):
         
 class OpenRouterEmbeddingModelCofig(BaseModel):
     api_key : str
+    
+class JinaEmbeddingModelConfig(BaseModel):
+    api_key : str 
+    model_name : str 
+    
+    
+        
+    
