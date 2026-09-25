@@ -103,8 +103,8 @@ async def _execute_vector_search(enhanced_query: str, detected_category: Optiona
     embedder = embeddingModel.getModel()
     
     log("Calling embed_query (in thread to avoid blocking event loop)")
-    query_vector = await asyncio.to_thread(embedder.embed_query, enhanced_query)
-    
+    query_vector_np = await asyncio.to_thread(embedder.encode, enhanced_query)
+    query_vector = query_vector_np.tolist()
     index = vectorDB.get_index("dukaan-products")
     filter_dict = {}
     if detected_category:

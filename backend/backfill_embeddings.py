@@ -66,7 +66,7 @@ def main():
         print("[BACKFILL] No products found in Postgres. Nothing to do.")
         return
 
-    print("[BACKFILL] Loading embedding model...")
+    print("[BACKFILL] Loading embedding model (sentence-transformers/all-MiniLM-L6-v2, local)...")
     embedder = embeddingModel.getModel()
 
     print("[BACKFILL] Connecting to Pinecone index (will create it if missing)...")
@@ -80,7 +80,11 @@ def main():
         texts = [build_product_text(p) for p in batch]
 
         print(f"[BACKFILL] Batch {batch_num}/{total_batches}: embedding {len(batch)} product(s)...")
-        vectors = embedder.embed_documents(texts)
+        # embedder is a raw SentenceTransformer (local model) now, not a LangChain
+        # Embeddings wrapper - it has .encode(), not .embed_documents(). encode()
+        # already accepts a list and batches internally, returning a 2D numpy array.
+        vectors_np = embedder.encode(texts, batch_size=BATCH_SIZE, show_progress_bar=False)
+        vectors = [v.tolist() for v in vectors_np]
 
         upsert_payload = []
         for product, vector in zip(batch, vectors):

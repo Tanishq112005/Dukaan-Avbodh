@@ -35,7 +35,7 @@ class VectorDBClientFactory:
                 print(f"Creating Pinecone index '{index_name}'...")
                 cls._instance.create_index(
                     name=index_name,
-                    dimension=768, # jina-embeddings-v5-omni-nano dimension
+                    dimension=384, # sentence-transformers/all-MiniLM-L6-v2 dimension (local model)
                     metric="cosine",
                     spec=ServerlessSpec(cloud="aws", region="us-east-1")
                 )
