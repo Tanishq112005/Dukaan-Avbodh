@@ -6,7 +6,7 @@ from services.audit_logger import audit_logger
 from services.upsell_service import upsell_service
 from repositories.cart_repository import cart_repository
 from repositories.chat_audit_repository import chat_audit_repo
-
+from langsmith import traceable
 
 @mcp.tool()
 async def calculate_combo_offer(user_id: int, discount_percent: float = 0.0, thread_id: str = "") -> dict:
@@ -54,6 +54,7 @@ async def calculate_combo_offer(user_id: int, discount_percent: float = 0.0, thr
 
 
 @mcp.tool()
+@traceable(run_type="tool" , name="negotiate_discount") 
 async def negotiate_discount(
     user_id: int,
     current_discount_percent: float,

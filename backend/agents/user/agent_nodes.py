@@ -5,6 +5,8 @@ from agents.user.agentState import AgentState
 from agents.user.agent_prompts import get_system_prompt, get_system_reminder
 from repositories.cart_repository import cart_repository
 
+
+
 def _extract_text(res) -> str:
     if isinstance(res, tuple):
         res = res[0]
@@ -19,6 +21,8 @@ def _safe_parse(text: str):
         return json.loads(text)
     except Exception:
         return None
+
+
 
 def create_agent_node(fast_llm):
     async def agent_node(state: AgentState):
