@@ -13,3 +13,4 @@ class AgentState(TypedDict):
     pending_payment_link: Optional[str]
     pending_payment_link_id: Optional[str]
     thread_id : str
+    intent: Optional[str]

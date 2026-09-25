@@ -37,4 +37,4 @@ class ProductAgent:
         response = self.llm.invoke(prompt)
         response.additional_kwargs["intent"] = self.intent
         
-        return {"messages": [response]}
+        return {"messages": [response], "intent": self.intent}
