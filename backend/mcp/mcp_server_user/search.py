@@ -11,7 +11,7 @@ from repositories.cart_repository import cart_repository
 from repositories.user_event_repository import UserEventRepository
 from models.product import ProductType
 from models.user_event import EventType
-
+from langsmith import traceable
 product_repo = ProductRepository()
 event_repo = UserEventRepository()
 
@@ -26,6 +26,7 @@ def _detect_category(query: str) -> Optional[str]:
 
 
 @mcp.tool()
+@traceable(run_type="tool" , name="search_products") 
 async def search_products(user_id: int, query: str, category: str) -> dict:
     """
     Performs a semantic vector search, keeps only strong semantic matches, then boosts
