@@ -1,27 +1,17 @@
 from langchain_core.messages import SystemMessage
 from agents.user.agentState import AgentState
-
-class CartPromptHandler:
-    def __init__(self):
-        self.intent = "cart"
-        self.system_prompt = "You are the Cart Specialist. Help the user manage items in their cart."
-
-    def build_prompt(self, messages):
-        filtered = []
-        total_msgs = len(messages)
-        for i, msg in enumerate(messages):
-            is_recent = (i >= total_msgs - 2)
-            msg_intent = msg.additional_kwargs.get("intent")
-            if is_recent or msg_intent == self.intent:
-                filtered.append(msg)
-                
-        return [SystemMessage(content=self.system_prompt)] + filtered
-
+from utils.prompt_utils import filter_history_by_intent
 
 class CartAgent:
     def __init__(self, llm, tools=None):
         self.intent = "cart"
-        self.prompt_handler = CartPromptHandler()
+        self.system_prompt = """You are the Cart Management Specialist for Dukaan.
+
+1. USE `get_cart`, `add_to_cart`, `remove_from_cart`, and `update_cart_item_quantity` based on user requests.
+2. NEVER say "I added it" unless you actually executed the `add_to_cart` tool successfully.
+3. Ask for missing info (like size) BEFORE adding to cart.
+
+English ONLY. Use ReAct (<thought>...</thought>)."""
         self.tools = tools or []
         
         if self.tools:
@@ -29,9 +19,13 @@ class CartAgent:
         else:
             self.llm = llm
 
+    def _build_prompt(self, messages):
+        filtered_messages = filter_history_by_intent(messages, self.intent, last_recent_count=2, last_intent_count=3)
+        return [SystemMessage(content=self.system_prompt)] + filtered_messages
+
     def run(self, state: AgentState):
         messages = state.get("messages", [])
-        prompt = self.prompt_handler.build_prompt(messages)
+        prompt = self._build_prompt(messages)
         
         response = self.llm.invoke(prompt)
         response.additional_kwargs["intent"] = self.intent

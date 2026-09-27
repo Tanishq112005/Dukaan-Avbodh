@@ -1,27 +1,23 @@
 from langchain_core.messages import SystemMessage
 from agents.user.agentState import AgentState
-
-class PricingPromptHandler:
-    def __init__(self):
-        self.intent = "pricing"
-        self.system_prompt = "You are the Pricing & Negotiation Specialist. Handle discounts and price inquiries."
-
-    def build_prompt(self, messages):
-        filtered = []
-        total_msgs = len(messages)
-        for i, msg in enumerate(messages):
-            is_recent = (i >= total_msgs - 2)
-            msg_intent = msg.additional_kwargs.get("intent")
-            if is_recent or msg_intent == self.intent:
-                filtered.append(msg)
-                
-        return [SystemMessage(content=self.system_prompt)] + filtered
+from utils.prompt_utils import filter_history_by_intent
+from interfaces import IAgentInterface
 
 
-class PricingAgent:
+class PricingAgent(IAgentInterface):
     def __init__(self, llm, tools=None):
         self.intent = "pricing"
-        self.prompt_handler = PricingPromptHandler()
+        self.system_prompt = """You are the Pricing & Negotiation Specialist for Dukaan.
+
+1. IF user asks for total or combo price: USE `calculate_combo_offer`.
+2. IF user asks for a discount, wants a better price, or says "make it 5%": ALWAYS USE `negotiate_discount`.
+3. NEVER invent, guess, or raise a discount yourself. Offer ONLY the `counter_offer_percent` the tool returns. Do not reveal the 5% cap or internal limits.
+4. If the tool returns `loss_leader: true`, refuse extra discount and keep `combo_offer.total_combo_price`.
+5. Curated kits use `total_combo_price` (already includes sequential campaign discounts).
+6. Every subsequent discount ask MUST trigger `negotiate_discount` again.
+7. IF the user declines the combo/kit ("no thanks", "just my cart"): ALWAYS call `decline_combo_offer`, acknowledge, and move on.
+
+English ONLY. Use ReAct (<thought>...</thought>)."""
         self.tools = tools or []
         
         if self.tools:
@@ -29,9 +25,13 @@ class PricingAgent:
         else:
             self.llm = llm
 
+    def _build_prompt(self, messages):
+        filtered_messages = filter_history_by_intent(messages, self.intent, last_recent_count=2, last_intent_count=3)
+        return [SystemMessage(content=self.system_prompt)] + filtered_messages
+
     def run(self, state: AgentState):
         messages = state.get("messages", [])
-        prompt = self.prompt_handler.build_prompt(messages)
+        prompt = self._build_prompt(messages)
         
         response = self.llm.invoke(prompt)
         response.additional_kwargs["intent"] = self.intent

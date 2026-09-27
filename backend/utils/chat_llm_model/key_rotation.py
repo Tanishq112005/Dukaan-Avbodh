@@ -34,12 +34,13 @@ class RotatingChatModel:
     attempts. Only raises if every key in the rotation fails.
     """
 
-    def __init__(self, api_keys, client_builder, _bound_tools=None, _label="model"):
+    def __init__(self, api_keys, client_builder, _bound_tools=None, _bound_structured_output=None, _label="model"):
         if not api_keys:
             raise ValueError("RotatingChatModel needs at least one API key")
         self._api_keys = api_keys
         self._client_builder = client_builder
         self._bound_tools = _bound_tools
+        self._bound_structured_output = _bound_structured_output
         self._label = _label
 
         self._clients = [self._build_client(k) for k in api_keys]
@@ -49,6 +50,9 @@ class RotatingChatModel:
         client = self._client_builder(key)
         if self._bound_tools:
             client = client.bind_tools(self._bound_tools)
+        if self._bound_structured_output:
+            schema, kwargs = self._bound_structured_output
+            client = client.with_structured_output(schema, **kwargs)
         return client
 
     def _next_client(self):
@@ -63,6 +67,16 @@ class RotatingChatModel:
             api_keys=self._api_keys,
             client_builder=self._client_builder,
             _bound_tools=tools,
+            _bound_structured_output=self._bound_structured_output,
+            _label=self._label,
+        )
+
+    def with_structured_output(self, schema, **kwargs):
+        return RotatingChatModel(
+            api_keys=self._api_keys,
+            client_builder=self._client_builder,
+            _bound_tools=self._bound_tools,
+            _bound_structured_output=(schema, kwargs),
             _label=self._label,
         )
 

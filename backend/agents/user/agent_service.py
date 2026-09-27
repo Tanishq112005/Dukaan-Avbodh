@@ -45,14 +45,13 @@ async def init_agent():
 
     print("    LLM ke saath tools bind ho rahe hain...")
     fast_llm = chatModel.get_chat_model()
-    if tools:
-        fast_llm = fast_llm.bind_tools(tools)
-    else:
+    small_llm = chatModel.get_small_chat_model()
+    if not tools:
         print("    LLM operational without active server tools connection.")
 
     print("    LangGraph agent compile ho raha hai...")
     
-    _checkout_agent = compile_agent_graph(fast_llm, _tools_by_name)
+    _checkout_agent = compile_agent_graph(fast_llm, small_llm, _tools_by_name)
     print("    Agent compiled successfully with MongoDB per-user memory attached.")
     return _checkout_agent
 

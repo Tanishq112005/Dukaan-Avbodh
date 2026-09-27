@@ -42,6 +42,14 @@ class ChatModelFactory:
             model.setModel(uri=access_key)
             
             return model.getModel() 
+        
+        elif model_type == "meta":
+            from .meta import Meta
+            model =  Meta() 
+            model.setModel(uri=access_key)
+            
+            return model.getModel() 
+            
              
             
         

@@ -23,57 +23,6 @@ def _safe_parse(text: str):
         return None
 
 
-
-def create_agent_node(fast_llm):
-    async def agent_node(state: AgentState):
-        messages = list(state["messages"])
-        modified_messages = []
-        for msg in messages:
-            if isinstance(msg, HumanMessage) and msg.content == "PROACTIVE_SUGGESTION_TRIGGER":
-                modified_messages.append(HumanMessage(content="[SYSTEM EVENT: The frontend is requesting proactive recommendations. Use the `recommend_products` tool immediately.]"))
-            else:
-                modified_messages.append(msg)
-
-        cart_items = await cart_repository.get_cart_items(state.get("user_id", 0))
-        cart_desc = ", ".join([f"{item['name']} (x{item.get('quantity', 1)})" for item in cart_items]) if cart_items else "Empty"
-
-        combo = state.get("combo_offer") or {}
-        campaign_discount = combo.get("campaign_discount_percent", 0.0)
-
-        sys_msg = SystemMessage(content=get_system_prompt(
-            user_id=state.get("user_id", 0),
-            current_discount=state.get("current_discount_percent", 0.0),
-            campaign_discount=campaign_discount,
-            cart_desc=cart_desc
-        ))
-
-        mod_messages = [sys_msg] + modified_messages + [SystemMessage(content=get_system_reminder())]
-        response = await fast_llm.ainvoke(mod_messages)
-
-        print(f"\n[AGENT] Generated response.")
-        if response.tool_calls:
-            print(f"[AGENT] Decided to execute {len(response.tool_calls)} tools: {[t['name'] for t in response.tool_calls]}")
-        elif response.content:
-            print(f"[AGENT] Sending text response back to user.")
-
-        final_text = response.content if not response.tool_calls else ""
-        if isinstance(final_text, list):
-            final_text = "\n".join([str(x) if isinstance(x, str) else x.get("text", "") for x in final_text if isinstance(x, (str, dict))])
-        elif not isinstance(final_text, str):
-            final_text = str(final_text)
-
-        if final_text:
-            final_text = re.sub(r'<thought>.*?</thought>', '', final_text, flags=re.DOTALL).strip()
-
-        updates = {"messages": [response], "final_response": final_text}
-        # New customer turn: drop the previous kit so a decline / "just my cart"
-        # cannot leave a stale combo in LangGraph (and then the chat UI).
-        if messages and isinstance(messages[-1], HumanMessage):
-            updates["suggested_products"] = []
-            updates["combo_offer"] = None
-        return updates
-    return agent_node
-
 def create_tools_node(tools_dict):
     async def tools_node(state: AgentState):
         last_message = state["messages"][-1]

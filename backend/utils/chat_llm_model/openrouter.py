@@ -2,7 +2,7 @@ from langchain_openrouter import ChatOpenRouter
 from .interfaces import IChatModels
 from .key_rotation import RotatingChatModel
 
-DEFAULT_MODEL = "inclusionai/ling-3.0-flash-fin:free"
+DEFAULT_MODEL = "dots-studio/dots-3-note-preview:free"
 
 
 class OpenRouter(IChatModels):

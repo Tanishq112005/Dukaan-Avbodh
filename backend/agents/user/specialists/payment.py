@@ -1,27 +1,20 @@
 from langchain_core.messages import SystemMessage
 from agents.user.agentState import AgentState
+from utils.prompt_utils import filter_history_by_intent
+from interfaces import IAgentInterface
 
-class PaymentPromptHandler:
-    def __init__(self):
-        self.intent = "payment"
-        self.system_prompt = "You are the Payment Specialist. Handle checkout and transaction status."
-
-    def build_prompt(self, messages):
-        filtered = []
-        total_msgs = len(messages)
-        for i, msg in enumerate(messages):
-            is_recent = (i >= total_msgs - 2)
-            msg_intent = msg.additional_kwargs.get("intent")
-            if is_recent or msg_intent == self.intent:
-                filtered.append(msg)
-                
-        return [SystemMessage(content=self.system_prompt)] + filtered
-
-
-class PaymentAgent:
+class PaymentAgent(IAgentInterface):
     def __init__(self, llm, tools=None):
         self.intent = "payment"
-        self.prompt_handler = PaymentPromptHandler()
+        self.system_prompt = """You are the Checkout & Payment Specialist for Dukaan.
+
+1. You handle `create_order` and `check_payment_status`.
+2. NEVER call `create_order` unless you are absolutely sure the user's profile/address is complete.
+3. After `create_order`, share the `payment_link` as a markdown link: [Pay now](THE_URL) and print the URL on its own line. Tell them to tap it, pay, and return.
+4. If the user says they paid, or you receive [SYSTEM EVENT: payment], immediately call `check_payment_status`.
+5. If paid=true: congratulate them. If paid=false: politely tell them payment is not confirmed yet and reshare the link.
+
+English ONLY. Use ReAct (<thought>...</thought>)."""
         self.tools = tools or []
         
         if self.tools:
@@ -29,9 +22,13 @@ class PaymentAgent:
         else:
             self.llm = llm
 
+    def _build_prompt(self, messages):
+        filtered_messages = filter_history_by_intent(messages, self.intent, last_recent_count=2, last_intent_count=3)
+        return [SystemMessage(content=self.system_prompt)] + filtered_messages
+
     def run(self, state: AgentState):
         messages = state.get("messages", [])
-        prompt = self.prompt_handler.build_prompt(messages)
+        prompt = self._build_prompt(messages)
         
         response = self.llm.invoke(prompt)
         response.additional_kwargs["intent"] = self.intent

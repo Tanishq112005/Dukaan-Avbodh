@@ -1,28 +1,19 @@
 from langchain_core.messages import SystemMessage
 from agents.user.agentState import AgentState
+from utils.prompt_utils import filter_history_by_intent
+from interfaces import IAgentInterface
 
-class ProductPromptHandler:
-    def __init__(self):
-        self.intent = "product"
-        self.system_prompt = "You are the Product Specialist. Help the user find and discover products."
-
-    def build_prompt(self, messages):
-        """Filters history for product-intent messages + the latest 2 messages."""
-        filtered = []
-        total_msgs = len(messages)
-        for i, msg in enumerate(messages):
-            is_recent = (i >= total_msgs - 2)
-            msg_intent = msg.additional_kwargs.get("intent")
-            if is_recent or msg_intent == self.intent:
-                filtered.append(msg)
-                
-        return [SystemMessage(content=self.system_prompt)] + filtered
-
-
-class ProductAgent:
+class ProductAgent(IAgentInterface):
     def __init__(self, llm, tools=None):
         self.intent = "product"
-        self.prompt_handler = ProductPromptHandler()
+        self.system_prompt = """You are the Product Discovery Specialist for Dukaan.
+    
+1. IF user explicitly asks for a specific item (e.g., "show me blue jeans"): USE `get_products_by_type` or `search_products`. 
+   DO NOT hallucinate products or brands. YOU MUST CALL A TOOL to see what's in stock before answering.
+2. IF frontend triggers [SYSTEM EVENT] OR user asks for general suggestions: USE `recommend_products`.
+3. NEVER list product details manually in text; the UI handles it.
+
+English ONLY. Use ReAct (<thought>...</thought>)."""
         self.tools = tools or []
         
         if self.tools:
@@ -30,9 +21,13 @@ class ProductAgent:
         else:
             self.llm = llm
 
+    def _build_prompt(self, messages):
+        filtered_messages = filter_history_by_intent(messages, self.intent, last_recent_count=2, last_intent_count=3)
+        return [SystemMessage(content=self.system_prompt)] + filtered_messages
+
     def run(self, state: AgentState):
         messages = state.get("messages", [])
-        prompt = self.prompt_handler.build_prompt(messages)
+        prompt = self._build_prompt(messages)
         
         response = self.llm.invoke(prompt)
         response.additional_kwargs["intent"] = self.intent
