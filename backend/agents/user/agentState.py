@@ -15,3 +15,5 @@ class AgentState(TypedDict):
     thread_id : str
     intent: Optional[str]
     conversation_summary: Optional[str]
+    last_seq: Optional[int]
+    summarized_upto_seq: Optional[int]
