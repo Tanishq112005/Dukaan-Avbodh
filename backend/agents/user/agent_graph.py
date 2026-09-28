@@ -12,8 +12,11 @@ from agents.user.agent_nodes import create_tools_node
 import re
 from langgraph.checkpoint.mongodb import MongoDBSaver
 from pymongo import MongoClient
+from checkpointer import checkPointer 
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 import asyncio
+
+
 
 # --- Monkey-patch MongoDBSaver for async support ---
 async def _aget_tuple(self, config):
@@ -146,10 +149,9 @@ def compile_agent_graph(fast_llm, small_llm, tools_dict):
     # End graph after post-processing
     workflow.add_edge("post_process", END)
 
-    # --- 5. MongoDB Checkpointer (Untouched) ---
-    mongo_uri = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-    sync_client = MongoClient(mongo_uri)
-    memory = MongoDBSaver(sync_client)
+    
+    ### Getting the redis checkpointer ### 
+    checkpointer = checkPointer.getRedisCheckPointer() 
     
     # Returns the pre-compiled graph
-    return workflow.compile(checkpointer=memory)
+    return workflow.compile(checkpointer=checkPointer)

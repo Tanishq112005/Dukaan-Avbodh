@@ -6,7 +6,6 @@ from rq import Queue , Worker
 ### parameters 
 ### for initilization -> redis_client , queue_name 
 ### for push -> function (or the worker function name ) , import the worker and the thread_id 
-
 class QueueProducerManager: 
     def __init__(self, redis_client: Redis, queue_name: str): 
         self.redis_client = redis_client 
@@ -37,4 +36,5 @@ class QueueConsumerManager:
         print(f"Starting RQ worker on queue: '{self.queue_name}'...")
         # The Worker connects to Redis and blocks forever, executing tasks as they arrive
         worker = Worker([self.queue_name], connection=self.redis_client)
+        print("Worker is Started") 
         worker.work()         
