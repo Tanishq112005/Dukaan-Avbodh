@@ -1,5 +1,5 @@
 from langchain_core.messages import SystemMessage
-from agents.user.agentState import AgentState
+from agents.user.state import AgentState
 from utils.prompt_utils import filter_history_by_intent
 from interfaces import IAgentInterface
 from pydantic import BaseModel, Field

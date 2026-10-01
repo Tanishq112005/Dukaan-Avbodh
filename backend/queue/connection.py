@@ -42,3 +42,6 @@ class QueueConsumerManager:
         worker = Worker([self.queue_name], connection=self.redis_client)
         print("Worker is Started") 
         worker.work()         
+        
+        
+    

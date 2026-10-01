@@ -17,3 +17,4 @@ class AgentState(TypedDict):
     conversation_summary: Optional[str]
     last_seq: Optional[int]
     summarized_upto_seq: Optional[int]
+    important_facts : Optional[str] 

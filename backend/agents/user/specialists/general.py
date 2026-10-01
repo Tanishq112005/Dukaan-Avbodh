@@ -1,5 +1,5 @@
 from langchain_core.messages import SystemMessage
-from agents.user.agentState import AgentState
+from agents.user.state import AgentState
 from utils.prompt_utils import build_prompt_with_summary
 from interfaces import IAgentInterface
 

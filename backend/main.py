@@ -1,10 +1,7 @@
-# main.py
 import sys
 import asyncio
 
-# Windows par asyncpg (SSL connections) ProactorEventLoop ke saath fail hota hai
-# (ConnectionResetError: WinError 64). Selector loop policy chahiye, kisi bhi
-# asyncio loop ke banne se PEHLE (uvicorn is import ke baad apna loop banata hai).
+
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
@@ -15,10 +12,11 @@ from config.database import db_connection
 from routes import auth_routes, product_routes, user_routes, order_routes, checkout_routes
 from config.chatModel import chatModel
 from fastapi.middleware.cors import CORSMiddleware
-from config.embeddingModel import embeddingModel
 from config.vectorDatabase import vectorDB
 from agents.user import agent_service
-app = FastAPI(title="Sauda API")
+from config.redis import redisClient
+from agents.merchant import agent_service as merchant_agent_service
+app = FastAPI(title="Dukaan")
 import warnings
 warnings.filterwarnings("ignore", message="Key 'additionalProperties' is not supported")
 import logging
@@ -29,6 +27,8 @@ class SchemaWarningFilter(logging.Filter):
 logging.getLogger().addFilter(SchemaWarningFilter())
 logging.getLogger("langchain_google_genai").addFilter(SchemaWarningFilter())
 logging.getLogger("google.generativeai").addFilter(SchemaWarningFilter())
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
@@ -58,6 +58,10 @@ async def startup():
     print("\n" + "=" * 60)
     print("[STARTING] Dukaan backend start ho raha hai...")
     print("=" * 60)
+     
+    print("[REDIS] Redis server se connect ho raha hai...")
+    redisClient.get_redis_client()
+    print("[OK] Redis ready hai.")
 
     print("[DB] Database initialize ho rahi hai (tables check/create)...")
     await db_connection.init_db()
@@ -67,31 +71,24 @@ async def startup():
     chatModel.get_chat_model()
     print("[OK] Chat model ready hai.")
     
-    
-    print("[EMBED] Embedding model se connect ho raha hai ... ")
-    embeddingModel.getModel() 
-    print("[OK] Embedding model ready hai.")
-    
+        
     print("[VECTOR] Vector database (Pinecone) se connect ho raha hai...")
     vectorDB.get_index()
     print("[OK] Vector database ready hai.")
     
     
-    
-    # MCP server (mcp/main.py) ek ALAG process ke roop mein pehle se chal
-    # raha hona chahiye.
     print("[MCP] MCP user server se tools load ho rahe hain (user agent ban raha hai)...")
     await agent_service.init_agent()
     print("[OK] User Agent ready hai, saare tools connected hain.")
     
-    from agents.merchant import agent_service as merchant_agent_service
+    
     print("[MCP] MCP merchant server se tools load ho rahe hain (merchant agent ban raha hai)...")
     await merchant_agent_service.init_merchant_agent()
     print("[OK] Merchant Agent ready hai.")
     
     print("Abh MongoDb se connect ho raha hai ...")
 
-    nosql_client.get_client()  # MongoDB client ko initialize karna
+    nosql_client.get_client()  
     print("[OK] MongoDB ready hai.")
     
     

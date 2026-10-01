@@ -1,12 +1,17 @@
 import json
-import re
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
-from agents.user.agentState import AgentState
-from agents.user.agent_prompts import get_system_prompt, get_system_reminder
+from agents.user.state import AgentState
+from agents.user.prompts import get_system_prompt, get_system_reminder
 from repositories.cart_repository import cart_repository
 
 
 
+
+
+#### fuction for calling the tools from the specialist node , from the mcp server 
+#### This functions properly extracts and safe parse it 
+
+### helper functions for extracting text and safely parsing JSON from tool responses
 def _extract_text(res) -> str:
     if isinstance(res, tuple):
         res = res[0]
@@ -22,7 +27,7 @@ def _safe_parse(text: str):
     except Exception:
         return None
 
-
+### for creating the tools node for the specialist node , this function is used in the agent_graph.py file
 def create_tools_node(tools_dict):
     async def tools_node(state: AgentState):
         last_message = state["messages"][-1]
@@ -101,3 +106,7 @@ def create_tools_node(tools_dict):
         updates["messages"] = tool_messages
         return updates
     return tools_node
+
+
+
+

@@ -1,64 +1,92 @@
-import os
-import sys
 import asyncio
-import json
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
-from langgraph.graph import StateGraph, END
-from agents.user.agentState import AgentState
+import logging
+from typing import Optional, Dict, Any, List
+
+# Imports from your project structure
 from config.chatModel import chatModel
-from repositories.cart_repository import cart_repository
-from config.mogodbconfig import nosql_client
-from langgraph.checkpoint.mongodb import MongoDBSaver
-from agents.user.agent_prompts import get_system_prompt, get_system_reminder
-from agents.user.agent_graph import compile_agent_graph
+from agents.user.graph import compile_agent_graph
 from config.mcp_config import mcp_user_client
 
+# Set up logging for this module
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-_checkout_agent = None
-_tools_by_name: dict = {}
-
-
-async def init_agent():
-    global _checkout_agent, _tools_by_name
-
-    print("    FastMCP Cloud/Local Server se tools load ho rahe hain...")
+class AgentService:
+    """
+    Service class to handle the initialization and retrieval 
+    of the LangGraph checkout agent.
+    """
     
-    max_retries = 10
-    tools = None
-    
-    for attempt in range(max_retries):
-        try:
-            tools = await mcp_user_client.get_tools()
-            if tools is not None:
-                break
-        except Exception as e:
-            print(f"   [Attempt {attempt+1}/{max_retries}] Waiting for MCP server... Error string: {e}")
-            await asyncio.sleep(2)
-            
-    if tools is None:
-        print("    MCP Server target offline! Activating empty tools fallback to prevent FastAPI crash.")
-        tools = []
-        _tools_by_name = {}
-    else:
-        _tools_by_name = {t.name: t for t in tools}
-        print(f"    {len(tools)} tools mile: {', '.join(sorted(_tools_by_name.keys()))}")
+    def __init__(self, max_retries: int = 10):
+        # Class variables with type hinting
+        self.agent: Optional[Any] = None  
+        self.tools_by_name: Dict[str, Any] = {}
+        self.max_retries: int = max_retries
 
-    print("    LLM ke saath tools bind ho rahe hain...")
-    fast_llm = chatModel.get_chat_model()
-    small_llm = chatModel.get_small_chat_model()
-    if not tools:
-        print("    LLM operational without active server tools connection.")
+    async def init_agent(self) -> Any:
+        """
+        Fetches tools from the MCP server, initializes LLMs, 
+        and compiles the LangGraph agent.
+        """
+        logger.info("Fetching tools from MCP server...")
+        tools: Optional[List[Any]] = None
+        
+        # Retry mechanism for fetching tools
+        for attempt in range(self.max_retries):
+            try:
+                tools = await mcp_user_client.get_tools()
+                if tools is not None:
+                    break
+            except Exception as e:
+                logger.warning(
+                    f"[Attempt {attempt + 1}/{self.max_retries}] "
+                    f"Waiting for MCP server... Error: {e}"
+                )
+                await asyncio.sleep(2)
+        
+        # Fallback if tools fail to load
+        if tools is None:
+            logger.error("MCP Server target offline! Activating empty tools fallback to prevent FastAPI crash.")
+            tools = []
+            self.tools_by_name = {}
+        else:
+            self.tools_by_name = {t.name: t for t in tools}
+            tool_names = ', '.join(sorted(self.tools_by_name.keys()))
+            logger.info(f"{len(tools)} tools fetched: {tool_names}")
 
-    print("    LangGraph agent compile ho raha hai...")
-    
-    _checkout_agent = compile_agent_graph(fast_llm, small_llm, _tools_by_name)
-    print("    Agent compiled successfully with MongoDB per-user memory attached.")
-    return _checkout_agent
+        # Initialize LLMs
+        logger.info("Initializing LLM models...")
+        large_llm = chatModel._large_chat_model()
+        medium_llm = chatModel._medium_chat_model()  
+        small_llm = chatModel._small_chat_model()
+        
+        if not tools:
+            logger.info("LLM operational without active server tools connection.")
 
-
-def get_agent():
-    if _checkout_agent is None:
-        raise RuntimeError(
-            "Agent is not initialized. 'await agent_service.init_agent()' must be called on startup."
+        # Compile the agent graph
+        logger.info("Compiling LangGraph agent...")
+        self.agent = compile_agent_graph(
+            large_llm, 
+            medium_llm, 
+            small_llm, 
+            self.tools_by_name
         )
-    return _checkout_agent
+        logger.info("Agent compiled successfully with MongoDB per-user memory attached.")
+        
+        return self.agent
+
+    def get_agent(self) -> Any:
+        """
+        Retrieves the compiled agent. 
+        Raises a RuntimeError if called before initialization.
+        """
+        if self.agent is None:
+            raise RuntimeError(
+                "Agent is not initialized. 'await agent_service.init_agent()' "
+                "must be called on FastAPI startup."
+            )
+        return self.agent
+
+
+
+agent_service = AgentService()

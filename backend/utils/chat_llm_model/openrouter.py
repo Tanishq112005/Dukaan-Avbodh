@@ -10,7 +10,7 @@ class OpenRouter(IChatModels):
     model: RotatingChatModel
     apiKeys: list
 
-    def setModel(self, uri=None, model=DEFAULT_MODEL, temperature=0, max_tokens=2048):
+    def setModel(self, uri=None, model_name=None, temperature=0, max_tokens=2048):
         """
         uri: comma-separated string of OpenRouter API keys, e.g.
              "sk-or-key1,sk-or-key2,sk-or-key3,sk-or-key4,sk-or-key5,sk-or-key6"
@@ -22,11 +22,19 @@ class OpenRouter(IChatModels):
                 raise ValueError("No OpenRouter API key(s) provided")
 
             self.apiKeys = keys
-
+            
+            
+            ### if the model name is not provided, use the default model
+            if(model_name == None):
+                model_name = DEFAULT_MODEL
+                print(f"Model name not provided, using default model: {DEFAULT_MODEL}")
+            
+            
+            
             def build_client(key):
                 return ChatOpenRouter(
                     api_key=key,
-                    model=model,
+                    model=model_name,
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
