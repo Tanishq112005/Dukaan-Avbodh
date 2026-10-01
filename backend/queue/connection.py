@@ -32,14 +32,14 @@ class QueueProducerManager:
 ### for initilization -> redis_client , queue_name 
 ### for start -> no parameters only , run it  
 class QueueConsumerManager: 
-    def __init__(self, redis_client: Redis, queue_name: str): 
+    def __init__(self, redis_client: Redis, queue_name: str | list): 
         self.redis_client = redis_client 
-        self.queue_name = queue_name 
+        self.queues = [queue_name] if isinstance(queue_name, str) else queue_name 
     
     def start(self): 
-        print(f"Starting RQ worker on queue: '{self.queue_name}'...")
+        print(f"Starting RQ worker on queues: {self.queues}...")
         # The Worker connects to Redis and blocks forever, executing tasks as they arrive
-        worker = Worker([self.queue_name], connection=self.redis_client)
+        worker = Worker(self.queues, connection=self.redis_client)
         print("Worker is Started") 
         worker.work()         
         

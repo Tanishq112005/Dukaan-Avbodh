@@ -3,14 +3,14 @@ from langgraph.checkpoint.mongodb import MongoDBSaver
 import asyncio
 import os 
 from pymongo import MongoClient
-
+from ...config.redis import redisClient
 
 
 
 class AgentCheckPointer: 
     
     def __init__(self): 
-        self.redisCheckpointerString = os.getenv("REDIS_MEMORY_CHECKPOINTER_URL", "mongodb://localhost:27017")
+        self.redisCheckpointerString = os.getenv("REDIS_URL", "redis://localhost:6379/0")
         self.mongo_uri = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
         self.mongodb_memory = None 
         self.redis_memory = None
@@ -23,7 +23,7 @@ class AgentCheckPointer:
         if(self.redis_memory != None):
             return self.redis_memory  
         
-        self.redis_memory = AsyncRedisSaver.from_conn_string(redis_url=self.redisCheckpointerString)
+        self.redis_memory = redisClient.get_redis_client()
         return self.redis_memory 
     
     

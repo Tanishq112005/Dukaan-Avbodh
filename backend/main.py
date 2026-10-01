@@ -68,7 +68,12 @@ async def startup():
     print("[OK] Database ready hai.")
 
     print("[LLM] Chat model (LLM) initialize ho raha hai...")
-    chatModel.get_chat_model()
+    print("[LLM] Large initiliaze ho raha hai...")
+    chatModel._large_chat_model()
+    print("[LLM] Medium initiliaze ho raha hai...")
+    chatModel._medium_chat_model()
+    print("[LLM] Small initiliaze ho raha hai...")
+    chatModel._small_chat_model()
     print("[OK] Chat model ready hai.")
     
         

@@ -3,7 +3,8 @@ import json
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from redis import Redis, WatchError
-
+from ...config.redis import redisClient 
+from ...config.chatModel import chatModel 
 # Adjust this import path based on where you run the worker from
 from ...queue.connection import QueueConsumerManager 
 
@@ -75,10 +76,10 @@ class ChatSummarizer:
     def process_summary(self, data):
         """
         Worker method to be called by RQ.
-        Expects `data` to have `.thread_id` and `.last_seq` 
+        Expects `data` to have `thread_id` and `last_seq` as dictionary keys
         """
-        thread_id = data.thread_id
-        current_seq = data.last_seq
+        thread_id = data.get("thread_id")
+        current_seq = data.get("last_seq")
         state_key = f"agent_state:{thread_id}"
         
         # 1. READ STATE (No locks yet)
@@ -123,6 +124,8 @@ class ChatSummarizer:
             f"### NEW MESSAGES TO SUMMARIZE:\n{messages_text}"
         )
         
+        
+        ### Doubt in this line ### , we have to fix this 
         llm_with_tools = self.llm.with_structured_output(SummarizerOutput)
         result: SummarizerOutput = llm_with_tools.invoke(prompt)
         new_facts = result.important_facts.model_dump()
@@ -187,40 +190,7 @@ class ChatSummarizer:
                     break
 
 
-# ==========================================
-# 3. INITIALIZATION & WORKER WRAPPER
-# ==========================================
 
-# Initialize Redis client
-redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-redis_client = Redis.from_url(redis_url, decode_responses=True)
-
-# Initialize LLM 
-# (Replace this with however you configure your small/fast LLM in Dukaan)
-from langchain_google_genai import ChatGoogleGenerativeAI
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0)
 
 # Instantiate the summarizer
-chat_summarizer = ChatSummarizer(llm=llm, redis_client=redis_client)
-
-def run_summary_task(data):
-    """
-    Top-level wrapper function executed by the RQ Worker.
-    Pass THIS function reference when enqueuing the task in memory_saving_node.py.
-    """
-    print(f"Starting summary task for thread: {data.thread_id}")
-    return chat_summarizer.process_summary(data)
-
-
-# ==========================================
-# 4. RUN WORKER SCRIPT
-# ==========================================
-if __name__ == "__main__":
-    # Ensure this matches the queue_name used in QueueProducerManager ("summarizer")
-    queue_name = "summarizer" 
-    
-    print(f"Initializing Queue Consumer for '{queue_name}'...")
-    consumer = QueueConsumerManager(redis_client=redis_client, queue_name=queue_name)
-    
-    # This blocks and listens for tasks arriving in Redis
-    consumer.start()
+chat_summarizer = ChatSummarizer(llm=chatModel._large_chat_model(), redis_client=redisClient.get_redis_client())
