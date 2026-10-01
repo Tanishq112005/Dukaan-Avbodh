@@ -3,11 +3,10 @@ import json
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from redis import Redis, WatchError
-from ...config.redis import redisClient 
-from ...config.chatModel import chatModel 
-# Adjust this import path based on where you run the worker from
-from ...queue.connection import QueueConsumerManager 
-
+from config.redis import redisClient 
+from config.chatModel import chatModel 
+from ..queue.connection import QueueConsumerManager 
+from .base import BaseWorker
 
 # ==========================================
 # 1. PYDANTIC SCHEMAS
@@ -33,9 +32,11 @@ class SummarizerOutput(BaseModel):
     
 
 # ==========================================
-# 2. CHAT SUMMARIZER CLASS
+# 2. CHAT SUMMARIZER WORKER
 # ==========================================
-class ChatSummarizer: 
+class ChatSummarizerWorker(BaseWorker):
+    _instance = None
+    
     def __init__(self, llm, redis_client: Redis): 
         self.llm = llm 
         self.redis_client = redis_client
@@ -73,10 +74,24 @@ class ChatSummarizer:
           } }
           }"""
 
-    def process_summary(self, data):
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls(llm=chatModel._large_chat_model(), redis_client=redisClient.get_redis_client())
+        return cls._instance
+
+    @classmethod
+    def run(cls, data: dict):
         """
         Worker method to be called by RQ.
         Expects `data` to have `thread_id` and `last_seq` as dictionary keys
+        """
+        instance = cls.get_instance()
+        return instance.process_summary(data)
+
+    def process_summary(self, data):
+        """
+        Internal method for processing the summary.
         """
         thread_id = data.get("thread_id")
         current_seq = data.get("last_seq")
@@ -192,5 +207,4 @@ class ChatSummarizer:
 
 
 
-# Instantiate the summarizer
-chat_summarizer = ChatSummarizer(llm=chatModel._large_chat_model(), redis_client=redisClient.get_redis_client())
+

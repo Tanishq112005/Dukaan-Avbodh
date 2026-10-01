@@ -1,12 +1,14 @@
 import asyncio
 import json
-from config.mogodbconfig import nosql_client
+import os
+from motor.motor_asyncio import AsyncIOMotorClient
 from config.redis import redisClient
-from connection import QueueConsumerManager
-class QueueTasks:
+from .base import BaseWorker
+
+class MongoDbWorker(BaseWorker):
     
-    @staticmethod
-    async def async_save_state_to_mongodb(data):
+    @classmethod
+    async def _async_save_state_to_mongodb(cls, data):
         """
         Async function to save state data to MongoDB.
         """
@@ -25,10 +27,12 @@ class QueueTasks:
             state = json.loads(state_data)
             state["thread_id"] = thread_id  # ensure thread_id is in the document
             
-            # 2. Get the MongoDB collection
-            db_name = "dukaan_db"
-            collection_name = "agent_states"
-            collection = nosql_client.get_client() 
+            # 2. Get the MongoDB collection using a LOCAL client
+            uri = os.getenv("MONGODB_URL", "mongodb://localhost:27017/")
+            local_client = AsyncIOMotorClient(uri, serverSelectionTimeoutMS=5000)
+            
+            db = local_client["dukaan_db"]
+            collection = db["agent_states"]
             
             # 3. Upsert the state based on thread_id
             result = await collection.update_one(
@@ -38,35 +42,17 @@ class QueueTasks:
             )
             print(f"[MongoDbTask] Data for thread {thread_id} saved to MongoDB successfully.")
             
+            # 4. Close the local client to free up connections
+            local_client.close()
+            
         except Exception as e:
             print(f"[MongoDbTask] Error saving data to MongoDB: {e}")
             raise e
 
-    @staticmethod
-    def run_mongodb_saving_task(data):
+    @classmethod
+    def run(cls, data: dict):
         """
         Synchronous wrapper for RQ worker to call.
         """
         print(f"Starting MongoDB save task for thread: {data.get('thread_id')}")
-        asyncio.run(QueueTasks.async_save_state_to_mongodb(data))
-
-    @staticmethod
-    def run_summary_task(data):
-        """
-        Synchronous wrapper for RQ worker to run the summarizer task.
-        """
-        from agents.user.chatSummarizer import chat_summarizer
-        print(f"Starting summary task for thread: {data.get('thread_id')}")
-        return chat_summarizer.process_summary(data)
-
-if __name__ == "__main__":
-   
-    
-    # We now pass a list of queues to listen to both state and summarizer
-    queues = ["state", "summarizer"]
-    
-    print(f"Initializing Queue Consumer for {queues}...")
-    consumer = QueueConsumerManager(redis_client=redisClient.get_redis_client(), queue_name=queues)
-    
-    # This blocks and listens for tasks arriving in Redis
-    consumer.start()
+        asyncio.run(cls._async_save_state_to_mongodb(data))
