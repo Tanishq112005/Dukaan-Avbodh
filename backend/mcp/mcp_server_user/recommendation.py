@@ -22,9 +22,11 @@ async def recommend_products(user_id: int, thread_id: str = "") -> dict:
     - DO NOT expose affinity scores, importance_score, or raw event logs to the user.
     - DO NOT invent extra products or prices.
     """
+    # Fetch user events once and pass down to prevent 5x redundant database queries
+    all_events = await event_repo.get_events_for_user(user_id)
     cart_items = await cart_repository.get_cart_items(user_id)
     try:
-        result = await upsell_service.generate_upsell_offer(user_id, cart_items)
+        result = await upsell_service.generate_upsell_offer(user_id, cart_items, events=all_events)
     except Exception as e:
         print(f"ERROR in recommend_products: {str(e)}")
         return {"success": False, "error": f"Failed to generate upsell offer: {str(e)}"}
@@ -35,15 +37,14 @@ async def recommend_products(user_id: int, thread_id: str = "") -> dict:
     suggested = result["suggested_products"][:4]
     combo_offer = result.get("combo_offer") or {}
 
-    scores = await behavior_scorer.get_category_affinity(user_id)
+    scores = await behavior_scorer.get_category_affinity(user_id, events=all_events)
     top_category = suggested[0].get("type") if suggested else None
     if hasattr(top_category, "value"):
         top_category = top_category.value
     category_score = scores.get(top_category, 0.0) if top_category else 0.0
     purchase_probability = behavior_scorer.estimate_purchase_probability(category_score)
 
-    recent_events = await event_repo.get_events_for_user(user_id)
-    recent_sorted = sorted(recent_events, key=lambda e: e.timestamp, reverse=True)[:5]
+    recent_sorted = sorted(all_events, key=lambda e: e.timestamp, reverse=True)[:5]
 
     await audit_logger.log_action(
         action="recommend_products",

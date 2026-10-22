@@ -9,7 +9,7 @@ class CartWriteRepository(CartReadRepository):
     async def add_item(self, user_id: int, product_id: int, quantity: int = 1, size: Optional[str] = None) -> CartItem:
         async with db_connection.get_session() as session:
             try:
-                cart = await self.get_or_create_cart(user_id)
+                cart = await self.get_or_create_cart(user_id, session=session)
                 existing = (await session.exec(select(CartItem).where(CartItem.cart_id == cart.id, CartItem.product_id == product_id, CartItem.size == size))).first()
                 if existing:
                     existing.quantity += quantity

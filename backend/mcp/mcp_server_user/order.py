@@ -1,4 +1,5 @@
 from typing import List, Optional
+import asyncio
 from mcp_server_user.server import mcp
 from repositories import OrderRepository, UserRepository, ProductRepository, DiscountPolicyRepository
 from repositories.campain_repository import CampaignRepository
@@ -40,16 +41,11 @@ async def create_order(
     - When you receive the response, ALWAYS share the 'payment_link' as a markdown link [Pay now](url)
       AND as a raw URL on its own line so the customer can click it.
     """
-    await user_repo.ensure_guest_exists(user_id)
-    
-    async with db_connection.get_session() as session:
-        user = (await session.exec(select(User).where(User.id == user_id))).first()
-        if user:
-            user.name = name
-            user.identifier = email
-            user.address = address
-            session.add(user)
-            await session.commit()
+    # 1. Update checkout contact details in single operation
+    user = await user_repo.update_profile(user_id=user_id, name=name, email=email, address=address)
+    if not user:
+        await user_repo.ensure_guest_exists(user_id)
+        await user_repo.update_profile(user_id=user_id, name=name, email=email, address=address)
     
     from services.combo_pricing_engine import combo_pricing_engine
     from services.pricing_service import pricing_service
@@ -59,12 +55,15 @@ async def create_order(
     if not cart_items:
         return {"success": False, "reason": "Cart is empty."}
         
+    item_product_ids = [item["id"] for item in cart_items if "id" in item]
+    products_list = await product_repo.get_by_ids(item_product_ids)
+    product_by_id = {p.id: p for p in products_list}
+
     db_products = []
     for item in cart_items:
-        product = await product_repo.get_by_id(item["id"])
+        product = product_by_id.get(item["id"])
         if not product or product.stock <= 0:
             return {"success": False, "reason": f"Product {item['name']} is out of stock or does not exist."}
-        # handle multiple quantities if needed, though mostly 1 in dukaan
         for _ in range(item.get("quantity", 1)):
             db_products.append(product)
         
@@ -101,7 +100,7 @@ async def create_order(
     
     if rzp_client and final_amount_paise >= 100:
         try:
-            rzp_order = rzp_client.order.create({
+            rzp_order = await asyncio.to_thread(rzp_client.order.create, {
                 "amount": final_amount_paise,
                 "currency": "INR",
                 "receipt": f"receipt_user_{user_id}",
@@ -112,7 +111,7 @@ async def create_order(
             })
             razorpay_order_id = rzp_order.get("id")
             
-            pl_response = rzp_client.payment_link.create({
+            pl_response = await asyncio.to_thread(rzp_client.payment_link.create, {
                 "amount": final_amount_paise,
                 "currency": "INR",
                 "accept_partial": False,
@@ -142,9 +141,9 @@ async def create_order(
                 "error": "I am so sorry, but our payment gateway (Razorpay) is temporarily down. Your cart is saved securely. Can we try again in a few minutes?"
             }
 
-    created_order_ids = []
-    for product in db_products:
-        order = Order(
+    # Batch create all order rows in a single database transaction
+    orders_to_create = [
+        Order(
             product_id=product.id,
             user_id=user_id,
             discount_applied=total_effective_discount_percent,
@@ -153,12 +152,18 @@ async def create_order(
             razorpay_payment_link_id=payment_link_id,
             payment_link_url=payment_link_url,
         )
-        created = await order_repo.create(order)
-        created_order_ids.append(created.id)
-        
-        await product_repo.update_stock(product.id, product.stock - 1)
-        # Keeps each linked campaign's total_items_sold counter (sales performance) in sync.
-        await campaign_repo.record_product_sale(product.id, 1)
+        for product in db_products
+    ]
+    created_orders = await order_repo.create_orders_batch(orders_to_create)
+    created_order_ids = [o.id for o in created_orders]
+
+    # Batch update stock and batch record sales across linked campaigns
+    product_quantities: dict[int, int] = {}
+    for product in db_products:
+        product_quantities[product.id] = product_quantities.get(product.id, 0) + 1
+
+    await product_repo.decrement_stocks_batch(product_quantities)
+    await campaign_repo.record_product_sales_batch(product_quantities)
         
     from services.audit_logger import audit_logger
     ordered_meta = [

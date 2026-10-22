@@ -6,7 +6,17 @@ from models.cart import Cart, CartItem
 from models.product import Product
 
 class CartReadRepository:
-    async def get_or_create_cart(self, user_id: int) -> Cart:
+    async def get_or_create_cart(self, user_id: int, session=None) -> Cart:
+        if session is not None:
+            cart = (await session.exec(select(Cart).where(Cart.user_id == user_id))).first()
+            if cart:
+                return cart
+            cart = Cart(user_id=user_id)
+            session.add(cart)
+            await session.flush()
+            await session.refresh(cart)
+            return cart
+
         async with db_connection.get_session() as session:
             try:
                 cart = (await session.exec(select(Cart).where(Cart.user_id == user_id))).first()

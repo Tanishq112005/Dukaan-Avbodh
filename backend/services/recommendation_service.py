@@ -122,14 +122,14 @@ class RecommendationService:
             return ["shirt", "t-shirt"]
         return [cat for cat in FASHION_FLOW if cat not in cart_categories] or list(cart_categories)
 
-    async def _target_categories(self, user_id: int, cart_items: list[dict], category_scores: dict[str, float]) -> list[str]:
+    async def _target_categories(self, user_id: int, cart_items: list[dict], category_scores: dict[str, float], events=None) -> list[str]:
         cart_categories = {item.get("type") or item.get("category") for item in cart_items}
         cart_categories = {c for c in cart_categories if c}
 
         if cart_categories:
             return self.complementary_categories(cart_categories)
 
-        user_events = await event_repo.get_events_for_user(user_id)
+        user_events = events if events is not None else await event_repo.get_events_for_user(user_id)
         viewed = behavior_scorer.top_viewed_categories(user_events, limit=3)
         affinity = sorted(category_scores, key=category_scores.get, reverse=True)
         merged = []
@@ -138,9 +138,12 @@ class RecommendationService:
                 merged.append(category)
         return merged[:3] or ["jeans"]
 
-    async def get_best_suggestion(self, user_id: int, cart_items: list[dict], limit: int = 4) -> list[Product]:
-        category_scores, product_scores = await behavior_scorer.get_affinity_maps(user_id)
-        target_categories = await self._target_categories(user_id, cart_items, category_scores)
+    async def get_best_suggestion(self, user_id: int, cart_items: list[dict], limit: int = 4, events=None) -> list[Product]:
+        if events is None:
+            events = await event_repo.get_events_for_user(user_id)
+
+        category_scores, product_scores = await behavior_scorer.get_affinity_maps(user_id, events=events)
+        target_categories = await self._target_categories(user_id, cart_items, category_scores, events=events)
         parsed_types = _parse_types(target_categories)
 
         cart_ids = {item.get("id") or item.get("product_id") for item in cart_items}
@@ -152,7 +155,7 @@ class RecommendationService:
         if cart_genders:
             target_gender = max(set(cart_genders), key=cart_genders.count)
         else:
-            target_gender = await behavior_scorer.get_current_gender_context(user_id)
+            target_gender = await behavior_scorer.get_current_gender_context(user_id, events=events)
 
         if target_gender and target_gender != "unisex":
             gendered = [p for p in candidates if not p.gender or p.gender in (target_gender, "unisex")]

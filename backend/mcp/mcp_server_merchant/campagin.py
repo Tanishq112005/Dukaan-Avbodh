@@ -169,6 +169,8 @@ async def get_campaign_sales_summary(input_data: GetAllCampaignsInput) -> dict:
       items/pieces are in a campaign — total_products_linked only counts distinct products.
     """
     campaigns = await campaign_repo.get_all_campaigns(skip=input_data.skip, limit=input_data.limit)
+    campaign_ids = [c.id for c in campaigns if c.id is not None]
+    stock_units_map = await campaign_repo.get_stock_units_by_campaign_ids(campaign_ids)
 
     summary = []
     for c in campaigns:
@@ -178,7 +180,7 @@ async def get_campaign_sales_summary(input_data: GetAllCampaignsInput) -> dict:
             "type": c.type,
             "discount_percentage": c.discount_percentage,
             "total_products_linked": c.total_products,
-            "total_stock_units": await campaign_repo.get_campaign_stock_units(c.id),
+            "total_stock_units": stock_units_map.get(c.id, 0),
             "total_items_sold": c.total_items_sold,
         })
 

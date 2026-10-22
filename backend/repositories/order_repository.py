@@ -9,6 +9,21 @@ class OrderRepository(BaseRepository[Order]):
     def __init__(self):
         super().__init__(Order)
 
+    async def create_orders_batch(self, orders: List[Order]) -> List[Order]:
+        """Creates multiple orders in a single database transaction, preventing N+1 insert loops."""
+        if not orders:
+            return []
+        async with db_connection.get_session() as session:
+            try:
+                session.add_all(orders)
+                await session.commit()
+                for o in orders:
+                    await session.refresh(o)
+                return orders
+            except Exception as e:
+                await session.rollback()
+                raise e
+
     async def get_with_relations(self, order_id: int) -> Optional[Order]:
         async with db_connection.get_session() as session:
             result = await session.exec(

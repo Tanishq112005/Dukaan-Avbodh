@@ -65,6 +65,73 @@ class ProductRepository(BaseRepository[Product]):
                 await session.rollback()
                 raise e
 
+    async def decrement_stocks_batch(self, quantities: dict[int, int]) -> List[Product]:
+        """Decrements stock and recomputes importance_score for multiple products in a single session,
+        preventing N+1 stock update round-trips during checkout."""
+        if not quantities:
+            return []
+        async with db_connection.get_session() as session:
+            try:
+                product_ids = list(quantities.keys())
+                products = (await session.exec(
+                    select(Product).where(Product.id.in_(product_ids))
+                )).all()
+
+                # Batch fetch all linked campaigns for these products
+                rows = (await session.exec(
+                    select(CampaignProductLink.product_id, Campaign)
+                    .join(Campaign, Campaign.id == CampaignProductLink.campaign_id)
+                    .where(CampaignProductLink.product_id.in_(product_ids))
+                )).all()
+
+                campaigns_by_product: dict[int, list[Campaign]] = {pid: [] for pid in product_ids}
+                for pid, c in rows:
+                    campaigns_by_product.setdefault(pid, []).append(c)
+
+                sold_out_products = []
+                for product in products:
+                    deduct = quantities.get(product.id, 1)
+                    new_stock = max(0, product.stock - deduct)
+                    product.stock = new_stock
+
+                    linked = campaigns_by_product.get(product.id, [])
+                    total_weight = sum(CAMPAIGN_WEIGHTS.get(c.type, 1) for c in linked)
+                    product.importance_score = new_stock * total_weight
+                    session.add(product)
+
+                    if new_stock == 0 and linked:
+                        sold_out_products.append((product, linked))
+
+                await session.commit()
+                for p in products:
+                    await session.refresh(p)
+
+                if sold_out_products:
+                    try:
+                        from services.audit_logger import audit_logger
+                        for product, linked in sold_out_products:
+                            await audit_logger.log_action(
+                                action="product_sold_out_in_campaign",
+                                reason=f"'{product.name}' (id={product.id}) just hit 0 stock while linked to "
+                                       f"{len(linked)} active campaign(s).",
+                                result=f"campaigns={[c.agenda or c.id for c in linked]}",
+                                user_id=None,
+                                thread_id=None,
+                                metadata={
+                                    "kind": "stock_alert",
+                                    "product_id": product.id,
+                                    "product_name": product.name,
+                                    "campaign_ids": [c.id for c in linked],
+                                },
+                            )
+                    except Exception as log_err:
+                        print(f"[STOCK] Could not write sold-out audit log: {log_err}")
+
+                return products
+            except Exception as e:
+                await session.rollback()
+                raise e
+
     async def get_in_stock(self) -> List[Product]:
         async with db_connection.get_session() as session:
             result = await session.exec(

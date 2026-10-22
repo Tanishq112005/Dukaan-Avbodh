@@ -23,10 +23,7 @@ mcp_user_config = {
 }
 
 
-
-
 if FASTMCP_TOKEN:
-    
     
     mcp_merchant_config["headers"] = {
         "Authorization": f"Bearer {FASTMCP_TOKEN}"

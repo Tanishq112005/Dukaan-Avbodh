@@ -11,8 +11,8 @@ SAFE_EXCLUDE = {"cost_price", "min_profit_margin_percent", "stock", "discount"}
 class UpsellService:
     """Builds a curated kit: 1-2 cart items + 1-2 recommendations, priced at New Selling Price."""
 
-    async def generate_upsell_offer(self, user_id: int, cart_items: list[dict]) -> dict:
-        suggested_products = await recommendation_service.get_best_suggestion(user_id, cart_items)
+    async def generate_upsell_offer(self, user_id: int, cart_items: list[dict], events=None) -> dict:
+        suggested_products = await recommendation_service.get_best_suggestion(user_id, cart_items, events=events)
         if not suggested_products:
             return {"success": False, "message": "No suitable recommendations found."}
 

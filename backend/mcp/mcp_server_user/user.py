@@ -61,7 +61,7 @@ async def register_buyer(name: str, buyer_role: str, identifier: str) -> dict:
 
 
 @mcp.tool()
-@traceable(runt_type="tool" , name="get_user_details") 
+@traceable(run_type="tool", name="get_user_details") 
 async def get_user_details(user_id: int) -> dict:
     """
     Fetch saved checkout details (name, email, address) for this shopper.
@@ -72,8 +72,7 @@ async def get_user_details(user_id: int) -> dict:
       the address, or say they want to change it. Do not re-collect fields you already have.
     - IF missing_fields is not empty: ask ONLY for those missing fields.
     """
-    await user_repo.ensure_guest_exists(user_id)
-    user = await user_repo.get_by_id(user_id)
+    user = await user_repo.ensure_guest_exists(user_id)
     if not user:
         return {
             "success": True,
@@ -91,7 +90,7 @@ async def get_user_details(user_id: int) -> dict:
 
 
 @mcp.tool()
-@traceable(runt_type="tool" , name="update_user_details") 
+@traceable(run_type="tool", name="update_user_details") 
 async def update_user_details(
     user_id: int,
     name: Optional[str] = None,
@@ -105,13 +104,20 @@ async def update_user_details(
     - Call this when the user provides missing details or asks to change an existing field.
     - Only pass the fields that should be updated.
     """
-    await user_repo.ensure_guest_exists(user_id)
     user = await user_repo.update_profile(
         user_id=user_id,
         name=name,
         email=email,
         address=address,
     )
+    if not user:
+        await user_repo.ensure_guest_exists(user_id)
+        user = await user_repo.update_profile(
+            user_id=user_id,
+            name=name,
+            email=email,
+            address=address,
+        )
     if not user:
         return {"success": False, "error": "User not found."}
     return _profile_payload(user)

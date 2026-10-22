@@ -1,4 +1,5 @@
 import os
+import asyncio
 from typing import Optional
 from sqlmodel import select
 from config.database import db_connection
@@ -84,7 +85,7 @@ async def check_user_payment_status(user_id: int) -> dict:
     payment_id = None
     if rzp_client and order.razorpay_payment_link_id:
         try:
-            pl = rzp_client.payment_link.fetch(order.razorpay_payment_link_id)
+            pl = await asyncio.to_thread(rzp_client.payment_link.fetch, order.razorpay_payment_link_id)
             link_status = pl.get("status")
             payments = pl.get("payments") or []
             if payments:

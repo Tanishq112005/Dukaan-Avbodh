@@ -128,6 +128,24 @@ class CampaignRepository(BaseRepository[Campaign]):
             )
             return int(total or 0)
 
+    async def get_stock_units_by_campaign_ids(self, campaign_ids: List[int]) -> Dict[int, int]:
+        """Batch fetches the sum of current stock across every product linked to each campaign,
+        eliminating the N+1 query problem when listing multiple campaigns."""
+        if not campaign_ids:
+            return {}
+        async with db_connection.get_session() as session:
+            rows = (await session.exec(
+                select(
+                    CampaignProductLink.campaign_id,
+                    func.coalesce(func.sum(Product.stock), 0)
+                )
+                .join(Product, Product.id == CampaignProductLink.product_id)
+                .where(CampaignProductLink.campaign_id.in_(campaign_ids))
+                .group_by(CampaignProductLink.campaign_id)
+            )).all()
+            stock_map = {cid: int(total) for cid, total in rows}
+            return {cid: stock_map.get(cid, 0) for cid in campaign_ids}
+
     async def update_campaign(
         self, campaign_id: int, agenda: Optional[str] = None, 
         discount_percentage: Optional[float] = None, priority: Optional[int] = None, 
@@ -215,42 +233,58 @@ class CampaignRepository(BaseRepository[Campaign]):
         """Recomputes importance_score (stock * sum of linked campaign weights) for the given
         products within an existing session/transaction. Use this after a campaign's `type`
         (priority) changes without its product links changing, since the insert/delete
-        triggers only fire when a link row is added or removed."""
+        triggers only fire when a link row is added or removed.
+        Optimized to batch query campaign types for all products in a single round-trip."""
         if not product_ids:
             return
         products = (await session.exec(select(Product).where(Product.id.in_(product_ids)))).all()
+        rows = (await session.exec(
+            select(CampaignProductLink.product_id, Campaign.type)
+            .join(Campaign, Campaign.id == CampaignProductLink.campaign_id)
+            .where(CampaignProductLink.product_id.in_(product_ids))
+        )).all()
+
+        types_by_product: Dict[int, List[CampaingType]] = {pid: [] for pid in product_ids}
+        for pid, ctype in rows:
+            types_by_product.setdefault(pid, []).append(ctype)
+
         for product in products:
-            types = (await session.exec(
-                select(Campaign.type)
-                .select_from(CampaignProductLink)
-                .join(Campaign, Campaign.id == CampaignProductLink.campaign_id)
-                .where(CampaignProductLink.product_id == product.id)
-            )).all()
+            types = types_by_product.get(product.id, [])
             total_weight = sum(CAMPAIGN_WEIGHTS.get(t, 1) for t in types)
             product.importance_score = product.stock * total_weight
             session.add(product)
 
     async def record_product_sale(self, product_id: int, quantity_sold: int = 1) -> None:
         """Finds all campaigns linked to a sold product and increments their total_items_sold counter."""
+        await self.record_product_sales_batch({product_id: quantity_sold})
+
+    async def record_product_sales_batch(self, sales_counts: Dict[int, int]) -> None:
+        """Batch increments total_items_sold for all campaigns linked to sold products in a single transaction."""
+        if not sales_counts:
+            return
         async with db_connection.get_session() as session:
             try:
+                product_ids = list(sales_counts.keys())
                 links = (await session.exec(
-                    select(CampaignProductLink).where(CampaignProductLink.product_id == product_id)
+                    select(CampaignProductLink).where(CampaignProductLink.product_id.in_(product_ids))
                 )).all()
-                
-                campaign_ids = [link.campaign_id for link in links]
-                
-                if not campaign_ids:
+
+                campaign_sales: Dict[int, int] = {}
+                for link in links:
+                    qty = sales_counts.get(link.product_id, 1)
+                    campaign_sales[link.campaign_id] = campaign_sales.get(link.campaign_id, 0) + qty
+
+                if not campaign_sales:
                     return
 
                 campaigns = (await session.exec(
-                    select(Campaign).where(Campaign.id.in_(campaign_ids))
+                    select(Campaign).where(Campaign.id.in_(list(campaign_sales.keys())))
                 )).all()
 
                 for campaign in campaigns:
-                    campaign.total_items_sold += quantity_sold
+                    campaign.total_items_sold += campaign_sales.get(campaign.id, 0)
                     session.add(campaign)
-                    
+
                 await session.commit()
             except Exception as e:
                 await session.rollback()

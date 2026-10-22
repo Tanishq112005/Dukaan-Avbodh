@@ -77,13 +77,14 @@ class UserRepository(BaseRepository[User]):
                 await session.rollback()
                 raise e
 
-    async def ensure_guest_exists(self, user_id: int) -> None:
+    async def ensure_guest_exists(self, user_id: int) -> Optional[User]:
         from models.user import UserRole
         async with db_connection.get_session() as session:
             try:
                 result = await session.exec(select(User).where(User.id == user_id))
-                if result.first():
-                    return
+                user = result.first()
+                if user:
+                    return user
                 guest = User(
                     id=user_id,
                     name=f"Guest {user_id}",
@@ -92,5 +93,8 @@ class UserRepository(BaseRepository[User]):
                 )
                 session.add(guest)
                 await session.commit()
+                await session.refresh(guest)
+                return guest
             except Exception:
                 await session.rollback()
+                return None
