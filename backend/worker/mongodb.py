@@ -30,20 +30,20 @@ class MongoDbWorker(BaseWorker):
             # 2. Get the MongoDB collection using a LOCAL client
             uri = os.getenv("MONGODB_URL", "mongodb://localhost:27017/")
             local_client = AsyncIOMotorClient(uri, serverSelectionTimeoutMS=5000)
-            
-            db = local_client["dukaan_db"]
-            collection = db["agent_states"]
-            
-            # 3. Upsert the state based on thread_id
-            result = await collection.update_one(
-                {"thread_id": thread_id}, 
-                {"$set": state}, 
-                upsert=True
-            )
-            print(f"[MongoDbTask] Data for thread {thread_id} saved to MongoDB successfully.")
-            
-            # 4. Close the local client to free up connections
-            local_client.close()
+            try:
+                db = local_client["dukaan_db"]
+                collection = db["agent_states"]
+                
+                # 3. Upsert the state based on thread_id
+                await collection.update_one(
+                    {"thread_id": thread_id}, 
+                    {"$set": state}, 
+                    upsert=True
+                )
+                print(f"[MongoDbTask] Data for thread {thread_id} saved to MongoDB successfully.")
+            finally:
+                # 4. Close the local client to free up connections
+                local_client.close()
             
         except Exception as e:
             print(f"[MongoDbTask] Error saving data to MongoDB: {e}")

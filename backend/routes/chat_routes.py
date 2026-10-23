@@ -79,6 +79,20 @@ async def chat_message(req: ChatRequest):
             "combo_offer": combo_offer
         })
 
+        # Dispatch background state archival and rolling summarization to queue
+        try:
+            from task_queue.sendingResult import sendingResult
+            queue_payload = {
+                "thread_id": thread_id_val,
+                "user_id": req.user_id,
+                "messages": result.get("messages", [human_msg]),
+                "conversation_summary": result.get("conversation_summary", ""),
+                "important_facts": result.get("important_facts", {})
+            }
+            await sendingResult.sendData(queue_payload)
+        except Exception as q_err:
+            print(f"[WARNING] Failed to dispatch chat state to background queue: {q_err}")
+
         # Fetch the updated cart state after the AI has potentially run MCP tools
         updated_cart = await cart_repository.get_cart_items(req.user_id)
         

@@ -1,7 +1,6 @@
 import os
 import re
 import asyncio
-
 from langgraph.graph import StateGraph, END, START
 from agents.user.state import AgentState
 from agents.user.specialists.director import DirectorAgent
@@ -13,13 +12,12 @@ from agents.user.specialists.general import GeneralAgent
 from agents.user.specialists.register import RegisterAgent
 from agents.user.toolCalling import create_tools_node
 from langgraph.checkpoint.mongodb import MongoDBSaver
-from checkpointer import checkPointer 
+from agents.user.checkpointer import checkPointer 
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
 
 
-
-# --- 2. Helper Functions for Routing and Post-Processing ---
+## helper functions for routing and post-processing
 def post_process_node(state: AgentState):
     messages = state.get("messages", [])
     if not messages: return {}
@@ -56,9 +54,9 @@ def route_from_tools(state: AgentState):
     return mapping.get(intent, "general_query")
 
 
-# --- 3. Graph Setup Functions ---
+## graph setup functions
 
-def initialize_agents(fast_llm, small_llm, tools_dict):
+def initialize_agents(fast_llm, medium_llm, small_llm, tools_dict):
     """Initializes and returns all agents and tools."""
     def get_tools(*names):
         return [tools_dict[n] for n in names if n in tools_dict]
@@ -130,22 +128,22 @@ def setup_edges(workflow: StateGraph):
     workflow.add_edge("post_process", END)
 
 
-# --- 4. Main Compiler Function ---
+## compilation function 
 
-def compile_agent_graph(fast_llm,medium_llm, small_llm, tools_dict):
+def compile_agent_graph(fast_llm, medium_llm, small_llm, tools_dict):
     """Main orchestrator function that compiles the entire graph."""
     # Initialize state graph
     workflow = StateGraph(AgentState)
     
     # Setup components
-    agents, tools_node = initialize_agents(fast_llm, small_llm, tools_dict)
+    agents, tools_node = initialize_agents(fast_llm, medium_llm, small_llm, tools_dict)
     
     # Build Graph
     setup_nodes(workflow, agents, tools_node)
     setup_edges(workflow)
     
     # Get Checkpointer
-    checkpointer_instance = checkPointer.getRedisCheckPointer() 
+    checkpointer_instance = checkPointer.getMongoDBCheckPointer()
     
     # Compile and return
     return workflow.compile(checkpointer=checkpointer_instance)

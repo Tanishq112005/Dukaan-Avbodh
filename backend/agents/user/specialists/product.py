@@ -1,7 +1,7 @@
 from langchain_core.messages import SystemMessage
 from agents.user.state import AgentState
 from utils.prompt_utils import build_prompt_with_summary
-from interfaces import IAgentInterface
+from .interfaces import IAgentInterface
 
 class ProductAgent(IAgentInterface):
     def __init__(self, llm, tools=None):

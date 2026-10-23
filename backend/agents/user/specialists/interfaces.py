@@ -1,18 +1,13 @@
-from abc import ABC, abstractmethod  
+from abc import ABC, abstractmethod
 from ..state import AgentState
 
 
-class IAgentInterface(ABC): 
-    
+class IAgentInterface(ABC):
+
     @abstractmethod
-    def _build_prompt(self , messages):
-        pass 
-    
-    
+    def _build_prompt(self, messages):
+        pass
+
     @abstractmethod
     def run(self, state: AgentState):
-        pass 
-    
-    
-    
-    
+        pass

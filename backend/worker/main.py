@@ -1,10 +1,13 @@
 import sys
 import os
-from ..queue.connection import QueueConsumerManager
-from config.redis import redisClient
 
-# Add the backend root to python path so it can be run directly
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# Add the backend root directory to sys.path before internal imports
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
+from task_queue.connection import QueueConsumerManager
+from config.redis import redisClient
 
 
 if __name__ == "__main__":
