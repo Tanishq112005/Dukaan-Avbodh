@@ -2,19 +2,18 @@ from config.mogodbconfig import NoSqlClient
 from models.chat_audit import ChatThread, ChatMessage, ThreadState
 from datetime import datetime
 from config.mogodbconfig import nosql_client  
-
+from .base_repository import BaseRepository
 
   
-class Chat:
+class Chat(BaseRepository[ChatThread]):
     
-    def __init__(self , noSql_client):
-        self.client = noSql_client
-        self.db = self.client.get_collection("dukaan_audit", "chat_threads")
+    def __init__(self , noSql_collection):
+        super().__init__(ChatThread)
+        self.db = noSql_collection
         
         
-
-    
-    async def get_or_create_thread(self, user_id: int, thread_id: str) -> dict:
+    ## Get or create a chat thread for a user
+    async def getOrCreateThread(self, user_id: int, thread_id: str) -> dict:
         """Fetch a thread by user_id and thread_id, or create if it doesn't exist."""
         thread = await self.db.find_one({"user_id": user_id, "thread_id": thread_id})
         if not thread:
@@ -101,4 +100,4 @@ class Chat:
 
 
 # Singleton instance
-chat_audit_repo = Chat(noSql_client=nosql_client)
+chat = Chat(noSql_collection=nosql_client.get_collection("dukaan_audit", "chat_threads"))
