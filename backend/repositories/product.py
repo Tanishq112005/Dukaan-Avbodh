@@ -1,7 +1,7 @@
 from typing import Optional, List
 from sqlmodel import select
 from config.database import db_connection
-from models import Product, Campaign, CampaignProductLink, CAMPAIGN_WEIGHTS
+from models import Product
 from models.product import ProductType
 
 
@@ -126,6 +126,9 @@ class Product:
 
       except Exception:
          raise
+
+
+productRepository = Product(db_connection=db_connection)
     
          
             

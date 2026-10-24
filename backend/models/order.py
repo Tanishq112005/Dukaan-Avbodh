@@ -15,11 +15,7 @@ class PaymentStatus(str, Enum):
     FAILED = "failed"
     REFUNDED = "refunded"
     
-class DeilveredStatus(str , Enum):
-    PENDING = "pending"
-    DELIVERED = "delivered"
-    RETURNED = "returned"
-    
+
 class Order(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     product_id: int = Field(foreign_key="product.id")
@@ -32,7 +28,7 @@ class Order(SQLModel, table=True):
     total_amount: float = 0.0
     payment_method: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
-    delivered_status: str = DeilveredStatus.PENDING
+    
     
     
     product: Optional["Product"] = Relationship(back_populates="orders")
