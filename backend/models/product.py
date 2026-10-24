@@ -60,12 +60,12 @@ class Product(SQLModel, table=True):
     cost_price: float = 0.0
     min_profit_margin_percent: float = 20.0
     stock: int
-    type: ProductType = ProductType.T_SHIRT
+    type: ProductType 
     brand: Optional[str] = None
     gender: Optional[str] = None
     description: Optional[str] = None
     sizes: Optional[str] = None
-    rating: float = 4.5
+    rating : Optional[float] = None
     discount: int = 0
     image_url: Optional[str] = None
     importance_score: int = 0
@@ -75,17 +75,11 @@ class Product(SQLModel, table=True):
         back_populates="products", link_model=CampaignProductLink
     )
 
-# 4. Trigger: recompute a product's importance_score whenever its campaign links change.
-#
-# Formula: importance_score = current_stock * sum(priority weight of every campaign
-# the product is still linked to). This way the score reflects how much stock is
-# actually riding on active campaigns, not just how many campaigns touched it.
-# Stock-driven recompute (order placed -> stock drops -> score drops) lives in
-# ProductRepository.update_stock, which calls the same helper below.
+## trigger 
 def recompute_product_importance(connection, product_id: Optional[int]) -> None:
     if product_id is None:
         return
-
+    
     stock = connection.scalar(select(Product.stock).where(Product.id == product_id))
     if stock is None:
         return

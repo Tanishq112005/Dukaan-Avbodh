@@ -5,16 +5,19 @@ from models import Product, Campaign, CampaignProductLink, CAMPAIGN_WEIGHTS
 from models.product import ProductType
 from .base_repository import BaseRepository
 
-class ProductRepository(BaseRepository[Product]):
-    def __init__(self):
+class Product(BaseRepository[Product]):
+    
+    ### initilization of the class
+    def __init__(self , db_connection):
         super().__init__(Product)
+        self.db = db_connection
 
     async def update_stock(self, product_id: int, new_stock: int) -> Optional[Product]:
         """Updates stock and, in the same transaction, recomputes importance_score
         (stock * sum of linked campaign weights) so campaign scoring always reflects
         the current stock level. If the product sells out while linked to a live
         campaign, an audit log entry is raised so the merchant sees it."""
-        async with db_connection.get_session() as session:
+        async with self.db.get_session() as session:
             try:
                 result = await session.exec(
                     select(Product).where(Product.id == product_id)
@@ -70,7 +73,7 @@ class ProductRepository(BaseRepository[Product]):
         preventing N+1 stock update round-trips during checkout."""
         if not quantities:
             return []
-        async with db_connection.get_session() as session:
+        async with self.db.get_session() as session:
             try:
                 product_ids = list(quantities.keys())
                 products = (await session.exec(
@@ -133,15 +136,95 @@ class ProductRepository(BaseRepository[Product]):
                 raise e
 
     async def get_in_stock(self) -> List[Product]:
-        async with db_connection.get_session() as session:
+        async with self.db.get_session() as session:
             result = await session.exec(
                 select(Product).where(Product.stock > 0)
             )
             return result.all()
 
+    
+    async def get_by_ids(self, product_ids: List[int]) -> List[Product]:
+       
+        if not product_ids:
+            print("Empty List of product_ids provided to get_by_ids. Returning empty list")
+            return []
+        
+        async with self.db.get_session() as session:
+            result = await session.exec(select(Product).where(Product.id.in_(product_ids)))
+            return result.all()
+
+    async def get_in_stock_by_types(self, product_types: List[ProductType]) -> List[Product]:
+        if not product_types:
+            return []
+        async with self.db.get_session() as session:
+            result = await session.exec(
+                select(Product).where(
+                    Product.type.in_(product_types),
+                    Product.stock > 0,
+                )
+            )
+            return result.all()
+    
+    
+    ## Add the New Product to the database
+    async def addProduct(self , product: Product) -> Product: 
+        
+        async with self.db.get_session() as session: 
+            try: 
+                session.add(product)
+                await session.commit()
+                await session.refresh(product)
+                return product
+            except Exception as e:
+                await session.rollback()
+                raise e
+    
+    
+    ## Make the Changes in the Product in the database
+    ## await repository.updateProduct(10, {"stock": 20}) example to use this function
+    async def updateProduct(
+       self, product_id: int, updates: dict
+       ) -> Optional[Product]:
+
+       async with self.db.get_session() as session:
+        try:
+            product = await session.get(Product, product_id)
+
+            if not product:
+                return None
+
+            for key, value in updates.items():
+                if hasattr(product, key):
+                    setattr(product, key, value)
+
+            await session.commit()
+            await session.refresh(product)
+
+            return product
+
+        except Exception:
+            await session.rollback()
+            raise
+        
+    ## Delete the Product from the database 
+    async def deleteProduct(self , product_id: int ) -> bool:
+        async with self.db.get_session() as session:
+            try:
+                product = await session.get(Product, product_id)
+                if not product:
+                    return False
+                await session.delete(product)
+                await session.commit()
+                return True
+            except Exception:
+                await session.rollback()
+                raise    
+    
+    
+    ## Get the product by its type and also check if the product is in stock or not      
     async def get_by_type(self, product_type: ProductType) -> List[Product]:
         """Fetches products of a specific type that are currently in stock."""
-        async with db_connection.get_session() as session:
+        async with self.db.get_session() as session:
             result = await session.exec(
                 # Added Product.stock > 0 to ensure out-of-stock items are filtered out
                 select(Product).where(
@@ -150,22 +233,7 @@ class ProductRepository(BaseRepository[Product]):
                 )
             )
             return result.all()
-
-    async def get_by_ids(self, product_ids: List[int]) -> List[Product]:
-        if not product_ids:
-            return []
-        async with db_connection.get_session() as session:
-            result = await session.exec(select(Product).where(Product.id.in_(product_ids)))
-            return result.all()
-
-    async def get_in_stock_by_types(self, product_types: List[ProductType]) -> List[Product]:
-        if not product_types:
-            return []
-        async with db_connection.get_session() as session:
-            result = await session.exec(
-                select(Product).where(
-                    Product.type.in_(product_types),
-                    Product.stock > 0,
-                )
-            )
-            return result.all()
+        
+    
+         
+            

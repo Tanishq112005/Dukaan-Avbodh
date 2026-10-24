@@ -4,8 +4,8 @@ from fastapi import HTTPException, status
 
 from schemas.product_schemas import AddProductRequest
 from repositories import ProductRepository
-from repositories.user_event_repository import UserEventRepository
-from repositories.user_repository import UserRepository
+from repositories.userEvent import UserEventRepository
+from repositories.user import UserRepository
 from models import Product, UserEvent, ProductType
 from models.user_event import EventType
 from services.audit_logger import audit_logger

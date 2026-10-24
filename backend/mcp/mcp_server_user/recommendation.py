@@ -3,7 +3,7 @@ from services.upsell_service import upsell_service
 from services.behavior_scorer import behavior_scorer
 from services.audit_logger import audit_logger
 from repositories.cart_repository import cart_repository
-from repositories.user_event_repository import UserEventRepository
+from repositories.userEvent import UserEventRepository
 
 event_repo = UserEventRepository()
 

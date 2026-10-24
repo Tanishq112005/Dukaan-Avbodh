@@ -5,12 +5,15 @@ from models import UserEvent
 from .base_repository import BaseRepository
 
 
-class UserEventRepository(BaseRepository[UserEvent]):
-    def __init__(self):
+class UserEvent(BaseRepository[UserEvent]):
+    
+    ## initilization of the class
+    def __init__(self , db_connection):
         super().__init__(UserEvent)
+        self.db = db_connection
 
     async def get_events_for_user(self, user_id: int) -> list[UserEvent]:
-        async with db_connection.get_session() as session:
+        async with self.db.get_session() as session:
             try:
                 result = await session.exec(
                     select(UserEvent).where(UserEvent.user_id == user_id)
@@ -22,7 +25,7 @@ class UserEventRepository(BaseRepository[UserEvent]):
                 await session.close()
 
     async def get_recent_global_events(self, limit: int = 500) -> list[UserEvent]:
-        async with db_connection.get_session() as session:
+        async with self.db.get_session() as session:
             try:
                 result = await session.exec(
                     select(UserEvent).order_by(UserEvent.timestamp.desc()).limit(limit)
@@ -32,3 +35,6 @@ class UserEventRepository(BaseRepository[UserEvent]):
                 raise e
             finally:
                 await session.close()
+                
+                
+userEvent = UserEvent(db_connection)                

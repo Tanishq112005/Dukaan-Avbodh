@@ -1,7 +1,7 @@
 from models.product import Product, ProductType
 from services.behavior_scorer import behavior_scorer
 from repositories.product_repository import ProductRepository
-from repositories.user_event_repository import UserEventRepository
+from repositories.userEvent import UserEventRepository
 
 product_repo = ProductRepository()
 event_repo = UserEventRepository()

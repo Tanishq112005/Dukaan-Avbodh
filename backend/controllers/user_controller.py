@@ -1,5 +1,5 @@
 from repositories import UserRepository
-from repositories.user_event_repository import UserEventRepository
+from repositories.userEvent import UserEventRepository
 from models.user_event import UserEvent, EventType
 from fastapi import HTTPException
 

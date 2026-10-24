@@ -1,5 +1,5 @@
 from datetime import datetime
-from repositories.user_event_repository import UserEventRepository
+from repositories.userEvent import UserEventRepository
 from models.user_event import EventType
 
 class BehaviorScorer:

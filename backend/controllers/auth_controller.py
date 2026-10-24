@@ -4,7 +4,7 @@ from schemas.auth_schemas import SignupRequest, LoginRequest
 from repositories import UserRepository
 from auth.auth_handler import AuthHandler
 from models import User
-from repositories.user_event_repository import UserEventRepository
+from repositories.userEvent import UserEventRepository
 from models import UserEvent
 from models.user_event import EventType
 
