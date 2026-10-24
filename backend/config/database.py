@@ -1,5 +1,6 @@
 import os
-from typing import Optional, AsyncContextManager
+from typing import Optional, AsyncGenerator
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -7,12 +8,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 load_dotenv()
 
 
-class DatabaseConnection:
+class PostgressDatabaseConnection:
     """
     Singleton class — shared PostgreSQL connection provider across the project.
     """
 
-    _instance: Optional["DatabaseConnection"] = None
+    _instance: Optional["PostgressDatabaseConnection"] = None
     _engine: Optional[AsyncEngine] = None
     _session_factory: Optional[async_sessionmaker[AsyncSession]] = None
 
@@ -24,6 +25,7 @@ class DatabaseConnection:
     def __init__(self):
         if self._engine is None:
             database_url = os.getenv("DATABASE_URL")
+
             if not database_url:
                 raise ValueError("DATABASE_URL is not set in .env file")
 
@@ -63,15 +65,25 @@ class DatabaseConnection:
     def engine(self) -> AsyncEngine:
         return self._engine
 
-    def get_session(self) -> AsyncSession:
+    async def get_session(self) -> AsyncSession:
         """
-        Returns a raw AsyncSession instance directly.
-        Remember to close it manually or use it inside `async with`.
+        Asynchronously creates and returns an AsyncSession instance.
         """
         return self._session_factory()
+
+    @asynccontextmanager
+    async def session(self) -> AsyncGenerator[AsyncSession, None]:
+        """
+        Async context manager wrapper. Auto-closes the session when exiting the block.
+        """
+        async_session = self._session_factory()
+        try:
+            yield async_session
+        finally:
+            await async_session.close()
 
     async def close(self):
         await self._engine.dispose()
 
 
-db_connection = DatabaseConnection()
+db_connection = PostgressDatabaseConnection()
