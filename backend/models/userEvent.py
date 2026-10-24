@@ -1,9 +1,9 @@
-# models/user_event.py — poora file
+# models/user_event.py
 from sqlmodel import SQLModel, Field
 from typing import Optional
 from datetime import datetime
 from enum import Enum
-from product import ProductType
+
 
 class EventType(str, Enum):
     VIEWED = "viewed"

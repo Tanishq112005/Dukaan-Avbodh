@@ -83,4 +83,4 @@ class AuthController:
         }
 
 
-auth = AuthController()
+authController = AuthController()
