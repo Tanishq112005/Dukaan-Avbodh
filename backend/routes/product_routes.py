@@ -36,7 +36,7 @@ router.add_api_route("/catalog", get_catalog_route, methods=["GET"])
 router.add_api_route("/type/{product_type}", get_by_type_route, methods=["GET"])
 
 from fastapi.security import OAuth2PasswordBearer
-from auth.auth_handler import AuthHandler
+from auth.jwt import AuthHandler
 optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
 async def get_product_detail_route(
@@ -52,4 +52,4 @@ async def get_product_detail_route(
             pass
     return await controller.get_product_detail(product_id, user_id)
 
-router.add_api_route("/detail/{product_id}", get_product_detail_route, methods=["GET"])
+router.add_api_route("/detail/{product_id}", get_product_detail_route, methods=["GET"])

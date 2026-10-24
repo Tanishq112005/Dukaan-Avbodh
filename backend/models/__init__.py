@@ -1,4 +1,3 @@
-# models/__init__.py
 from .product import Product, Campaign, CampaignProductLink, CampaingType, CAMPAIGN_WEIGHTS, ProductType
 from .order import Order
 from .discount_policy import DiscountPolicy

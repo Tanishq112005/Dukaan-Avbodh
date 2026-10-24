@@ -1,4 +1,3 @@
-# models/user.py
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
@@ -11,12 +10,12 @@ if TYPE_CHECKING:
 class UserRole(str, Enum):
     MERCHANT = "merchant"
     CUSTOMER = "customer"
-    AI_AGENT = "ai_agent"
     
 
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
+    email: str 
     role: UserRole = UserRole.CUSTOMER      
     identifier: str = Field(unique=True)     
     password_hash: Optional[str] = None

@@ -1,8 +1,9 @@
-# models/order.py
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
+
+
 if TYPE_CHECKING:
     from .product import Product
     from .user import User
@@ -27,6 +28,7 @@ class Order(SQLModel, table=True):
     gateway_payment_id: Optional[str] = None
     provider: Optional[str] = None
     payment_status: str = PaymentStatus.PENDING
+    payment_attempts: int = 0
     total_amount: float = 0.0
     payment_method: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)

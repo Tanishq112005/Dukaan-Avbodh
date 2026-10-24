@@ -3,10 +3,13 @@ from repositories.userEvent import UserEventRepository
 from models.userEvent import UserEvent, EventType
 from fastapi import HTTPException
 
-class UserController:
+class User:
+    
+    
     def __init__(self):
         self.user_repo = UserRepository()
         self.event_repo = UserEventRepository()
+    
 
     async def get_profile(self, user_id: int):
         return await self.user_repo.get_by_id(user_id)

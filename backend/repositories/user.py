@@ -18,8 +18,18 @@ class User:
                 select(User).where(User.identifier == identifier)
             )
             return result.first()
+    
+    
+    ## Checking user is already there or not 
+    async def getUserByEmail(self , email : str) -> Optional[User]: 
+        async with self.db.get_session() as session: 
+            result = await session.exec(
+                select(User).wbere(User.email == email) 
+            )
+            return result.first() ; 
      
-     ### get user by id
+        
+    ### get user by id
     async def get_or_create(
         self,
         name: str,

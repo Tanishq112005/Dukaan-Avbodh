@@ -1,6 +1,6 @@
 # routes/user_routes.py
 from fastapi import APIRouter, Depends
-from controllers.user_controller import UserController
+from controllers.user import UserController
 from middleware.role_middleware import get_current_user
 
 router = APIRouter(prefix="/user", tags=["User"])

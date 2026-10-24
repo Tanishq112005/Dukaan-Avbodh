@@ -1,7 +1,7 @@
 # middleware/role_middleware.py
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from auth.auth_handler import AuthHandler
+from auth.jwt import AuthHandler
 from models.user import UserRole
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
