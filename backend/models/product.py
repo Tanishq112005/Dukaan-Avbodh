@@ -79,7 +79,7 @@ class Product(SQLModel, table=True):
 def recompute_product_importance(connection, product_id: Optional[int]) -> None:
     if product_id is None:
         return
-    
+
     stock = connection.scalar(select(Product.stock).where(Product.id == product_id))
     if stock is None:
         return

@@ -3,7 +3,7 @@ from sqlmodel import SQLModel, Field
 from typing import Optional
 from datetime import datetime
 from enum import Enum
-
+from product import ProductType
 
 class EventType(str, Enum):
     VIEWED = "viewed"
@@ -19,5 +19,5 @@ class UserEvent(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
     product_id: Optional[int] = Field(default=None, foreign_key="product.id")   
-    event_type: EventType                    
+    event_type: EventType           
     timestamp: datetime = Field(default_factory=datetime.now)

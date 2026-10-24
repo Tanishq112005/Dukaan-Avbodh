@@ -1,8 +1,16 @@
 from fastapi import APIRouter
+
+from schemas.auth import SignupRequest, LoginRequest
 from controllers.auth import auth
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
-router.add_api_route("/signup", auth.signup, methods=["POST"])
-router.add_api_route("/login", auth.login, methods=["POST"])
+@router.post("/signup", status_code=200)
+async def signup(payload: SignupRequest):
+    return await auth.signup(payload)
+
+
+@router.post("/login")
+async def login(payload: LoginRequest):
+    return await auth.login(payload)

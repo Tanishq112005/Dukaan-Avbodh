@@ -2,7 +2,7 @@ from .product import Product, Campaign, CampaignProductLink, CampaingType, CAMPA
 from .order import Order
 from .discount_policy import DiscountPolicy
 from .user import User
-from .userEvent import UserEvent
+from .userEvent import UserEvent , EventType
 from .cart import Cart, CartItem   # naya — cart ke liye
 
-__all__ = ["Product", "Order", "DiscountPolicy", "User", "UserEvent", "Cart", "CartItem", "Campaign", "CampaignProductLink", "CampaingType", "CAMPAIGN_WEIGHTS", "ProductType"]
+__all__ = ["Product", "Order", "DiscountPolicy", "User", "UserEvent", "Cart", "CartItem", "Campaign", "CampaignProductLink", "CampaingType", "CAMPAIGN_WEIGHTS", "ProductType" , "EventType"]

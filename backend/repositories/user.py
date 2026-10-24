@@ -24,7 +24,7 @@ class User:
     async def getUserByEmail(self , email : str) -> Optional[User]: 
         async with self.db.get_session() as session: 
             result = await session.exec(
-                select(User).wbere(User.email == email) 
+                select(User).where(User.email == email) 
             )
             return result.first() ; 
      

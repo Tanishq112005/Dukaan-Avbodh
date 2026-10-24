@@ -1,74 +1,86 @@
+
 from fastapi import HTTPException
-from schemas.auth_schemas import SignupRequest, LoginRequest
+from fastapi.responses import JSONResponse
+
+from schemas.auth import SignupRequest, LoginRequest
 from lib.jwt import AuthHandler
 from models import User
 from repositories.user import userRepository
-from fastapi.responses import JSONResponse
-
 
 
 class AuthController:
-    
-    
-    
-    
-    ## SignUp Process 
-    async def signup(self, payload: SignupRequest):
-      existing = await userRepository.getUserByEmail(payload.email)
 
-      if existing:
+    ## SignUp Process
+    async def signup(self, payload: SignupRequest):
+
+        existing = await userRepository.getUserByEmail(payload.email)
+
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail="Your profile already exists. Please log in."
+            )
+
+        hashed = (
+            AuthHandler.hash_password(payload.password)
+            if payload.password
+            else None
+        )
+
+        user = User(
+            name=payload.name,
+            identifier=payload.identifier,
+            password_hash=hashed,
+            role=payload.role,
+            email=payload.email
+        )
+
+        userProfile = await userRepository.get_or_create(user)
+
+        token = AuthHandler.create_access_token(
+            userProfile.id,
+            userProfile.role.value
+        )
+
         return JSONResponse(
-            status_code=400,
+            status_code=201,
             content={
-                "detail": "Your profile already exists. Please log in."
+                "access_token": token,
+                "user_id": userProfile.id,
+                "role": userProfile.role.value
             }
         )
 
-      hashed = AuthHandler.hash_password(payload.password) if payload.password else None
+    ## Login Process
+    async def login(self, payload: LoginRequest):
 
-      user : User = User(
-        name=payload.name,
-        identifier=payload.identifier,
-        password_hash=hashed,
-        role=payload.role,
-        email=payload.email
-       )
+        user = await userRepository.getUserByEmail(payload.email)
 
-      userProfile : User = await userRepository.get_or_create(user)
+        if user is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Wrong credentials"
+            )
 
-      token = AuthHandler.create_access_token(
-        userProfile.id,
-        userProfile.role
+        if not user.password_hash or not AuthHandler.verify_password(
+            payload.password,
+            user.password_hash
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Wrong credentials"
+            )
+
+        token = AuthHandler.create_access_token(
+            user.id,
+            user.role.value
         )
 
-      return JSONResponse(
-        status_code=201,
-        content={
+        return {
             "access_token": token,
-            "user_id": userProfile.id,
-            "role": userProfile.role
+            "user_id": user.id,
+            "role": user.role.value
         }
-    )
-    
-    
-    ## login process 
-    async def login(self, payload: LoginRequest):
-        user : User = await userRepository.getUserByEmail(payload.email) 
-        
-        if user == None: 
-            raise HTTPException(status_code=401, detail="Wrong Credentials")
-        
-        if not AuthHandler.verify_password(payload.password, user.password_hash):
-            raise HTTPException(status_code=401, detail="Wrong Credntials")
-        
-        
-        ## token creation process 
-        token = AuthHandler.create_access_token(user.id, user.role)
-
-        
-
-        return {"access_token": token, "user_id": user.id, "role": user.role}
-    
 
 
-auth = AuthController()     
+auth = AuthController()
