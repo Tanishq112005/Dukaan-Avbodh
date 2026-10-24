@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends
 from controllers.checkout_controller import CheckoutController
 from schemas.checkout_schemas import CheckoutRequest
-from middleware.role_middleware import get_current_user, require_role
+from middleware.merchant_middleware import get_current_user, require_role
 from models.user import UserRole
 from middleware.auth_middleware import auth_middleware
 

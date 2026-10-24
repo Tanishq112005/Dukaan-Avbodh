@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from middleware.role_middleware import require_role
+from middleware.merchant_middleware import require_role
 from models.user import UserRole
 from services.audit_logger import audit_logger
 from repositories.chat import chat_audit_repo

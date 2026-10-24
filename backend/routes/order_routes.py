@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from controllers.order_controller import OrderController
-from middleware.role_middleware import require_role, get_current_user
+from middleware.merchant_middleware import require_role, get_current_user
 from models.user import UserRole
 
 router = APIRouter(prefix="/order", tags=["Order"])
