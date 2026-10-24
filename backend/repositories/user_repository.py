@@ -5,7 +5,7 @@ from models import User
 from models.user import UserRole
 from .base_repository import BaseRepository
 
-class UserRepository(BaseRepository[User]):
+class User(BaseRepository[User]):
     ### initilization of the repo or the class 
     def __init__(self , db_connection):
         super().__init__(User)
@@ -113,5 +113,5 @@ class UserRepository(BaseRepository[User]):
             
             
             
-### UserRepository            
-userRepository = UserRepository(db_connection=db_connection)
+### User          
+userRepository = User(db_connection=db_connection)
