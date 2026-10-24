@@ -10,7 +10,7 @@ from repositories.product import ProductRepository
 from repositories.cart import cart_repository
 from repositories.userEvent import UserEventRepository
 from models.product import ProductType
-from models.user_event import EventType
+from models.userEvent import EventType
 from langsmith import traceable
 
 product_repo = ProductRepository()

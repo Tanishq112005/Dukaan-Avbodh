@@ -5,7 +5,7 @@ from repositories import ProductRepository, OrderRepository, DiscountPolicyRepos
 from models import Order
 from services.audit_logger import audit_logger
 from models import UserEvent
-from models.user_event import EventType
+from models.userEvent import EventType
 from repositories.userEvent import UserEventRepository
 
 class CheckoutController:

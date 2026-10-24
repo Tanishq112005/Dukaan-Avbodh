@@ -6,7 +6,7 @@ from auth.auth_handler import AuthHandler
 from models import User
 from repositories.userEvent import UserEventRepository
 from models import UserEvent
-from models.user_event import EventType
+from models.userEvent import EventType
 
 
 class AuthController:

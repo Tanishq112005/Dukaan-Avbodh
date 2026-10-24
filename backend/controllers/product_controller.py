@@ -7,7 +7,7 @@ from repositories import ProductRepository
 from repositories.userEvent import UserEventRepository
 from repositories.user import UserRepository
 from models import Product, UserEvent, ProductType
-from models.user_event import EventType
+from models.userEvent import EventType
 from services.audit_logger import audit_logger
 from services.pricing_service import pricing_service
 

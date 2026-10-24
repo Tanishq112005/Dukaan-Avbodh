@@ -1,6 +1,6 @@
 from datetime import datetime
 from repositories.userEvent import UserEventRepository
-from models.user_event import EventType
+from models.userEvent import EventType
 
 class BehaviorScorer:
     EVENT_WEIGHTS = {
