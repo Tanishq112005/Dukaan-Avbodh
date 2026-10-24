@@ -1,8 +1,13 @@
+import logging
+from datetime import datetime
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from repositories.userEvent import userEvent
 from schemas.userEvent import UserEvent
+from task_queue.event_queue import event_queue
+
+logger = logging.getLogger(__name__)
 
 
 class UserEventController:
@@ -12,25 +17,40 @@ class UserEventController:
         payload: UserEvent,
         user_id: int
     ):
+        """
+        Queue-First (Write-Behind) pattern:
+        Pushes event to Redis in-memory queue (~1-2ms) without locking or waiting
+        on a synchronous database commit. The background worker bulk-inserts the events
+        into PostgreSQL and updates ProbabilityOfShowingItems.
+        """
         try:
-            await userEvent.addUserEvents(
-                user_id=user_id,
-                event_type=payload.event_type,
-                product_id=payload.product_id
+            event_type_str = (
+                payload.event_type.value
+                if hasattr(payload.event_type, "value")
+                else str(payload.event_type)
             )
+
+            # Fast in-memory push to Redis queue
+            event_queue.push({
+                "user_id": user_id,
+                "product_id": payload.product_id,
+                "event_type": event_type_str,
+                "timestamp": datetime.now().isoformat()
+            })
 
             return {
                 "success": True,
-                "msg": "Event successfully inserted"
+                "msg": "Event queued successfully"
             }
 
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
         except Exception:
+            logger.exception("Failed to queue user event")
             raise HTTPException(
                 status_code=500,
-                detail="Failed to insert user event"
+                detail="Failed to queue user event"
             )
 
     async def getUserEvents(self, user_id: int):

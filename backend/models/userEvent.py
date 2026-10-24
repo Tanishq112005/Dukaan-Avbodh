@@ -21,3 +21,4 @@ class UserEvent(SQLModel, table=True):
     product_id: Optional[int] = Field(default=None, foreign_key="product.id")   
     event_type: EventType           
     timestamp: datetime = Field(default_factory=datetime.now)
+

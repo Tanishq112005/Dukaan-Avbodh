@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Optional, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
-
+from .probabilityValues import ProbabilityOfShowingItems, ProbabilityOfShowingItemsForParticularUser
 if TYPE_CHECKING:
     from .order import Order
 
@@ -33,5 +33,14 @@ class Product(SQLModel, table=True):
     image_url: Optional[str] = None
 
     orders: List["Order"] = Relationship(back_populates="product")
+    probability_scores: list["ProbabilityOfShowingItems"] = Relationship(
+        back_populates="product"
+    )
+
+    user_probability_scores: list[
+        "ProbabilityOfShowingItemsForParticularUser"
+    ] = Relationship(
+        back_populates="product"
+    )
    
 

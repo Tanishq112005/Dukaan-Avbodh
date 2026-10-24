@@ -1,12 +1,14 @@
 # repositories/user_event_repository.py
+from typing import List
 from sqlmodel import select
 from config.database import db_connection
-from models import UserEvent , EventType
+from models import UserEvent, EventType
 
-class UserEvent:
+
+class UserEventRepository:
     
-    ## initilization of the class
-    def __init__(self , db_connection):
+    ## Initialization of the repo
+    def __init__(self, db_connection):
         self.db = db_connection
 
     async def getEventsOfUser(self, user_id: int) -> list[UserEvent]:
@@ -32,28 +34,37 @@ class UserEvent:
                 raise e
             finally:
                 await session.close()
-    
-    
+
     async def addUserEvents(
-       self, user_id: int, event_type: EventType, product_id: int):
-      async with self.db.get_session() as session:
-        try:
-            event = UserEvent(
-                user_id=user_id,
-                event_type=event_type,
-                product_id=product_id
-            )
+        self, user_id: int, event_type: EventType, product_id: int
+    ) -> UserEvent:
+        async with self.db.get_session() as session:
+            try:
+                event = UserEvent(
+                    user_id=user_id,
+                    event_type=event_type,
+                    product_id=product_id
+                )
+                session.add(event)
+                await session.commit()
+                await session.refresh(event)
+                return event
+            except Exception:
+                await session.rollback()
+                raise
 
-            session.add(event)
-            await session.commit()
-            await session.refresh(event)
+    async def bulkAddUserEvents(self, events: List[UserEvent]) -> List[UserEvent]:
+        """Bulk inserts events into the database in a single database transaction."""
+        if not events:
+            return []
+        async with self.db.get_session() as session:
+            try:
+                session.add_all(events)
+                await session.commit()
+                return events
+            except Exception:
+                await session.rollback()
+                raise
 
-            return event
 
-        except Exception:
-            await session.rollback()
-            raise
-    
-              
-                
-userEvent = UserEvent(db_connection)                
+userEvent = UserEventRepository(db_connection)

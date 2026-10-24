@@ -1,10 +1,12 @@
 import logging
+from datetime import datetime
 
 from fastapi import HTTPException, status
 
 from repositories.cart import cart
 from repositories.userEvent import userEvent
 from models.userEvent import EventType
+from task_queue.event_queue import event_queue
 from schemas.cart import (
     AddItemRequest,
     UpdateItemRequest,
@@ -32,13 +34,14 @@ class CartController:
             )
 
             try:
-                await userEvent.addUserEvents(
-                    user_id=user_id,
-                    event_type=EventType.ADD_TO_CART,
-                    product_id=payload.product_id
-                )
+                event_queue.push({
+                    "user_id": user_id,
+                    "product_id": payload.product_id,
+                    "event_type": EventType.ADD_TO_CART.value,
+                    "timestamp": datetime.now().isoformat()
+                })
             except Exception:
-                logger.exception("Failed to record add-to-cart event")
+                logger.warning("Failed to queue add-to-cart event")
 
             return {
                 "success": True,
@@ -160,13 +163,14 @@ class CartController:
                 )
 
             try:
-                await userEvent.addUserEvents(
-                    user_id=user_id,
-                    event_type=EventType.REMOVE_FROM_CART,
-                    product_id=payload.product_id
-                )
+                event_queue.push({
+                    "user_id": user_id,
+                    "product_id": payload.product_id,
+                    "event_type": EventType.REMOVE_FROM_CART.value,
+                    "timestamp": datetime.now().isoformat()
+                })
             except Exception:
-                logger.exception("Failed to record remove-from-cart event")
+                logger.warning("Failed to queue remove-from-cart event")
 
             return {
                 "success": True,
