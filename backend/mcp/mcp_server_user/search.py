@@ -6,8 +6,8 @@ from config.vectorDatabase import vectorDB
 from services.behavior_scorer import behavior_scorer
 from services.recommendation_service import recommendation_service
 from services.pricing_service import pricing_service
-from repositories.product_repository import ProductRepository
-from repositories.cart_repository import cart_repository
+from repositories.product import ProductRepository
+from repositories.cart import cart_repository
 from repositories.userEvent import UserEventRepository
 from models.product import ProductType
 from models.user_event import EventType

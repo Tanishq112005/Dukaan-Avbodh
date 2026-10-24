@@ -2,7 +2,7 @@ import json
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from agents.user.state import AgentState
 from agents.user.prompts import get_system_prompt, get_system_reminder
-from repositories.cart_repository import cart_repository
+from repositories.cart import cart_repository
 
 
 

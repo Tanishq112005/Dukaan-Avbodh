@@ -143,15 +143,7 @@ class Product(BaseRepository[Product]):
             return result.all()
 
     
-    async def get_by_ids(self, product_ids: List[int]) -> List[Product]:
-       
-        if not product_ids:
-            print("Empty List of product_ids provided to get_by_ids. Returning empty list")
-            return []
-        
-        async with self.db.get_session() as session:
-            result = await session.exec(select(Product).where(Product.id.in_(product_ids)))
-            return result.all()
+    
 
     async def get_in_stock_by_types(self, product_types: List[ProductType]) -> List[Product]:
         if not product_types:
@@ -233,6 +225,18 @@ class Product(BaseRepository[Product]):
                 )
             )
             return result.all()
+        
+    
+    ## Get the products by their ids 
+    async def get_by_ids(self, product_ids: List[int]) -> List[Product]:
+       
+        if not product_ids:
+            print("Empty List of product_ids provided to get_by_ids. Returning empty list")
+            return []
+        
+        async with self.db.get_session() as session:
+            result = await session.exec(select(Product).where(Product.id.in_(product_ids)))
+            return result.all()    
         
     
          

@@ -1,7 +1,7 @@
 from services.recommendation_service import recommendation_service
 from services.combo_pricing_engine import combo_pricing_engine
 from services.pricing_service import pricing_service
-from repositories.product_repository import ProductRepository
+from repositories.product import ProductRepository
 
 product_repo = ProductRepository()
 

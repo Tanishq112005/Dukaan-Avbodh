@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from middleware.role_middleware import require_role
 from models.user import UserRole
 from services.audit_logger import audit_logger
-from repositories.chat_audit_repository import chat_audit_repo
+from repositories.chat import chat_audit_repo
 from services.analytics_service import analytics_service
 
 router = APIRouter(prefix="/merchant", tags=["Merchant"])

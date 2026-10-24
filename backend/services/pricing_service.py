@@ -79,7 +79,7 @@ class PricingService:
         ]
 
     async def price_cart_items(self, cart_items: List[dict]) -> List[Dict[str, Any]]:
-        from repositories.product_repository import ProductRepository
+        from repositories.product import ProductRepository
 
         product_repo = ProductRepository()
         ids = [item.get("id") or item.get("product_id") for item in cart_items]

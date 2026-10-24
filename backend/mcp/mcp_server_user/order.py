@@ -50,7 +50,7 @@ async def create_order(
     from services.combo_pricing_engine import combo_pricing_engine
     from services.pricing_service import pricing_service
     
-    from repositories.cart_repository import cart_repository
+    from repositories.cart import cart_repository
     cart_items = await cart_repository.get_cart_items(user_id)
     if not cart_items:
         return {"success": False, "reason": "Cart is empty."}
@@ -75,7 +75,7 @@ async def create_order(
     # 2. Get the actual negotiated discount from the thread state (or fallback to LLM's discount)
     final_discount = discount
     if thread_id:
-        from repositories.chat_audit_repository import chat_audit_repo
+        from repositories.chat import chat_audit_repo
         thread = await chat_audit_repo.collection.find_one({"user_id": user_id, "thread_id": thread_id})
         if thread and "state" in thread:
             # We trust the state's discount more than the LLM's hallucinated args
@@ -203,7 +203,7 @@ async def create_order(
         
     try:
         if thread_id:
-            from repositories.chat_audit_repository import chat_audit_repo
+            from repositories.chat import chat_audit_repo
             await chat_audit_repo.update_state_patch(user_id, thread_id, {
                 "order_placed": True,
                 "razorpay_id": razorpay_order_id,
@@ -243,7 +243,7 @@ async def check_payment_status(user_id: int, thread_id: str = "") -> dict:
     
     if thread_id and res.get("paid"):
         try:
-            from repositories.chat_audit_repository import chat_audit_repo
+            from repositories.chat import chat_audit_repo
             await chat_audit_repo.update_state_patch(user_id, thread_id, {
                 "payment_status": "paid"
             })

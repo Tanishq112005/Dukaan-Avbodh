@@ -91,7 +91,7 @@ class BehaviorScorer:
         CURRENT session ke views ko priority deta hai (sabse accurate — abhi kya
         dekh raha hai), tabhi purani sessions pe fallback karta hai.
         """
-        from repositories.product_repository import ProductRepository
+        from repositories.product import ProductRepository
         product_repo = ProductRepository()
 
         if events is None:

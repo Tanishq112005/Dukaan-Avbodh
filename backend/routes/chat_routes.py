@@ -7,7 +7,7 @@ from agents.user import agent_service
 from config.database import db_connection
 from models.user import User, UserRole
 from sqlmodel import select
-from repositories.cart_repository import cart_repository
+from repositories.cart import cart_repository
 
 router = APIRouter()
 
@@ -58,7 +58,7 @@ async def chat_message(req: ChatRequest):
     }
     
     try:
-        from repositories.chat_audit_repository import chat_audit_repo
+        from repositories.chat import chat_audit_repo
         from models.chat_audit import ChatMessage, ThreadState
         thread_id_val = req.thread_id or str(req.user_id)
         await chat_audit_repo.get_or_create_thread(req.user_id, thread_id_val)
@@ -124,7 +124,7 @@ async def chat_event(req: EventRequest):
         except Exception as e:
             print(f"[WARNING] combo_declined langgraph update failed: {e}")
         try:
-            from repositories.chat_audit_repository import chat_audit_repo
+            from repositories.chat import chat_audit_repo
             await chat_audit_repo.update_state_patch(req.user_id, thread_id_val, {"combo_offer": None})
         except Exception as e:
             print(f"[WARNING] combo_declined audit update failed: {e}")
@@ -176,7 +176,7 @@ async def chat_event(req: EventRequest):
 
         hidden_msg = HumanMessage(content="PROACTIVE_SUGGESTION_TRIGGER")
         try:
-            from repositories.chat_audit_repository import chat_audit_repo
+            from repositories.chat import chat_audit_repo
             from models.chat_audit import ChatMessage, ThreadState
             thread_id_val = req.thread_id or str(req.user_id)
             await chat_audit_repo.get_or_create_thread(req.user_id, thread_id_val)

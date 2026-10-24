@@ -26,7 +26,7 @@ if sys.platform == "win32":
 from dotenv import load_dotenv
 load_dotenv()
 
-from repositories.product_repository import ProductRepository
+from repositories.product import ProductRepository
 from config.embeddingModel import embeddingModel
 from config.vectorDatabase import vectorDB
 
