@@ -2,19 +2,25 @@ from typing import Optional
 from sqlmodel import select
 from config.database import db_connection
 from models import User
+from models.user import UserRole
 from .base_repository import BaseRepository
 
 class UserRepository(BaseRepository[User]):
-    def __init__(self):
+    ### initilization of the repo or the class 
+    def __init__(self , db_connection):
         super().__init__(User)
-
+        self.db = db_connection
+    
+     
+     ### get user by identifier (email or AI agent ID)
     async def get_by_identifier(self, identifier: str) -> Optional[User]:
-        async with db_connection.get_session() as session:
+        async with self.db.get_session() as session:
             result = await session.exec(
                 select(User).where(User.identifier == identifier)
             )
             return result.first()
-
+     
+     ### get user by id
     async def get_or_create(
         self,
         name: str,
@@ -33,6 +39,8 @@ class UserRepository(BaseRepository[User]):
         )
         return await self.create(new_user)
 
+
+    ### update user profile
     async def update_profile(
         self,
         user_id: int,
@@ -40,7 +48,7 @@ class UserRepository(BaseRepository[User]):
         email: Optional[str] = None,
         address: Optional[str] = None,
     ) -> Optional[User]:
-        async with db_connection.get_session() as session:
+        async with self.db.get_session() as session:
             try:
                 result = await session.exec(select(User).where(User.id == user_id))
                 user = result.first()
@@ -59,9 +67,11 @@ class UserRepository(BaseRepository[User]):
             except Exception as e:
                 await session.rollback()
                 raise e
-
+   
+   
+    ### update user address
     async def update_address(self, user_id: int, address: str) -> Optional[User]:
-        async with db_connection.get_session() as session:
+        async with self.db.get_session() as session:
             try:
                 result = await session.exec(
                     select(User).where(User.id == user_id)
@@ -77,9 +87,11 @@ class UserRepository(BaseRepository[User]):
                 await session.rollback()
                 raise e
 
+
+    ### ensure guest user exists
     async def ensure_guest_exists(self, user_id: int) -> Optional[User]:
-        from models.user import UserRole
-        async with db_connection.get_session() as session:
+        
+        async with self.db.get_session() as session:
             try:
                 result = await session.exec(select(User).where(User.id == user_id))
                 user = result.first()
@@ -98,3 +110,8 @@ class UserRepository(BaseRepository[User]):
             except Exception:
                 await session.rollback()
                 return None
+            
+            
+            
+### UserRepository            
+userRepository = UserRepository(db_connection=db_connection)

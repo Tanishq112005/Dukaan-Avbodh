@@ -1,26 +1,20 @@
-# config/database.py
-from sqlmodel import SQLModel
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
-from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy.orm import sessionmaker
-from typing import Optional
-from dotenv import load_dotenv
-from models import User, Product, Order, DiscountPolicy, UserEvent, Cart, CartItem
-import asyncio
 import os
+from typing import Optional, AsyncContextManager
+from dotenv import load_dotenv
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, async_sessionmaker
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 load_dotenv()
 
 
 class DatabaseConnection:
     """
-    Singleton class — poore project (mcp, merchant dashboard, user app) ke liye
-    ek hi shared PostgreSQL connection provide karti hai.
+    Singleton class — shared PostgreSQL connection provider across the project.
     """
 
     _instance: Optional["DatabaseConnection"] = None
     _engine: Optional[AsyncEngine] = None
-    _session_factory = None
+    _session_factory: Optional[async_sessionmaker[AsyncSession]] = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -31,7 +25,7 @@ class DatabaseConnection:
         if self._engine is None:
             database_url = os.getenv("DATABASE_URL")
             if not database_url:
-                raise ValueError("DATABASE_URL .env file mein set nahi hai")
+                raise ValueError("DATABASE_URL is not set in .env file")
 
             if database_url.startswith("postgresql://"):
                 database_url = database_url.replace(
@@ -39,7 +33,7 @@ class DatabaseConnection:
                 )
             elif database_url.startswith("postgres://"):
                 database_url = database_url.replace(
-                    "postgres://", "postgresql+asyncpg://", 1
+                    "postgres://", "postgres+asyncpg://", 1
                 )
 
             if "?" in database_url:
@@ -51,18 +45,18 @@ class DatabaseConnection:
                 pool_size=5,
                 max_overflow=10,
                 pool_pre_ping=True,
-                pool_recycle=180,  # Neon pooler idle connections ko kuch der baad hi close kar deta hai —
-                # is se pehle hi humara pool unhe proactively recycle kar dega, taaki
-                # "connection was closed in the middle of operation" errors kam ho
+                pool_recycle=180,
                 connect_args={
                     "ssl": "require",
-                    "statement_cache_size": 0,  # Neon pooler (PgBouncer, transaction mode) ke saath
-                    # asyncpg ke prepared statements conflict karte hain —
-                    # isse disable karna zaroori hai jab pooler use ho.
+                    "statement_cache_size": 0,
                 },
             )
-            self._session_factory = sessionmaker(
-                self._engine, class_=AsyncSession, expire_on_commit=False
+            self._session_factory = async_sessionmaker(
+                bind=self._engine,
+                class_=AsyncSession,
+                expire_on_commit=False,
+                autocommit=False,
+                autoflush=False,
             )
 
     @property
@@ -70,44 +64,11 @@ class DatabaseConnection:
         return self._engine
 
     def get_session(self) -> AsyncSession:
-        return self._session_factory()
-
-    async def init_db(self, retries: int = 3, delay_seconds: float = 2.0):
-        """Saari models ke tables create karta hai (agar exist nahi karti).
-
-        Neon (aur similar serverless Postgres) free-tier compute idle hone par
-        auto-suspend ho jaata hai — pehla connection attempt use "wake up" karta
-        hai aur usi waqt kabhi-kabhi connection reset ho jaata hai. Isliye chhota
-        retry-with-backoff, taaki cold-start ki wajah se startup crash na ho.
         """
-
-        last_error = None
-        for attempt in range(1, retries + 1):
-            try:
-                async with self._engine.begin() as conn:
-                    await conn.run_sync(SQLModel.metadata.create_all)
-                    from sqlalchemy import text
-
-                    for stmt in (
-                        'ALTER TABLE "order" ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR',
-                        'ALTER TABLE "order" ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR',
-                        'ALTER TABLE "order" ADD COLUMN IF NOT EXISTS razorpay_payment_link_id VARCHAR',
-                        'ALTER TABLE "order" ADD COLUMN IF NOT EXISTS payment_link_url VARCHAR',
-                        'ALTER TABLE "product" ADD COLUMN IF NOT EXISTS importance_score INTEGER DEFAULT 0',
-                    ):
-                        try:
-                            await conn.execute(text(stmt))
-                        except Exception as col_err:
-                            print(f"[DB] column migrate skipped: {col_err}")
-                return
-            except Exception as e:
-                last_error = e
-                if attempt < retries:
-                    print(
-                        f"[DB] init_db attempt {attempt}/{retries} failed ({e.__class__.__name__}), retrying in {delay_seconds}s... (Neon compute cold-start ho sakta hai)"
-                    )
-                    await asyncio.sleep(delay_seconds)
-        raise last_error
+        Returns a raw AsyncSession instance directly.
+        Remember to close it manually or use it inside `async with`.
+        """
+        return self._session_factory()
 
     async def close(self):
         await self._engine.dispose()

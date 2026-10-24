@@ -17,13 +17,12 @@ Think like an experienced engineer:
 
 **NEVER work directly on the `main` branch.**
 
-- Always perform development work on a dedicated agent branch.
+- Always perform development work on a dedicated  `agent` agent branch.
 - Before making changes, inspect the current branch and Git working tree.
 - If currently on `main`, create and switch to an appropriate agent branch before editing files.
 - Use descriptive branch names, such as:
-  - `agent/fix-login-validation`
-  - `agent/feat-user-dashboard`
-  - `agent/update-api-caching`
+  - `agent/backend` -> for the backend works 
+  - `agent/frontend` -> for the frontend works 
 - Never commit changes directly to `main`.
 - Never merge into `main`, push directly to `main`, or modify its history.
 - Never discard, overwrite, or revert another developer's uncommitted changes.
