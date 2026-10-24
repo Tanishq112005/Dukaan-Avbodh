@@ -3,11 +3,9 @@ from sqlmodel import select
 from sqlalchemy.orm import selectinload
 from config.database import db_connection
 from models import Order
-from .base_repository import BaseRepository
 
-class Order(BaseRepository[Order]):
+class Order:
     def __init__(self , db_connection):
-        super().__init__(Order)
         self.db = db_connection
 
     async def create_orders_batch(self, orders: List[Order]) -> List[Order]:

@@ -2,13 +2,11 @@ from config.mogodbconfig import NoSqlClient
 from models.chat_audit import ChatThread, ChatMessage, ThreadState
 from datetime import datetime
 from config.mogodbconfig import nosql_client  
-from .base_repository import BaseRepository
 
   
-class Chat(BaseRepository[ChatThread]):
+class Chat:
     
     def __init__(self , noSql_collection):
-        super().__init__(ChatThread)
         self.db = noSql_collection
         
         

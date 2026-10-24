@@ -3,13 +3,12 @@ from sqlmodel import select
 from config.database import db_connection
 from models import Product, Campaign, CampaignProductLink, CAMPAIGN_WEIGHTS
 from models.product import ProductType
-from .base_repository import BaseRepository
 
-class Product(BaseRepository[Product]):
+
+class Product:
     
     ### initilization of the class
     def __init__(self , db_connection):
-        super().__init__(Product)
         self.db = db_connection
 
     async def update_stock(self, product_id: int, new_stock: int) -> Optional[Product]:

@@ -2,14 +2,12 @@
 from sqlmodel import select
 from config.database import db_connection
 from models import UserEvent
-from .base_repository import BaseRepository
 
 
-class UserEvent(BaseRepository[UserEvent]):
+class UserEvent:
     
     ## initilization of the class
     def __init__(self , db_connection):
-        super().__init__(UserEvent)
         self.db = db_connection
 
     async def get_events_for_user(self, user_id: int) -> list[UserEvent]:

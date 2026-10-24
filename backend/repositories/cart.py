@@ -3,10 +3,9 @@ from datetime import datetime
 from sqlmodel import select, delete
 from models.cart import Cart as CartModel, CartItem
 from models.product import Product
-from base_repository import BaseRepository
 from models import Cart
 
-class Cart(BaseRepository[Cart]):
+class Cart:
 
     def __init__(self, user_id: int, db_connection):
         self.user_id = user_id

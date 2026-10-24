@@ -3,12 +3,11 @@ from sqlmodel import select
 from config.database import db_connection
 from models import User
 from models.user import UserRole
-from .base_repository import BaseRepository
 
-class User(BaseRepository[User]):
+
+class User:
     ### initilization of the repo or the class 
     def __init__(self , db_connection):
-        super().__init__(User)
         self.db = db_connection
     
      
