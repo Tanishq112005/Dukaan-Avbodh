@@ -1,4 +1,3 @@
-from config.mogodbconfig import NoSqlClient
 from models.chat_audit import ChatThread, ChatMessage, ThreadState
 from datetime import datetime
 from config.mogodbconfig import nosql_client  

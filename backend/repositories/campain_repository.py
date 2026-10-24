@@ -3,9 +3,9 @@ from sqlmodel import select, func
 from sqlalchemy.orm import selectinload
 from config.database import db_connection
 from models import Campaign, Product, CampaignProductLink, CAMPAIGN_WEIGHTS, CampaingType
-from .base_repository import BaseRepository
 
-class CampaignRepository(BaseRepository[Campaign]):
+
+class CampaignRepository:
     def __init__(self):
         super().__init__(Campaign)
 

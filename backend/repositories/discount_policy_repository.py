@@ -2,9 +2,8 @@ from typing import Optional
 from sqlmodel import select
 from config.database import db_connection
 from models import DiscountPolicy
-from .base_repository import BaseRepository
 
-class DiscountPolicyRepository(BaseRepository[DiscountPolicy]):
+class DiscountPolicyRepository:
     def __init__(self):
         super().__init__(DiscountPolicy)
 

@@ -15,7 +15,7 @@ class Cart(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", unique=True, ondelete="CASCADE")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-
+    discount_percentage: float = Field(default=0.0)
     items: List["CartItem"] = Relationship(back_populates="cart")
 
 
@@ -26,5 +26,5 @@ class CartItem(SQLModel, table=True):
     quantity: int = Field(default=1)
     size: Optional[str] = None
     added_at: datetime = Field(default_factory=datetime.utcnow)
-
+    
     cart: Optional["Cart"] = Relationship(back_populates="items")

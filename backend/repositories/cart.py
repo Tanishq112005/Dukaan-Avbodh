@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlmodel import select, delete
 from models.cart import Cart as CartModel, CartItem
 from models.product import Product
-from models import Cart
+
 
 class Cart:
 
