@@ -28,7 +28,7 @@ async def sync_cart_and_user(user_id: int, cart_data: list):
     async with db_connection.get_session() as session:
         existing_user = await session.exec(select(User).where(User.id == user_id))
         if not existing_user.first():
-            guest_user = User(id=user_id, name=f"Guest {user_id}", role=UserRole.CUSTOMER, identifier=f"guest_{user_id}@dukaan.local")
+            guest_user = User(id=user_id, name=f"Guest {user_id}", role=UserRole.CUSTOMER, email=f"guest_{user_id}@dukaan.local")
             session.add(guest_user)
             await session.commit()
     

@@ -77,7 +77,7 @@ async def get_all_orders(
                     "products": [],
                     "user": {
                         "name": order.user.name if order.user else "Unknown",
-                        "email": order.user.identifier if order.user else "Unknown",
+                        "email": order.user.email if order.user else "Unknown",
                         "address": order.user.address if order.user else "No address provided",
                     }
                 }

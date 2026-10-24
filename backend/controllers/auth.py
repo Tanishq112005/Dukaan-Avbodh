@@ -1,4 +1,3 @@
-
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 
@@ -29,13 +28,12 @@ class AuthController:
 
         user = User(
             name=payload.name,
-            identifier=payload.identifier,
             password_hash=hashed,
             role=payload.role,
             email=payload.email
         )
 
-        userProfile = await userRepository.get_or_create(user)
+        userProfile = await userRepository.create(user)
 
         token = AuthHandler.create_access_token(
             userProfile.id,

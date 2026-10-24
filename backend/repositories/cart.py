@@ -1,38 +1,49 @@
 from typing import Optional
 from datetime import datetime
+from config.database import db_connection
 from sqlmodel import select, delete
+
 from models.cart import Cart as CartModel, CartItem
 from models.product import Product
 
 
 class Cart:
 
-    def __init__(self, user_id: int, db_connection):
-        self.user_id = user_id
+    def __init__(self, db_connection):
         self.db = db_connection
-        self.discount_percentage = 0.0
 
-    # Get the user's cart or create one if it doesn't exist
-    async def _get_cart(self, session) -> CartModel:
+    # Get or create the user's cart
+    async def _get_cart(self, user_id: int, session) -> CartModel:
         cart = (
             await session.exec(
                 select(CartModel).where(
-                    CartModel.user_id == self.user_id
+                    CartModel.user_id == user_id
                 )
             )
         ).first()
 
-        if cart:
-            return cart
-
-        cart = CartModel(user_id=self.user_id)
-        session.add(cart)
-        await session.flush()
-        await session.refresh(cart)
+        if not cart:
+            cart = CartModel(
+                user_id=user_id,
+                discount_percentage=0.0
+            )
+            session.add(cart)
+            await session.flush()
+            await session.refresh(cart)
 
         return cart
 
-    # Get a specific cart item by product ID and size
+    async def get_cart(self, user_id: int) -> CartModel:
+        async with self.db.get_session() as session:
+            try:
+                cart = await self._get_cart(user_id, session)
+                await session.commit()
+                return cart
+            except Exception:
+                await session.rollback()
+                raise
+
+    # Get a particular cart item
     async def _get_item(
         self,
         session,
@@ -40,6 +51,7 @@ class Cart:
         product_id: int,
         size: Optional[str] = None
     ) -> Optional[CartItem]:
+
         return (
             await session.exec(
                 select(CartItem).where(
@@ -50,12 +62,13 @@ class Cart:
             )
         ).first()
 
-    # Calculate cart subtotal, discount, and total
+    # Calculate totals
     async def _recalculate_totals(
         self,
         session,
         cart: CartModel
     ) -> dict:
+
         query = (
             select(CartItem, Product)
             .join(Product, CartItem.product_id == Product.id)
@@ -69,12 +82,11 @@ class Cart:
             for item, product in results
         )
 
-        cart.updated_at = datetime.utcnow()
-
-        discount_amount = (
-            subtotal * self.discount_percentage / 100
-        )
+        discount_percentage = cart.discount_percentage or 0.0
+        discount_amount = subtotal * discount_percentage / 100
         total_amount = subtotal - discount_amount
+
+        cart.updated_at = datetime.now()
 
         return {
             "subtotal": subtotal,
@@ -82,31 +94,50 @@ class Cart:
             "total_amount": total_amount
         }
 
-    # Update the cart discount percentage
-    def discountChange(self, discount_percentage: float):
+    # Change the user's cart discount
+    async def discountChange(
+        self,
+        user_id: int,
+        discount_percentage: float
+    ) -> CartModel:
+
         if not 0 <= discount_percentage <= 100:
             raise ValueError(
                 "Discount percentage must be between 0 and 100"
             )
 
-        self.discount_percentage = discount_percentage
+        async with self.db.get_session() as session:
+            try:
+                cart = await self._get_cart(user_id, session)
 
-    # Add an item or increase its quantity after checking stock
+                cart.discount_percentage = discount_percentage
+                cart.updated_at = datetime.now()
+
+                session.add(cart)
+                await session.commit()
+                await session.refresh(cart)
+
+                return cart
+
+            except Exception:
+                await session.rollback()
+                raise
+
+    # Add an item to the user's cart
     async def add_item(
         self,
+        user_id: int,
         product_id: int,
         quantity: int = 1,
         size: Optional[str] = None
     ) -> CartItem:
+
         if quantity <= 0:
-            raise ValueError(
-                "Quantity must be greater than zero"
-            )
+            raise ValueError("Quantity must be greater than zero")
 
         async with self.db.get_session() as session:
             try:
-                cart = await self._get_cart(session)
-
+                cart = await self._get_cart(user_id, session)
                 product = await session.get(Product, product_id)
 
                 if not product:
@@ -129,13 +160,11 @@ class Cart:
 
                 if requested_quantity > product.stock:
                     raise ValueError(
-                        f"Insufficient stock. "
-                        f"Available stock: {product.stock}"
+                        f"Insufficient stock. Available stock: {product.stock}"
                     )
 
                 if item:
                     item.quantity = requested_quantity
-                    session.add(item)
                 else:
                     item = CartItem(
                         cart_id=cart.id,
@@ -143,11 +172,12 @@ class Cart:
                         quantity=quantity,
                         size=size
                     )
-                    session.add(item)
+
+                session.add(item)
 
                 await self._recalculate_totals(session, cart)
-
                 session.add(cart)
+
                 await session.commit()
                 await session.refresh(item)
 
@@ -157,20 +187,22 @@ class Cart:
                 await session.rollback()
                 raise
 
-    # Update quantity after checking available stock
+    # Update the quantity of a cart item
     async def update_quantity(
         self,
+        user_id: int,
         product_id: int,
         quantity: int,
         size: Optional[str] = None
     ) -> Optional[CartItem]:
+
         if quantity <= 0:
-            await self.remove_item(product_id, size)
+            await self.remove_item(user_id, product_id, size)
             return None
 
         async with self.db.get_session() as session:
             try:
-                cart = await self._get_cart(session)
+                cart = await self._get_cart(user_id, session)
 
                 item = await self._get_item(
                     session,
@@ -187,21 +219,17 @@ class Cart:
                 if not product:
                     raise ValueError("Product not found")
 
-                if product.stock <= 0:
-                    raise ValueError("Product is out of stock")
-
                 if quantity > product.stock:
                     raise ValueError(
-                        f"Insufficient stock. "
-                        f"Available stock: {product.stock}"
+                        f"Insufficient stock. Available stock: {product.stock}"
                     )
 
                 item.quantity = quantity
                 session.add(item)
 
                 await self._recalculate_totals(session, cart)
-
                 session.add(cart)
+
                 await session.commit()
                 await session.refresh(item)
 
@@ -211,15 +239,17 @@ class Cart:
                 await session.rollback()
                 raise
 
-    # Remove a specific item from the cart
+    # Remove an item from the user's cart
     async def remove_item(
         self,
+        user_id: int,
         product_id: int,
         size: Optional[str] = None
     ) -> bool:
+
         async with self.db.get_session() as session:
             try:
-                cart = await self._get_cart(session)
+                cart = await self._get_cart(user_id, session)
 
                 item = await self._get_item(
                     session,
@@ -235,8 +265,8 @@ class Cart:
                 await session.flush()
 
                 await self._recalculate_totals(session, cart)
-
                 session.add(cart)
+
                 await session.commit()
 
                 return True
@@ -245,10 +275,11 @@ class Cart:
                 await session.rollback()
                 raise
 
-    # Get all cart items with their product details
-    async def get_items(self) -> list[dict]:
+    # Get all items in the user's cart
+    async def get_items(self, user_id: int) -> list[dict]:
+
         async with self.db.get_session() as session:
-            cart = await self._get_cart(session)
+            cart = await self._get_cart(user_id, session)
 
             query = (
                 select(CartItem, Product)
@@ -278,15 +309,13 @@ class Cart:
                 for item, product in results
             ]
 
-    # Get the complete cart summary
-    async def get_summary(self) -> dict:
-        async with self.db.get_session() as session:
-            cart = await self._get_cart(session)
+    # Get the user's cart summary
+    async def get_summary(self, user_id: int) -> dict:
 
-            totals = await self._recalculate_totals(
-                session,
-                cart
-            )
+        async with self.db.get_session() as session:
+            cart = await self._get_cart(user_id, session)
+
+            totals = await self._recalculate_totals(session, cart)
 
             query = (
                 select(CartItem, Product)
@@ -298,7 +327,7 @@ class Cart:
 
             return {
                 "cart_id": cart.id,
-                "user_id": self.user_id,
+                "user_id": user_id,
                 "items": [
                     {
                         "cart_item_id": item.id,
@@ -314,11 +343,12 @@ class Cart:
                 **totals
             }
 
-    # Remove every item from the cart
-    async def clear_cart(self) -> bool:
+    # Clear the user's cart
+    async def clear_cart(self, user_id: int) -> bool:
+
         async with self.db.get_session() as session:
             try:
-                cart = await self._get_cart(session)
+                cart = await self._get_cart(user_id, session)
 
                 await session.exec(
                     delete(CartItem).where(
@@ -327,8 +357,8 @@ class Cart:
                 )
 
                 await self._recalculate_totals(session, cart)
-
                 session.add(cart)
+
                 await session.commit()
 
                 return True
@@ -336,3 +366,6 @@ class Cart:
             except Exception:
                 await session.rollback()
                 raise
+
+
+cart = Cart(db_connection=db_connection)

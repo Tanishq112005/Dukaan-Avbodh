@@ -16,8 +16,7 @@ class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     email: str 
-    role: UserRole = UserRole.CUSTOMER      
-    identifier: str = Field(unique=True)     
+    role: UserRole = UserRole.CUSTOMER         
     password_hash: Optional[str] = None
     address: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
