@@ -63,7 +63,15 @@ class CartAgent(IAgentInterface):
 
         response.additional_kwargs["intent"] = self.intent
 
-        return {
+        updates = {
             "messages": [response],
             "intent": self.intent,
         }
+        if state.get("cart"):
+            updates["cart"] = state.get("cart")
+        if state.get("cart_items"):
+            updates["cart_items"] = state.get("cart_items")
+        if state.get("cart_total") is not None:
+            updates["cart_total"] = state.get("cart_total")
+
+        return updates

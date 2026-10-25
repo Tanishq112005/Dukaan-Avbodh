@@ -18,7 +18,7 @@ class NegotiationAgent(IAgentInterface):
     """
 
     def __init__(self, llm, tools: Optional[List] = None):
-        self.intent = "pricing"
+        self.intent = "negotiation"
         self.system_prompt = NEGOTIATION_SYSTEM_PROMPT
 
         if tools is not None:
@@ -64,7 +64,13 @@ class NegotiationAgent(IAgentInterface):
 
         response.additional_kwargs["intent"] = self.intent
 
-        return {
+        updates = {
             "messages": [response],
             "intent": self.intent,
         }
+        if state.get("current_discount_percent") is not None:
+            updates["current_discount_percent"] = state.get("current_discount_percent")
+        if state.get("combo_offer"):
+            updates["combo_offer"] = state.get("combo_offer")
+
+        return updates

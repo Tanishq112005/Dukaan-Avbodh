@@ -18,7 +18,7 @@ class RecommendationAgent(IAgentInterface):
     """
 
     def __init__(self, llm, tools: Optional[List] = None):
-        self.intent = "product"
+        self.intent = "recommendation"
         self.system_prompt = RECOMMENDATION_SYSTEM_PROMPT
 
         if tools is not None:
@@ -63,7 +63,11 @@ class RecommendationAgent(IAgentInterface):
 
         response.additional_kwargs["intent"] = self.intent
 
-        return {
+        updates = {
             "messages": [response],
             "intent": self.intent,
         }
+        if state.get("suggested_products"):
+            updates["suggested_products"] = state.get("suggested_products")
+
+        return updates
