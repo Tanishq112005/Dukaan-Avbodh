@@ -3,13 +3,8 @@ import re
 import asyncio
 from langgraph.graph import StateGraph, END, START
 from agents.user.state import AgentState
-from agents.user.specialists.director import DirectorAgent
-from agents.user.specialists.product import ProductAgent
-from agents.user.specialists.cart import CartAgent
-from agents.user.specialists.pricing import PricingAgent
-from agents.user.specialists.payment import PaymentAgent
-from agents.user.specialists.general import GeneralAgent
-from agents.user.specialists.register import RegisterAgent
+from agents.user.director import DirectorAgent
+from agents.user.general import GeneralAgent
 from agents.user.toolCalling import create_tools_node
 from langgraph.checkpoint.mongodb import MongoDBSaver
 from agents.user.checkpointer import checkPointer 
@@ -58,17 +53,19 @@ def route_from_tools(state: AgentState):
 
 def initialize_agents(fast_llm, medium_llm, small_llm, tools_dict):
     """Initializes and returns all agents and tools."""
+    from Cart.agent import CartAgent
+    from Negotiation.agent import NegotiationAgent
+    from Recommedation.agent import RecommendationAgent
+
     def get_tools(*names):
         return [tools_dict[n] for n in names if n in tools_dict]
         
     agents = {
         "director": DirectorAgent(small_llm),
-        "product": ProductAgent(fast_llm, tools=get_tools("search_products", "recommend_products", "get_catalog", "list_product_types", "get_products_by_type")),
-        "cart": CartAgent(fast_llm, tools=get_tools("add_to_cart", "remove_from_cart", "update_cart_item_quantity", "get_cart", "clear_cart")),
-        "pricing": PricingAgent(fast_llm, tools=get_tools("calculate_combo_offer", "negotiate_discount", "decline_combo_offer")),
-        "payment": PaymentAgent(fast_llm, tools=get_tools("create_order", "check_payment_status")),
-        "register": RegisterAgent(fast_llm, tools=get_tools("register_buyer", "get_user_details", "update_user_details")),
-        "general": GeneralAgent(small_llm, tools=[])
+        "product": RecommendationAgent(fast_llm),
+        "cart": CartAgent(fast_llm),
+        "pricing": NegotiationAgent(fast_llm),
+        "general": GeneralAgent(small_llm, tools=[]),
     }
     
     tools_node = create_tools_node(tools_dict)
@@ -81,8 +78,8 @@ def setup_nodes(workflow: StateGraph, agents: dict, tools_node):
     workflow.add_node("product_search", agents["product"].run)
     workflow.add_node("cart_editing", agents["cart"].run)
     workflow.add_node("pricing_negotiation", agents["pricing"].run)
-    workflow.add_node("payment", agents["payment"].run)
-    workflow.add_node("register", agents["register"].run)
+    workflow.add_node("payment", agents.get("payment", agents["general"]).run)
+    workflow.add_node("register", agents.get("register", agents["general"]).run)
     workflow.add_node("general_query", agents["general"].run)
     workflow.add_node("tools", tools_node)
     workflow.add_node("post_process", post_process_node)

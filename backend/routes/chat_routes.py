@@ -47,11 +47,29 @@ async def chat_message(req: ChatRequest):
     config = {"configurable": {"thread_id": thread_id_val}}
     human_msg = HumanMessage(content=req.text)
 
+    # Retrieve cached conversation summary and important facts from Redis agent_state
+    cached_summary = None
+    cached_facts = None
+    try:
+        from config.redis import redisClient
+        r_client = redisClient.get_redis_client()
+        raw_cached = r_client.get(f"agent_state:{thread_id_val}")
+        if raw_cached:
+            cached_data = json.loads(raw_cached)
+            cached_summary = cached_data.get("conversation_summary")
+            cached_facts = cached_data.get("important_facts")
+    except Exception as cache_err:
+        print(f"[WARNING] Could not read cached agent state: {cache_err}")
+
     initial_state = {
         "messages": [human_msg],
         "user_id": req.user_id,
         "thread_id": thread_id_val,
     }
+    if cached_summary:
+        initial_state["conversation_summary"] = cached_summary
+    if cached_facts:
+        initial_state["important_facts"] = cached_facts
 
     try:
         # Audit user message
@@ -92,8 +110,8 @@ async def chat_message(req: ChatRequest):
                 "thread_id": thread_id_val,
                 "user_id": req.user_id,
                 "messages": result.get("messages", [human_msg]),
-                "conversation_summary": result.get("conversation_summary", ""),
-                "important_facts": result.get("important_facts", {})
+                "conversation_summary": result.get("conversation_summary") or cached_summary or "",
+                "important_facts": result.get("important_facts") or cached_facts or {}
             }
             await sendingResult.sendData(queue_payload)
         except Exception as q_err:

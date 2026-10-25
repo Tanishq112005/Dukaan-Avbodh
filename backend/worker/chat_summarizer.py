@@ -29,11 +29,15 @@ class Sizes(BaseModel):
 
 class ImportantFacts(BaseModel):
     gender: Optional[str] = Field(default=None, description="'men', 'women', or null")
-    budget: Budget
+    budget: Optional[Budget] = Field(
+        default_factory=Budget, description="Price constraints"
+    )
     emotion: List[str] = Field(
         default_factory=list, description="Reasons for buying, e.g., ['mom birthday']"
     )
-    size: Sizes
+    size: Optional[Sizes] = Field(
+        default_factory=Sizes, description="Known apparel sizes"
+    )
 
 
 class SummarizerOutput(BaseModel):
@@ -125,16 +129,17 @@ class ChatSummarizerWorker(BaseWorker):
             current_seq = len(messages)
 
         # Check condition early to save LLM calls
-        if current_seq - summarized_upto_seq <= 8:
+        trigger_threshold = int(os.getenv("SUMMARIZER_TRIGGER_THRESHOLD", "8"))
+        if current_seq - summarized_upto_seq <= trigger_threshold:
             print(
-                f"[ChatSummarizer] Not enough messages to summarize for {thread_id} ({current_seq - summarized_upto_seq} new)."
+                f"[ChatSummarizer] Not enough messages to summarize for {thread_id} ({current_seq - summarized_upto_seq} new, threshold {trigger_threshold})."
             )
-            return
+            return None
 
         end_index = len(messages) - 4
 
         if end_index <= summarized_upto_seq:
-            return
+            return None
 
         messages_to_summarize = messages[summarized_upto_seq:end_index]
 
@@ -160,6 +165,9 @@ class ChatSummarizerWorker(BaseWorker):
                     item.get("text", "") if isinstance(item, dict) else str(item)
                     for item in content
                 )
+
+            if role in ("tool", "function"):
+                content = "[Tool output processed]"
 
             messages_text += f"{role}: {content}\n"
 
@@ -288,7 +296,7 @@ class ChatSummarizerWorker(BaseWorker):
                     print(
                         f"[ChatSummarizer] Successfully processed and updated memory state for thread_id: {thread_id}"
                     )
-                    break
+                    return result
 
                 except WatchError:
                     # If this hits, the retry will just execute the JSON merge instantly without calling the LLM again
@@ -301,4 +309,5 @@ class ChatSummarizerWorker(BaseWorker):
                         f"[ChatSummarizer] Error during summarization for thread {thread_id}: {e}"
                     )
                     pipe.unwatch()
-                    break
+                    return None
+        return None

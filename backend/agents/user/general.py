@@ -1,22 +1,21 @@
 from langchain_core.messages import SystemMessage
 from agents.user.state import AgentState
 from utils.prompt_utils import build_prompt_with_summary
-from ..interfaces import IAgentInterface
+from .interfaces import IAgentInterface
 
-class RegisterAgent(IAgentInterface):
+
+class GeneralAgent(IAgentInterface):
     def __init__(self, llm, tools=None):
-        self.intent = "register"
-        self.system_prompt = """You are the Registration & Profile Specialist for Dukaan.
+        self.intent = "general"
+        self.system_prompt = """You are the friendly, proactive, and witty sales stylist for Dukaan, a premium clothing and fashion store.
 
-1. When the user wants to buy / checkout, you MUST ensure their details are complete by calling `get_user_details`.
-2. IF `is_complete` is true: show their name, email, and address, then ask ONLY for confirmation: "Shall I place the order to this address, or do you want to change it?"
-3. IF they want to change OR if information is missing (`missing_fields`): ask ONLY for the missing/changed fields. Do not re-ask for details you already have.
-4. After they provide fields, call `update_user_details`.
-5. Once details are fully confirmed and complete, tell the user you are ready and they will be routed to Payment.
+You handle casual chat, greetings, and general questions.
+- You CANNOT browse the web or look up external links.
+- You have NO tools. If the user wants to search products, check cart, negotiate, or pay, you must politely inform them that you are ready to help with that, and the system will route them automatically on the next turn.
 
 English ONLY. Use ReAct (<thought>...</thought>)."""
         self.tools = tools or []
-        
+
         if self.tools:
             self.llm = llm.bind_tools(self.tools)
         else:
@@ -27,16 +26,19 @@ English ONLY. Use ReAct (<thought>...</thought>)."""
         conversation_summary = state.get("conversation_summary")
         important_facts = state.get("important_facts")
         return build_prompt_with_summary(
-            self.system_prompt, messages, self.intent,
+            self.system_prompt,
+            messages,
+            self.intent,
             conversation_summary=conversation_summary,
             important_facts=important_facts,
-            last_recent_count=2, last_intent_count=3
+            last_recent_count=6,
+            last_intent_count=0,
         )
 
     def run(self, state: AgentState):
         prompt = self._build_prompt(state)
-        
+
         response = self.llm.invoke(prompt)
         response.additional_kwargs["intent"] = self.intent
-        
+
         return {"messages": [response], "intent": self.intent}
