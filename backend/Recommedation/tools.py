@@ -8,7 +8,7 @@ mcp_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "mcp"))
 if mcp_path not in sys.path:
     sys.path.insert(0, mcp_path)
 
-from mcp_server_user.server import mcp
+from mcp import mcp
 from Product.models import Product, ProductType
 from Recommedation.controller import recommedationController
 from UserEvents.models import EventType

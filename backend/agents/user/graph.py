@@ -5,7 +5,6 @@ from langgraph.graph import StateGraph, END, START
 from agents.user.state import AgentState
 from agents.user.director import DirectorAgent
 from agents.user.general import GeneralAgent
-from agents.user.toolCalling import create_tools_node
 from langgraph.checkpoint.mongodb import MongoDBSaver
 from agents.user.checkpointer import checkPointer 
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
@@ -68,9 +67,8 @@ def initialize_agents(fast_llm, medium_llm, small_llm, tools_dict):
         "general": GeneralAgent(small_llm, tools=[]),
     }
     
-    tools_node = create_tools_node(tools_dict)
-    
-    return agents, tools_node
+  
+    return agents
 
 def setup_nodes(workflow: StateGraph, agents: dict, tools_node):
     """Registers all nodes to the StateGraph."""
