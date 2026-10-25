@@ -31,13 +31,18 @@ export function OrderConfirmedPage() {
         <strong className="text-stone-900">{user?.address || "the address you confirmed in chat"}</strong>
       </p>
       
-      <div className="flex gap-3">
+      <div className="flex flex-wrap justify-center gap-3">
+        <Link to="/orders">
+          <Button className="rounded-full py-6 px-8 text-base bg-stone-900 hover:bg-stone-800 text-white">
+            View My Orders
+          </Button>
+        </Link>
         <Link to="/products">
-          <Button className="rounded-full py-6 px-10 text-lg bg-stone-900 hover:bg-stone-800">
+          <Button variant="outline" className="rounded-full py-6 px-8 text-base border-stone-300">
             Continue shopping
           </Button>
         </Link>
-        <Button variant="outline" className="rounded-full py-6 px-8 border-stone-300" onClick={() => setIsAgentOpen(true)}>
+        <Button variant="outline" className="rounded-full py-6 px-8 text-base border-stone-300" onClick={() => setIsAgentOpen(true)}>
           Open stylist
         </Button>
       </div>
