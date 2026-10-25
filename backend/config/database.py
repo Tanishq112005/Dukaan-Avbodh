@@ -65,22 +65,22 @@ class PostgressDatabaseConnection:
     def engine(self) -> AsyncEngine:
         return self._engine
 
-    async def get_session(self) -> AsyncSession:
-        """
-        Asynchronously creates and returns an AsyncSession instance.
-        """
-        return self._session_factory()
-
     @asynccontextmanager
-    async def session(self) -> AsyncGenerator[AsyncSession, None]:
+    async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
         """
         Async context manager wrapper. Auto-closes the session when exiting the block.
+        Usage:
+            async with db_connection.get_session() as session:
+                ...
         """
         async_session = self._session_factory()
         try:
             yield async_session
         finally:
             await async_session.close()
+
+    # Alias so both .session() and .get_session() work identically as async context managers
+    session = get_session
 
     async def close(self):
         await self._engine.dispose()

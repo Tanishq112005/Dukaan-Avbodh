@@ -1,6 +1,4 @@
-import asyncio
 from typing import Optional, List, Dict, Any
-from contextlib import asynccontextmanager
 from sqlmodel import select, or_, func
 
 from config.database import db_connection
@@ -16,21 +14,6 @@ class RecommendationDatabase:
 
     def __init__(self, db=None):
         self.db = db or db_connection
-
-    @asynccontextmanager
-    async def get_db_session(self):
-        """Robust session provider supporting both db.session() and db.get_session()."""
-        if hasattr(self.db, "session") and callable(self.db.session):
-            async with self.db.session() as session:
-                yield session
-        elif hasattr(self.db, "get_session"):
-            res = self.db.get_session()
-            if asyncio.iscoroutine(res):
-                res = await res
-            async with res as session:
-                yield session
-        else:
-            yield self.db
 
     def _apply_gender(self, stmt, gender: Optional[str]):
         """
@@ -52,7 +35,7 @@ class RecommendationDatabase:
     async def get_user_best_products(
         self, user_id: int, gender: Optional[str] = None, limit: int = 5
     ) -> List[Dict[str, Any]]:
-        async with self.get_db_session() as session:
+        async with self.db.get_session() as session:
             stmt = (
                 select(Product, ProbabilityOfShowingItemsForParticularUser.score)
                 .join(
@@ -80,7 +63,7 @@ class RecommendationDatabase:
         if not product_ids:
             return {}
 
-        async with self.get_db_session() as session:
+        async with self.db.get_session() as session:
             stmt = (
                 select(Product)
                 .where(Product.id.in_(product_ids))
@@ -121,7 +104,7 @@ class RecommendationDatabase:
     async def get_candidates_for_query(
         self, user_id: int, gender: Optional[str] = None, limit: int = 50
     ) -> List[Dict[str, Any]]:
-        async with self.get_db_session() as session:
+        async with self.db.get_session() as session:
             stmt = select(Product).where(Product.stock > 0)
             stmt = self._apply_gender(stmt, gender).limit(limit)
             products = (await session.exec(stmt)).all()
@@ -156,7 +139,7 @@ class RecommendationDatabase:
     async def get_most_good_products_global(
         self, gender: Optional[str] = None, limit: int = 5
     ) -> List[Dict[str, Any]]:
-        async with self.get_db_session() as session:
+        async with self.db.get_session() as session:
             stmt = (
                 select(Product, ProbabilityOfShowingItems.score)
                 .join(
@@ -183,7 +166,7 @@ class RecommendationDatabase:
     async def get_most_good_products_by_type(
         self, product_type: str, gender: Optional[str] = None, limit: int = 5
     ) -> List[Dict[str, Any]]:
-        async with self.get_db_session() as session:
+        async with self.db.get_session() as session:
             stmt = (
                 select(Product, ProbabilityOfShowingItems.score)
                 .join(
