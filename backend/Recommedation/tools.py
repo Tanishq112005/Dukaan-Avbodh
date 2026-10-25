@@ -9,7 +9,6 @@ if mcp_path not in sys.path:
     sys.path.insert(0, mcp_path)
 
 from mcp_server_user.server import mcp
-
 from Product.models import Product, ProductType
 from Recommedation.controller import recommedationController
 from UserEvents.models import EventType

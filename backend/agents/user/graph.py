@@ -143,7 +143,7 @@ def compile_agent_graph(fast_llm, medium_llm, small_llm, tools_dict):
     setup_edges(workflow)
     
     # Get Checkpointer
-    checkpointer_instance = checkPointer.getMongoDBCheckPointer()
+    checkpointer_instance = checkPointer.getCheckPointer(prefer="redis")
     
     # Compile and return
     return workflow.compile(checkpointer=checkpointer_instance)
