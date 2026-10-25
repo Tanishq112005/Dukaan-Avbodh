@@ -1,7 +1,7 @@
 from langchain_core.messages import SystemMessage
 from agents.user.state import AgentState
 from utils.prompt_utils import build_prompt_with_summary
-from .interfaces import IAgentInterface
+from ..interfaces import IAgentInterface
 
 
 class PricingAgent(IAgentInterface):
@@ -28,9 +28,11 @@ English ONLY. Use ReAct (<thought>...</thought>)."""
     def _build_prompt(self, state: AgentState):
         messages = state.get("messages", [])
         conversation_summary = state.get("conversation_summary")
+        important_facts = state.get("important_facts")
         return build_prompt_with_summary(
             self.system_prompt, messages, self.intent,
             conversation_summary=conversation_summary,
+            important_facts=important_facts,
             last_recent_count=2, last_intent_count=3
         )
 

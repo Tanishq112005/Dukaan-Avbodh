@@ -17,6 +17,9 @@ from .tools import (
     get_cart_langchain_tools,
 )
 
+from .agent import CartAgent
+from .prompt import CART_SYSTEM_PROMPT, get_cart_prompt
+
 __all__ = [
     "CartController",
     "cartController",
@@ -37,4 +40,7 @@ __all__ = [
     "get_cart_summary",
     "clear_cart",
     "get_cart_langchain_tools",
+    "CartAgent",
+    "CART_SYSTEM_PROMPT",
+    "get_cart_prompt",
 ]

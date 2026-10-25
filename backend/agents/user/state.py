@@ -4,7 +4,7 @@ import operator
 
 
 class AgentState(TypedDict):
-    messages: Annotated[Sequence[BaseMessage], operator.add]
+
     user_id: int
     current_discount_percent: float
     suggested_products: List[dict]

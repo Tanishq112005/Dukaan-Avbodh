@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from ..state import AgentState
+from .state import AgentState
 
 
 class IAgentInterface(ABC):
