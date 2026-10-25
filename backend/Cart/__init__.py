@@ -7,6 +7,15 @@ from .schemas import (
     ApplyDiscountRequest,
 )
 from .models import Cart, CartItem
+from .tools import (
+    add_to_cart,
+    get_cart_items,
+    update_cart_quantity,
+    remove_from_cart,
+    get_cart_summary,
+    clear_cart,
+    get_cart_langchain_tools,
+)
 
 __all__ = [
     "CartController",
@@ -21,4 +30,11 @@ __all__ = [
     "UpdateItemRequest",
     "DeleteItemRequest",
     "ApplyDiscountRequest",
+    "add_to_cart",
+    "get_cart_items",
+    "update_cart_quantity",
+    "remove_from_cart",
+    "get_cart_summary",
+    "clear_cart",
+    "get_cart_langchain_tools",
 ]

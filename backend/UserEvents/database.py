@@ -36,14 +36,19 @@ class UserEventRepository:
                 await session.close()
 
     async def addUserEvents(
-        self, user_id: int, event_type: EventType, product_id: int
+        self,
+        user_id: int,
+        event_type: EventType,
+        product_id: int,
+        category: str = "general",
     ) -> UserEvent:
         async with self.db.get_session() as session:
             try:
                 event = UserEvent(
                     user_id=user_id,
                     event_type=event_type,
-                    product_id=product_id
+                    product_id=product_id,
+                    category=category or "general",
                 )
                 session.add(event)
                 await session.commit()
@@ -52,6 +57,9 @@ class UserEventRepository:
             except Exception:
                 await session.rollback()
                 raise
+
+    get_events_for_user = getEventsOfUser
+    get_recent_global_events = getRecentEventsOfUser
 
     async def bulkAddUserEvents(self, events: List[UserEvent]) -> List[UserEvent]:
         """Bulk inserts events into the database in a single database transaction."""

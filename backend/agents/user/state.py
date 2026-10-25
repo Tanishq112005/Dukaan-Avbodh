@@ -7,14 +7,12 @@ class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
     user_id: int
     current_discount_percent: float
-    combo_offer: Optional[dict]
     suggested_products: List[dict]
     final_response: str
-    pending_payment_link: Optional[str]
-    pending_payment_link_id: Optional[str]
     thread_id : str
     intent: Optional[str]
     conversation_summary: Optional[str]
     last_seq: Optional[int]
+    gender : str
     summarized_upto_seq: Optional[int]
     important_facts : Optional[str] 

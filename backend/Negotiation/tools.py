@@ -1,133 +1,185 @@
-from typing import List, Any, Dict, Union
+import sys
+import os
+from typing import Optional, Dict, Any, List
 
-AGENT_MAX_DISCOUNT_PERCENT = 15.0
+# Ensure backend/mcp directory is discoverable for importing FastMCP user server
+mcp_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "mcp"))
 
+if mcp_path not in sys.path:
+    sys.path.insert(0, mcp_path)
 
-def _extract_item_fields(item: Any) -> tuple[float, float, float, int]:
-    """Helper to extract (cost_price, price, min_profit_margin_percent, quantity) from various item types."""
-    if isinstance(item, dict):
-        cost = float(item.get("cost_price", 0.0) or 0.0)
-        price = float(item.get("price", item.get("selling_price", 0.0)) or 0.0)
-        margin = float(item.get("min_profit_margin_percent", 0.0) or 0.0)
-        qty = int(item.get("quantity", 1) or 1)
-    else:
-        cost = float(getattr(item, "cost_price", 0.0) or 0.0)
-        price = float(getattr(item, "price", getattr(item, "selling_price", 0.0)) or 0.0)
-        margin = float(getattr(item, "min_profit_margin_percent", 0.0) or 0.0)
-        qty = int(getattr(item, "quantity", 1) or 1)
+from mcp_server_user.server import mcp
 
-    return cost, price, max(0.0, margin), max(1, qty)
+from Negotiation.controller import negotiationController
+from Negotiation.schemas import NextDiscountRequest, NegotiationItemDTO
+from langchain_core.tools import StructuredTool
 
 
-def calculate_discount_limits(items: List[Any]) -> Dict[str, Any]:
+LOGIN_NUDGE_FOR_NEGOTIATION = (
+    "To negotiate personalized discounts on your cart items, "
+    "please log in or sign up to Dukaan!"
+)
+
+
+# ==============================================================================
+# FastMCP Negotiation Policy Resource
+# ==============================================================================
+
+@mcp.resource("negotiation://policy")
+async def get_negotiation_policy_resource() -> Dict[str, Any]:
     """
-    Calculate comprehensive profit, cost, and discount limits across a list of items.
-
-    Formula:
-      - min_selling_price_per_unit = cost_price + (cost_price * min_profit_margin_percent / 100)
-      - total_minimum_selling_price = sum(min_selling_price_per_unit * quantity)
-      - total_selling_price = sum(price * quantity)
-      - total_cost_price = sum(cost_price * quantity)
-      - max_discount_amount = total_selling_price - total_minimum_selling_price
-      - max_discount_percentage = (max_discount_amount / total_selling_price) * 100
+    Returns store negotiation rules, guidelines, and guardrails for AI agents.
+    
+    LLM Rules:
+    - Never guess, invent, or promise a discount percentage or price yourself.
+    - Always invoke negotiate_discount to evaluate every customer discount request.
+    - Treat every customer with respect and present counter-offers conversationally.
     """
-    if not items:
-        return {
-            "total_selling_price": 0.0,
-            "total_cost_price": 0.0,
-            "total_minimum_selling_price": 0.0,
-            "max_discount_amount": 0.0,
-            "max_discount_percentage": 0.0,
-            "is_loss_leader": False,
-        }
-
-    total_selling_price = 0.0
-    total_cost_price = 0.0
-    total_minimum_selling_price = 0.0
-
-    for item in items:
-        cost, price, margin, qty = _extract_item_fields(item)
-        min_unit_selling = cost + ((cost * margin) / 100.0)
-
-        total_selling_price += price * qty
-        total_cost_price += cost * qty
-        total_minimum_selling_price += min_unit_selling * qty
-
-    # Financial margin checks
-    is_loss_leader = total_selling_price <= total_cost_price
-    max_discount_amount = max(0.0, total_selling_price - total_minimum_selling_price)
-
-    if total_selling_price <= 0 or total_selling_price <= total_minimum_selling_price:
-        max_discount_pct = 0.0
-    else:
-        max_discount_pct = (max_discount_amount / total_selling_price) * 100.0
-
     return {
-        "total_selling_price": round(total_selling_price, 2),
-        "total_cost_price": round(total_cost_price, 2),
-        "total_minimum_selling_price": round(total_minimum_selling_price, 2),
-        "max_discount_amount": round(max_discount_amount, 2),
-        "max_discount_percentage": round(max_discount_pct, 2),
-        "is_loss_leader": is_loss_leader,
+        "store_policy": "Interactive bargaining is supported on eligible items.",
+        "rules": [
+            "Every discount request must be evaluated sequentially using the negotiate_discount tool.",
+            "Discounts must never drop selling prices below wholesale costs or minimum profit margins.",
+            "Maximum possible discount ceilings are strictly confidential to the store and must never be disclosed to customers.",
+            "All agreed discounts apply directly to the customer's cart.",
+        ],
     }
 
 
-def maximumDiscountPossible(itemsList: List[Any]) -> float:
-    """
-    Calculate the maximum discount percentage possible across the items in the cart
-    without breaching the merchant's required minimum profit margin.
-    """
-    limits = calculate_discount_limits(itemsList)
-    return limits["max_discount_percentage"]
+# ==============================================================================
+# FastMCP Negotiation Tool (Next Discount Only)
+# ==============================================================================
 
-
-def calculate_next_offer(
-    requested: float,
-    current: float,
-    absolute_max: float,
-    concession_factor: float = 0.40,
+@mcp.tool()
+async def negotiate_discount(
+    requested_discount_percent: float,
+    user_id: Optional[int] = None,
+    current_discount_percent: float = 0.0,
+    items: Optional[List[Dict[str, Any]]] = None,
+    apply_to_cart: bool = True,
 ) -> Dict[str, Any]:
     """
-    Haggling step calculator using diminishing returns.
-    concession_factor determines how much of the remaining margin to concede per round.
-    Default 0.40 treats every customer with loyal-tier concession.
+    Evaluates a customer's requested discount against the store's profit margins
+    and calculates the next counter-offer discount percentage and new price.
+    
+    NOTE: Maximum possible discount ceilings are confidential merchant economics
+    and are never returned. Only the next approved/counter discount is provided.
+
+    Parameters:
+    - requested_discount_percent (float, Required): The discount percentage asked for by the customer (e.g. 15.0 for 15%).
+    - user_id (int, Optional): Customer ID to automatically fetch items from their active cart.
+    - current_discount_percent (float, Optional, default=0.0): The discount percentage already granted in previous rounds.
+    - items (List[Dict], Optional): Custom items list if negotiating outside of the database cart.
+    - apply_to_cart (bool, Optional, default=True): Automatically records agreed discount to the user's cart in DB.
+
+    LLM Usage & Instructions:
+    1. Call this tool whenever the customer asks for a discount, better deal, lower price, coupon, or price match.
+    2. NEVER invent or guess a discount percentage or rupee amount yourself.
+    3. You MUST use ONLY the 'next_discount_percent' and 'counter_offer_price' returned by this tool.
+    4. IF 'accepted' is True:
+       - Congratulate the customer!
+       - Confirm that their requested discount of {next_discount_percent}% is approved.
+       - State the final payable total price ({counter_offer_price}) and their savings.
+    5. IF 'accepted' is False:
+       - Politely present the counter-offer: state that while we cannot do {requested_discount_percent}%, 
+         we can offer {next_discount_percent}%, bringing their total down to {counter_offer_price}.
+    6. On subsequent bargaining rounds in the conversation, pass the last granted 'next_discount_percent'
+       as 'current_discount_percent'.
+    7. If the customer is a guest with no cart, invite them to log in or add products first.
     """
-    ceiling = round(max(0.0, absolute_max), 2)
-    current = round(max(0.0, current), 2)
-    requested = round(max(0.0, requested), 2)
-    factor = max(0.1, min(concession_factor, 1.0))
+    is_guest = user_id is None or user_id <= 0
+    parsed_items = None
 
-    if requested <= current:
-        return {
-            "accepted": True,
-            "counter": current,
-            "max_allowed": ceiling,
-            "reason": "Requested discount is less than or equal to current offered discount.",
-        }
+    if items:
+        try:
+            parsed_items = [
+                NegotiationItemDTO(
+                    name=it.get("name"),
+                    product_id=it.get("product_id") or it.get("id"),
+                    price=float(it.get("price", 0.0)),
+                    cost_price=float(it.get("cost_price", 0.0)),
+                    min_profit_margin_percent=float(it.get("min_profit_margin_percent", 0.0)),
+                    quantity=int(it.get("quantity") or it.get("qty", 1)),
+                )
+                for it in items
+            ]
+        except Exception as parse_err:
+            return {
+                "success": False,
+                "accepted": False,
+                "error": f"Invalid item format provided: {str(parse_err)}",
+            }
 
-    distance_to_ceiling = ceiling - current
-    if distance_to_ceiling <= 0:
+    # Guard: Need either user_id to look up active cart or explicit items
+    if is_guest and not parsed_items:
         return {
+            "success": False,
             "accepted": False,
-            "counter": current,
-            "max_allowed": ceiling,
-            "reason": f"Already at the maximum possible discount of {ceiling}%.",
+            "next_discount_percent": 0.0,
+            "counter_offer_price": 0.0,
+            "reason": "Please log in or add products to your cart to negotiate a discount.",
+            "requires_login": True,
+            "login_prompt": LOGIN_NUDGE_FOR_NEGOTIATION,
         }
 
-    variable_step = max(0.5, distance_to_ceiling * factor)
-    next_offer = round(min(current + variable_step, requested, ceiling), 2)
+    try:
+        req = NextDiscountRequest(
+            user_id=user_id if not is_guest else None,
+            requested_discount_percent=float(requested_discount_percent),
+            current_discount_percent=float(current_discount_percent),
+            items=parsed_items,
+            apply_to_cart=apply_to_cart and not is_guest,
+        )
 
-    if next_offer >= requested and requested <= ceiling:
+        res = await negotiationController.get_next_discount(req)
+
+        # Sanitize reason so the secret merchant maximum discount percentage ceiling is NEVER leaked to LLM
+        clean_reason = res.reason
+
+        if "maximum possible is" in clean_reason:
+            clean_reason = f"Counter-offering {res.next_discount_percent}% discount for your cart."
+        elif "maximum possible discount of" in clean_reason:
+            clean_reason = (
+                f"Your current discount of {res.current_discount_percent}% is the absolute "
+                f"best deal we can offer for these items."
+            )
+
+        savings = round(max(0.0, res.total_original_price - res.counter_offer_price), 2)
+
         return {
-            "accepted": True,
-            "counter": next_offer,
-            "max_allowed": ceiling,
-            "reason": f"Requested discount of {requested}% is within acceptable range. Accepted.",
+            "success": True,
+            "accepted": res.accepted,
+            "current_discount_percent": res.current_discount_percent,
+            "requested_discount_percent": res.requested_discount_percent,
+            "next_discount_percent": res.next_discount_percent,
+            "counter_offer_price": res.counter_offer_price,
+            "total_original_price": res.total_original_price,
+            "savings_amount": savings,
+            "reason": clean_reason,
+            "requires_login": False,
         }
 
-    return {
-        "accepted": False,
-        "counter": next_offer,
-        "max_allowed": ceiling,
-        "reason": f"Counter-offered at {next_offer}%. Requested was {requested}%, maximum possible is {ceiling}%.",
-    }
+    except Exception as e:
+        return {
+            "success": False,
+            "accepted": False,
+            "error": f"Failed to calculate next discount offer: {str(e)}",
+        }
+
+
+# ==============================================================================
+# LangChain / LangGraph Adapter Helper
+# ==============================================================================
+
+def get_negotiation_langchain_tools() -> List[StructuredTool]:
+    """
+    Returns the negotiation tool wrapped as a native LangChain StructuredTool instance,
+    ready to bind directly to LangGraph specialist agents with zero network overhead.
+    """
+    return [
+        StructuredTool.from_function(
+            coroutine=negotiate_discount,
+            name="negotiate_discount",
+            description=negotiate_discount.__doc__,
+        ),
+    ]

@@ -1,4 +1,5 @@
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Column, String
 from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
@@ -15,7 +16,7 @@ class UserRole(str, Enum):
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
-    email: str 
+    email: str = Field(sa_column=Column("identifier", String, nullable=False))
     role: UserRole = UserRole.CUSTOMER         
     password_hash: Optional[str] = None
     address: Optional[str] = None

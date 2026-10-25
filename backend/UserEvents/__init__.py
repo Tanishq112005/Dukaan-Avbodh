@@ -8,6 +8,7 @@ from .database import (
 )
 from .schemas import UserEvent as UserEventSchema
 from .models import UserEvent, EventType
+from .tracker import record_user_event, record_bulk_user_events
 
 __all__ = [
     "UserEventController",
@@ -19,4 +20,6 @@ __all__ = [
     "userEvent_db",
     "UserEvent",
     "EventType",
+    "record_user_event",
+    "record_bulk_user_events",
 ]

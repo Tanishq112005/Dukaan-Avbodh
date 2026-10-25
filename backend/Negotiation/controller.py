@@ -3,7 +3,7 @@ from typing import Optional, List, Any
 from fastapi import HTTPException, status
 
 from Negotiation.database import NegotiationDatabase, negotiationDatabase
-from Negotiation.tools import (
+from Negotiation.utils import (
     calculate_discount_limits,
     calculate_next_offer,
     AGENT_MAX_DISCOUNT_PERCENT,

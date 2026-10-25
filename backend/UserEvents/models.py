@@ -19,4 +19,5 @@ class UserEvent(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
     product_id: Optional[int] = Field(default=None, foreign_key="product.id")   
     event_type: EventType           
+    category: Optional[str] = Field(default="general")
     timestamp: datetime = Field(default_factory=datetime.now)

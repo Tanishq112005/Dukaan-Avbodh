@@ -1,5 +1,5 @@
 from .database import NegotiationDatabase, negotiationDatabase, negotiation_db
-from .tools import (
+from .utils import (
     maximumDiscountPossible,
     calculate_discount_limits,
     calculate_next_offer,
@@ -12,6 +12,10 @@ from .schemas import (
     MaxDiscountResponse,
     NextDiscountRequest,
     NextDiscountResponse,
+)
+from .tools import (
+    negotiate_discount,
+    get_negotiation_langchain_tools,
 )
 
 __all__ = [
@@ -29,4 +33,6 @@ __all__ = [
     "MaxDiscountResponse",
     "NextDiscountRequest",
     "NextDiscountResponse",
+    "negotiate_discount",
+    "get_negotiation_langchain_tools",
 ]

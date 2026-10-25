@@ -28,7 +28,7 @@ class ProductController:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to fetch products"
             )
-
+    
     async def get_list_of_items_in_stock(self):
         try:
             products = await productRepository.get_list_of_items_in_stock()
@@ -45,7 +45,7 @@ class ProductController:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to fetch in-stock products"
             )
-
+    
     async def get_list_of_items_in_stock_by_types(
         self,
         product_types: List[ProductType]
@@ -70,7 +70,7 @@ class ProductController:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to fetch products by types"
             )
-
+    
     async def get_by_type(self, product_type: ProductType):
         try:
             products = await productRepository.get_by_type(
@@ -108,7 +108,7 @@ class ProductController:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to fetch products by ids"
             )
-
+     
     async def get_by_id(self, product_id: int):
         try:
             product = await productRepository.get_by_id(
