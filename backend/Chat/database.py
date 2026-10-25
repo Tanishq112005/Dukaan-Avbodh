@@ -108,6 +108,14 @@ class Chat:
 
     get_thread = getThread
 
+    ## Delete a specific thread for a user
+    async def deleteThread(self, user_id: int, thread_id: str) -> bool:
+        """Delete a specific chat thread."""
+        result = await self.db.delete_one({"user_id": user_id, "thread_id": thread_id})
+        return result.deleted_count > 0
+
+    delete_thread = deleteThread
+
 
 # Singleton instances
 chat = Chat(noSql_collection=nosql_client.get_collection("dukaan_audit", "chat_threads"))

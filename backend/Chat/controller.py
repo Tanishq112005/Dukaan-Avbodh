@@ -89,5 +89,23 @@ class ChatController:
                 detail="Failed to append negotiation log"
             )
 
+    async def delete_thread(self, user_id: int, thread_id: str) -> dict:
+        try:
+            deleted = await self.db.delete_thread(user_id=user_id, thread_id=thread_id)
+            if not deleted:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Thread not found or already deleted"
+                )
+            return {"success": True, "message": "Thread deleted successfully"}
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception("Failed to delete thread %s for user %s", thread_id, user_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete chat thread"
+            )
+
 
 chatController = ChatController()

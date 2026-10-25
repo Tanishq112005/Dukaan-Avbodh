@@ -50,8 +50,10 @@ app.include_router(cart_router)
 app.include_router(payment_router, prefix="/api")
 
 from Chat.routes import router as chat_router
+from routes.chat_routes import router as ai_chat_router
 from routes import a2a_routes, merchant_routes
 app.include_router(chat_router)
+app.include_router(ai_chat_router)
 app.include_router(a2a_routes.router)
 app.include_router(merchant_routes.router)
 
