@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
 import { useStore } from '../../store/useStore';
 import { Bot, User, Loader2, Send } from 'lucide-react';
 import { renderMessage } from '../chatbot/renderMessage';
+import { agentService } from '../../services/agentService';
 
 export function MerchantAgentTab() {
   const { token } = useStore();
@@ -36,16 +36,12 @@ export function MerchantAgentTab() {
     setIsTyping(true);
 
     try {
-      const res = await axios.post(
-        `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/merchant/chat`,
-        { text: userText },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await agentService.sendMerchantMessage({ text: userText });
 
       setMessages(prev => [...prev, { 
         id: Date.now(), 
         sender: 'ai', 
-        text: res.data.message 
+        text: res.message || "Request completed." 
       }]);
     } catch (err) {
       setMessages(prev => [...prev, { 

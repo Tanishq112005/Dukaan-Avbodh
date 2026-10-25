@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../../services/api";
 import { useStore } from "../../store/useStore";
 
 export function useMerchantData() {
@@ -8,34 +8,34 @@ export function useMerchantData() {
   const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const { token } = useStore();
+  const { token, user } = useStore();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [logsRes, ordersRes, threadsRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/merchant/audit-logs`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }),
-          axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/merchant/orders`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }),
-          axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/merchant/chat-threads`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
+          apiClient.get("/merchant/audit-logs"),
+          apiClient.get("/merchant/orders"),
+          apiClient.get("/merchant/chat-threads"),
         ]);
         setLogs(logsRes.data.logs || []);
         setOrders(ordersRes.data.orders || []);
         setThreads(threadsRes.data.threads || []);
         setError("");
       } catch (err) {
-        setError("Failed to fetch merchant data.");
+        console.warn("[MerchantData] Error fetching merchant data:", err);
+        setError("Failed to fetch merchant data. Verify you are logged in as a merchant.");
       } finally {
         setLoading(false);
       }
     };
-    if (token) fetchData();
-  }, [token]);
+
+    if (token && user?.role === "merchant") {
+      fetchData();
+    } else {
+      setLoading(false);
+    }
+  }, [token, user?.role]);
 
   return { logs, orders, threads, loading, error };
 }
