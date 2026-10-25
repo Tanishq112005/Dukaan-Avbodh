@@ -1,44 +1,46 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { useStore } from "../../store/useStore";
 import { FilterSidebar } from "./FilterSidebar";
 import { ProductCard } from "../../components/ui/ProductCard";
 import { ChevronRight } from "lucide-react";
 import { Loader } from "../../components/ui/Loader";
-
 import { Link } from "react-router-dom";
 
 export function ProductListPage() {
-  const { products, setProducts, searchQuery, selectedType, maxPrice } = useStore();
+  const { products, setProducts, fetchProducts, searchQuery, selectedType, maxPrice } = useStore();
   const [loading, setLoading] = useState(products.length === 0);
 
   useEffect(() => {
+    let mounted = true;
     if (products.length === 0) {
-      axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/product/catalog`)
-        .then(res => {
-          setProducts(res.data.products || res.data);
-          setLoading(false);
+      fetchProducts()
+        .then((items) => {
+          if (mounted && (!items || items.length === 0)) {
+            setProducts([
+              { id: 1, name: "Gradient Graphic T-shirt", price: 145, rating: 3.5, discount: 0, type: "t-shirt", brand: "ZARA", description: "Awesome gradient t-shirt for summer.", sizes: "S,M,L" },
+              { id: 2, name: "Polo with Tipping Details", price: 180, rating: 4.5, discount: 0, type: "shirt", brand: "GUCCI", description: "Classic polo shirt with tipping details.", sizes: "M,L,XL" },
+              { id: 3, name: "Black Striped T-shirt", price: 120, rating: 5, discount: 30, type: "t-shirt", brand: "VERSACE", description: "Elegant black striped t-shirt.", sizes: "S,M,L,XL" },
+              { id: 4, name: "Skinny Fit Jeans", price: 240, rating: 3.5, discount: 20, type: "jeans", brand: "Calvin Klein", description: "Comfortable skinny fit jeans.", sizes: "M,L" },
+            ]);
+          }
         })
-        .catch(() => {
-          setProducts([
-            { id: 1, name: "Gradient Graphic T-shirt", price: 145, rating: 3.5, discount: 0, type: "t-shirt", brand: "ZARA", description: "Awesome gradient t-shirt for summer.", sizes: "S,M,L" },
-            { id: 2, name: "Polo with Tipping Details", price: 180, rating: 4.5, discount: 0, type: "shirt", brand: "GUCCI", description: "Classic polo shirt with tipping details.", sizes: "M,L,XL" },
-            { id: 3, name: "Black Striped T-shirt", price: 120, rating: 5, discount: 30, type: "t-shirt", brand: "VERSACE", description: "Elegant black striped t-shirt.", sizes: "S,M,L,XL" },
-            { id: 4, name: "Skinny Fit Jeans", price: 240, rating: 3.5, discount: 20, type: "jeans", brand: "Calvin Klein", description: "Comfortable skinny fit jeans.", sizes: "M,L" },
-          ]);
-          setLoading(false);
+        .finally(() => {
+          if (mounted) setLoading(false);
         });
     } else {
       setLoading(false);
     }
-  }, []);
+    return () => {
+      mounted = false;
+    };
+  }, [fetchProducts, products.length, setProducts]);
 
   if (loading) return <Loader />;
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = selectedType === "" || p.type?.toLowerCase() === selectedType.toLowerCase();
-    const matchesPrice = p.price <= maxPrice;
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch = (p.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = selectedType === "" || (p.type || "").toLowerCase() === selectedType.toLowerCase();
+    const matchesPrice = (p.price || 0) <= maxPrice;
     return matchesSearch && matchesType && matchesPrice;
   });
 
@@ -58,7 +60,7 @@ export function ProductListPage() {
             <p className="text-stone-400 text-sm">{filteredProducts.length} pieces</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-5 md:gap-8">
-            {filteredProducts.map((p, i) => <ProductCard key={i} {...p} />)}
+            {filteredProducts.map((p, i) => <ProductCard key={p.id || i} {...p} />)}
           </div>
         </div>
       </div>
