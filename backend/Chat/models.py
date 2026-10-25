@@ -2,11 +2,13 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Any, Dict, Literal
 from datetime import datetime
 
+
 class ChatMessage(BaseModel):
     sender: Literal["human", "ai", "system"]
     message: str
     tool_calls: Optional[List[Dict[str, Any]]] = None  # To show audit (what action, why)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
 
 class AppliedCampaignSnapshot(BaseModel):
     campaign_id: int
@@ -14,6 +16,7 @@ class AppliedCampaignSnapshot(BaseModel):
     discount_percentage: float = 0.0
     type: Optional[str] = None
     priority: int = 0
+
 
 class NegotiationLog(BaseModel):
     requested: float
@@ -23,6 +26,7 @@ class NegotiationLog(BaseModel):
     margin: Optional[float] = None
     loss_leader: bool = False
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
 
 class ThreadState(BaseModel):
     current_discount_percent: float = 0.0
@@ -47,7 +51,8 @@ class ThreadState(BaseModel):
     razorpay_id: Optional[str] = None
     payment_status: Optional[str] = None
     user_info: Optional[Dict[str, str]] = None
-    
+
+
 class ChatThread(BaseModel):
     user_id: int
     thread_id: str

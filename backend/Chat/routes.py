@@ -1,6 +1,5 @@
 import json
 from fastapi import APIRouter
-from pydantic import BaseModel
 from typing import List, Optional
 from langchain_core.messages import HumanMessage
 from agents.user import agent_service
@@ -9,19 +8,12 @@ from User.models import User, UserRole
 from sqlmodel import select
 from Cart.database import cart_repository
 
+from Chat.models import ChatMessage, ThreadState
+from Chat.schemas import ChatRequest, EventRequest
+from Chat.database import chat_audit_repo
+
 router = APIRouter()
 
-class ChatRequest(BaseModel):
-    user_id: int
-    text: str
-    thread_id: Optional[str] = None
-    cart: List[dict] = []
-
-class EventRequest(BaseModel):
-    user_id: int
-    event: str
-    thread_id: Optional[str] = None
-    cart: List[dict] = []
 
 async def sync_cart_and_user(user_id: int, cart_data: list):
     # Ensure the user exists in the DB (for guests) to satisfy the foreign key constraint
@@ -41,6 +33,7 @@ async def sync_cart_and_user(user_id: int, cart_data: list):
             size=item.get("size")
         )
 
+
 @router.post("/chat/message")
 async def chat_message(req: ChatRequest):
     try:
@@ -58,8 +51,6 @@ async def chat_message(req: ChatRequest):
     }
     
     try:
-        from repositories.chat import chat_audit_repo
-        from models.chat_audit import ChatMessage, ThreadState
         thread_id_val = req.thread_id or str(req.user_id)
         await chat_audit_repo.get_or_create_thread(req.user_id, thread_id_val)
         await chat_audit_repo.add_message(req.user_id, thread_id_val, ChatMessage(sender="human", message=req.text))
@@ -94,10 +85,10 @@ async def chat_message(req: ChatRequest):
             print(f"[WARNING] Failed to dispatch chat state to background queue: {q_err}")
 
         # Fetch the updated cart state after the AI has potentially run MCP tools
-        updated_cart = await cart_repository.get_cart_items(req.user_id)
+        updated_cart = await cart_repository.get_items(req.user_id)
         
         return {
-            "type": "chat_reply", 
+            "type": "chat_reply",
             "message": ai_reply,
             "combo_offer": combo_offer,
             "suggested_products": suggested_products,
@@ -112,6 +103,7 @@ async def chat_message(req: ChatRequest):
         traceback.print_exc()
         return {"type": "chat_reply", "message": "Sorry, something went wrong. Please try again!"}
 
+
 @router.post("/chat/event")
 async def chat_event(req: EventRequest):
     config = {"configurable": {"thread_id": req.thread_id or str(req.user_id)}}
@@ -124,7 +116,6 @@ async def chat_event(req: EventRequest):
         except Exception as e:
             print(f"[WARNING] combo_declined langgraph update failed: {e}")
         try:
-            from repositories.chat import chat_audit_repo
             await chat_audit_repo.update_state_patch(req.user_id, thread_id_val, {"combo_offer": None})
         except Exception as e:
             print(f"[WARNING] combo_declined audit update failed: {e}")
@@ -139,7 +130,7 @@ async def chat_event(req: EventRequest):
                 "thread_id": req.thread_id or str(req.user_id)
             }, config=config)
             ai_reply = result.get("final_response")
-            updated_cart = await cart_repository.get_cart_items(req.user_id)
+            updated_cart = await cart_repository.get_items(req.user_id)
             return {
                 "type": "chat_reply",
                 "message": ai_reply or "Checking your payment now...",
@@ -176,8 +167,6 @@ async def chat_event(req: EventRequest):
 
         hidden_msg = HumanMessage(content="PROACTIVE_SUGGESTION_TRIGGER")
         try:
-            from repositories.chat import chat_audit_repo
-            from models.chat_audit import ChatMessage, ThreadState
             thread_id_val = req.thread_id or str(req.user_id)
             await chat_audit_repo.get_or_create_thread(req.user_id, thread_id_val)
             await chat_audit_repo.add_message(req.user_id, thread_id_val, ChatMessage(sender="system", message=f"Event triggered: {req.event}"))
@@ -197,7 +186,7 @@ async def chat_event(req: EventRequest):
                     "current_discount_percent": result.get("current_discount_percent", 0.0),
                     "combo_offer": result.get("combo_offer", None)
                 })
-                updated_cart = await cart_repository.get_cart_items(req.user_id)
+                updated_cart = await cart_repository.get_items(req.user_id)
                 return {
                     "type": "proactive_suggestion",
                     "message": ai_reply,

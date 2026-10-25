@@ -1,14 +1,18 @@
-from models.chat_audit import ChatThread, ChatMessage, ThreadState
 from datetime import datetime
-from config.mogodbconfig import nosql_client  
+from config.mogodbconfig import nosql_client
+from Chat.models import ChatThread, ChatMessage, ThreadState
 
-  
+
 class Chat:
-    
-    def __init__(self , noSql_collection):
-        self.db = noSql_collection
-        
-        
+
+    def __init__(self, noSql_collection=None):
+        self.db = (
+            noSql_collection
+            if noSql_collection is not None
+            else nosql_client.get_collection("dukaan_audit", "chat_threads")
+        )
+        self.collection = self.db
+
     ## Get or create a chat thread for a user
     async def getOrCreateThread(self, user_id: int, thread_id: str) -> dict:
         """Fetch a thread by user_id and thread_id, or create if it doesn't exist."""
@@ -19,7 +23,9 @@ class Chat:
             await self.db.insert_one(thread_dict)
             return thread_dict
         return thread
-    
+
+    get_or_create_thread = getOrCreateThread
+
     ## Add the Message to the thread 
     async def addMessage(self, user_id: int, thread_id: str, message: ChatMessage):
         """Append a message to a specific thread."""
@@ -30,8 +36,9 @@ class Chat:
                 "$set": {"updated_at": datetime.utcnow()}
             }
         )
-    
-    
+
+    add_message = addMessage
+
     ## Update the state of the thread 
     async def updateState(self, user_id: int, thread_id: str, new_state: ThreadState):
         """Update the agent state (discount, suggested products) for the thread."""
@@ -44,23 +51,25 @@ class Chat:
                 }
             }
         )
-     
-     
+
+    update_state = updateState
+
     ## Update the state of the thread with a patch (partial update)
     async def updateStatePatch(self, user_id: int, thread_id: str, patch: dict):
         """Partially update the thread state (e.g. state.order_placed)."""
         set_dict = {"updated_at": datetime.utcnow()}
         for k, v in patch.items():
             set_dict[f"state.{k}"] = v
-            
+
         await self.db.update_one(
             {"user_id": user_id, "thread_id": thread_id},
             {
                 "$set": set_dict
             }
         )
-    
-    
+
+    update_state_patch = updateStatePatch
+
     ## Append the negotiation log to the thread state
     async def appendNegotiationLog(self, user_id: int, thread_id: str, log: dict):
         """Append a negotiation round to state.negotiation_log"""
@@ -72,20 +81,23 @@ class Chat:
                 "$set": {"updated_at": datetime.utcnow()}
             }
         )
-     
+
+    append_negotiation_log = appendNegotiationLog
+
     ## Get all threads for a user (useful for merchant dashboard)
     async def getAllThreadsForUser(self, user_id: int):
         """Retrieve all chat threads for a user (useful for merchant dashboard)."""
         cursor = self.db.find({"user_id": user_id}).sort("updated_at", -1)
         threads = await cursor.to_list(length=100)
-        
+
         # Format MongoDB `_id` to string for JSON serialization
         for t in threads:
             t["_id"] = str(t["_id"])
-            
+
         return threads
-    
-    
+
+    get_all_threads_for_user = getAllThreadsForUser
+
     ## Get a specific thread for a user
     async def getThread(self, user_id: int, thread_id: str):
         """Retrieve a specific chat thread."""
@@ -94,7 +106,13 @@ class Chat:
             thread["_id"] = str(thread["_id"])
         return thread
 
+    get_thread = getThread
 
 
-# Singleton instance
+# Singleton instances
 chat = Chat(noSql_collection=nosql_client.get_collection("dukaan_audit", "chat_threads"))
+chat_audit_repo = chat
+chatRepository = chat
+chat_db = chat
+ChatDatabase = Chat
+ChatRepository = Chat

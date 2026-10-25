@@ -5,7 +5,7 @@ from services.pricing_service import pricing_service
 from services.audit_logger import audit_logger
 from services.upsell_service import upsell_service
 from Cart.database import cart_repository
-from repositories.chat import chat_audit_repo
+from Chat.database import chat_audit_repo
 from langsmith import traceable
 
 @mcp.tool()
@@ -182,6 +182,6 @@ async def decline_combo_offer(user_id: int, thread_id: str = "") -> dict:
     - Call this ONLY when the user explicitly rejects a combo/bundle.
     """
     if thread_id:
-        from repositories.chat import chat_audit_repo
+        from Chat.database import chat_audit_repo
         await chat_audit_repo.update_state_patch(user_id, thread_id, {"combo_offer": None})
     return {"success": True, "message": "Combo offer cleared"}
