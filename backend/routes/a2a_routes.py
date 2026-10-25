@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from schemas.a2a_schemas import A2AStartSessionResponse
 from agents.user import agent_service
 from langchain_core.messages import HumanMessage
-from repositories import ProductRepository
+from Product.database import ProductRepository
 from services.a2a_service import a2a_service
 
 router = APIRouter(tags=["A2A Protocol"])

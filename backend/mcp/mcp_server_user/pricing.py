@@ -4,7 +4,7 @@ from services.negotiation_service import negotiation_service
 from services.pricing_service import pricing_service
 from services.audit_logger import audit_logger
 from services.upsell_service import upsell_service
-from repositories.cart import cart_repository
+from Cart.database import cart_repository
 from repositories.chat import chat_audit_repo
 from langsmith import traceable
 

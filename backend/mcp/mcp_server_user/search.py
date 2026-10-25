@@ -6,11 +6,11 @@ from config.vectorDatabase import vectorDB
 from services.behavior_scorer import behavior_scorer
 from services.recommendation_service import recommendation_service
 from services.pricing_service import pricing_service
-from repositories.product import ProductRepository
-from repositories.cart import cart_repository
-from repositories.userEvent import UserEventRepository
-from models.product import ProductType
-from models.userEvent import EventType
+from Product.database import ProductRepository
+from Cart.database import cart_repository
+from UserEvents.database import UserEventRepository
+from Product.models import ProductType
+from UserEvents.models import EventType
 from langsmith import traceable
 
 product_repo = ProductRepository()

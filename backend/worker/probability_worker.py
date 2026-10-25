@@ -6,12 +6,12 @@ from sqlmodel import select
 
 from config.database import db_connection
 from config.redis import redisClient
-from models.product import Product
-from models.probabilityValues import (
+from Product.models import Product
+from recommedation.models import (
     ProbabilityOfShowingItems,
     ProbabilityOfShowingItemsForParticularUser,
 )
-from models.userEvent import UserEvent, EventType
+from UserEvents.models import UserEvent, EventType
 from .base import BaseWorker
 
 logger = logging.getLogger(__name__)

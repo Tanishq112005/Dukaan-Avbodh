@@ -1,0 +1,27 @@
+from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional, List, TYPE_CHECKING
+from datetime import datetime
+
+if TYPE_CHECKING:
+    from User.models import User
+    from Product.models import Product
+
+
+class Cart(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", unique=True, ondelete="CASCADE")
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    discount_percentage: float = Field(default=0.0)
+    items: List["CartItem"] = Relationship(back_populates="cart")
+
+
+class CartItem(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    cart_id: int = Field(foreign_key="cart.id")
+    product_id: int = Field(foreign_key="product.id")
+    quantity: int = Field(default=1)
+    size: Optional[str] = None
+    added_at: datetime = Field(default_factory=datetime.now)
+    
+    cart: Optional["Cart"] = Relationship(back_populates="items")

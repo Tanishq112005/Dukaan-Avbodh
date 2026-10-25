@@ -5,9 +5,9 @@ from typing import List, Optional
 from langchain_core.messages import HumanMessage
 from agents.user import agent_service
 from config.database import db_connection
-from models.user import User, UserRole
+from User.models import User, UserRole
 from sqlmodel import select
-from repositories.cart import cart_repository
+from Cart.database import cart_repository
 
 router = APIRouter()
 

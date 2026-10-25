@@ -3,7 +3,7 @@ import asyncio
 from typing import Optional
 from sqlmodel import select
 from config.database import db_connection
-from models.order import Order
+from Order.models import Order
 
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_test_TWV2ichCwzRcvo")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "9Ew8lMz1DUumk4hYVPBbf4dd")

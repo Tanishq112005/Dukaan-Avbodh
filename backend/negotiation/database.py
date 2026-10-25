@@ -3,9 +3,9 @@ from typing import Optional, List, Dict, Any
 from sqlmodel import select
 
 from config.database import db_connection
-from models.product import Product
-from models.cart import Cart, CartItem
-from repositories.cart import cart
+from Product.models import Product
+from Cart.models import Cart, CartItem
+from Cart.database import cart
 
 logger = logging.getLogger(__name__)
 

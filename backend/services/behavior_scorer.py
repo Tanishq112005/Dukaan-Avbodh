@@ -1,6 +1,6 @@
 from datetime import datetime
-from repositories.userEvent import UserEventRepository
-from models.userEvent import EventType
+from UserEvents.database import UserEventRepository
+from UserEvents.models import EventType
 
 class BehaviorScorer:
     EVENT_WEIGHTS = {
@@ -91,7 +91,7 @@ class BehaviorScorer:
         CURRENT session ke views ko priority deta hai (sabse accurate — abhi kya
         dekh raha hai), tabhi purani sessions pe fallback karta hai.
         """
-        from repositories.product import ProductRepository
+        from Product.database import ProductRepository
         product_repo = ProductRepository()
 
         if events is None:

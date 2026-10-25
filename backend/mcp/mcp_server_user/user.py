@@ -1,7 +1,7 @@
 # mcp/user.py
 from typing import Optional
 from mcp_server_user.server import mcp
-from repositories import UserRepository
+from User.database import UserRepository
 from langsmith import traceable
 user_repo = UserRepository()
 

@@ -1,11 +1,11 @@
-from .product import Product, ProductType
+from Product.models import Product, ProductType
+from Order.models import Order, PaymentStatus
+from User.models import User, UserRole
+from UserEvents.models import UserEvent, EventType
+from Cart.models import Cart, CartItem
 from .campaign import Campaign, CampaignProductLink, CampaingType, CAMPAIGN_WEIGHTS
-from .probabilityValues import ProbabilityOfShowingItems, ProbabilityOfShowingItemsForParticularUser
-from .order import Order
+from recommedation.models import ProbabilityOfShowingItems, ProbabilityOfShowingItemsForParticularUser
 from .discount_policy import DiscountPolicy
-from .user import User
-from .userEvent import UserEvent, EventType
-from .cart import Cart, CartItem
 
 __all__ = [
     "Product",
@@ -17,8 +17,10 @@ __all__ = [
     "ProbabilityOfShowingItems",
     "ProbabilityOfShowingItemsForParticularUser",
     "Order",
+    "PaymentStatus",
     "DiscountPolicy",
     "User",
+    "UserRole",
     "UserEvent",
     "EventType",
     "Cart",

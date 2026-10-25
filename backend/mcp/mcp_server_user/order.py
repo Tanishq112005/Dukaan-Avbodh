@@ -6,7 +6,7 @@ from repositories.campain_repository import CampaignRepository
 from models import Order
 from config.database import db_connection
 from sqlmodel import select
-from models.user import User
+from User.models import User
 from services.payment_service import rzp_client, check_user_payment_status
 from utils.pricing_math import AGENT_MAX_DISCOUNT_PERCENT
 import os
@@ -50,7 +50,7 @@ async def create_order(
     from services.combo_pricing_engine import combo_pricing_engine
     from services.pricing_service import pricing_service
     
-    from repositories.cart import cart_repository
+    from Cart.database import cart_repository
     cart_items = await cart_repository.get_cart_items(user_id)
     if not cart_items:
         return {"success": False, "reason": "Cart is empty."}

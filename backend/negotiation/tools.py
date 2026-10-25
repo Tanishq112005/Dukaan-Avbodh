@@ -1,5 +1,5 @@
 from typing import List
-from models.product import Product
+from Product.models import Product
 
 
 def maximumDiscountPossible(itemsList: List[Product]) -> float:

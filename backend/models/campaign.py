@@ -3,7 +3,7 @@ from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
 
 if TYPE_CHECKING:
-    from .product import Product
+    from Product.models import Product
 
 
 class CampaingType(str, Enum):

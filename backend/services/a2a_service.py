@@ -1,7 +1,7 @@
 import uuid
 from sqlmodel import select
 from config.database import db_connection
-from models.user import User, UserRole
+from User.models import User, UserRole
 
 class A2AService:
     async def create_session(self) -> str:

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
-from repositories.cart import cart_repository
-from repositories.order import OrderRepository
+from Cart.database import cart_repository
+from Order.database import OrderRepository
 from services.combo_pricing_engine import combo_pricing_engine
 from services.pricing_service import pricing_service
 from services.upsell_service import upsell_service

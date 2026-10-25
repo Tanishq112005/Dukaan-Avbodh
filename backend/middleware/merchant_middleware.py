@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, status
-from models.user import UserRole
+from User.models import UserRole
 
 
 class MerchantRoleChecker:

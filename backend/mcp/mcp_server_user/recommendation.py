@@ -2,8 +2,8 @@ from mcp_server_user.server import mcp
 from services.upsell_service import upsell_service
 from services.behavior_scorer import behavior_scorer
 from services.audit_logger import audit_logger
-from repositories.cart import cart_repository
-from repositories.userEvent import UserEventRepository
+from Cart.database import cart_repository
+from UserEvents.database import UserEventRepository
 
 event_repo = UserEventRepository()
 

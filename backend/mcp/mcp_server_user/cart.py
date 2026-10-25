@@ -1,6 +1,6 @@
 from typing import Optional
 from mcp_server_user.server import mcp
-from repositories.cart import cart_repository
+from Cart.database import cart_repository
 
 
 @mcp.tool()

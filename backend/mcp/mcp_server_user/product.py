@@ -1,6 +1,6 @@
 from mcp_server_user.server import mcp
-from repositories import ProductRepository
-from models.product import ProductType
+from Product.database import ProductRepository
+from Product.models import ProductType
 from langsmith import traceable
 product_repo = ProductRepository()
 

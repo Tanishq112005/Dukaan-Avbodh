@@ -2,8 +2,8 @@ from typing import Optional, List, Dict, Any
 from sqlmodel import select, or_, func
 
 from config.database import db_connection
-from models.product import Product
-from models.probabilityValues import (
+from Product.models import Product
+from .models import (
     ProbabilityOfShowingItems,
     ProbabilityOfShowingItemsForParticularUser,
 )

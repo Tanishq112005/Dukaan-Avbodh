@@ -7,7 +7,11 @@ if sys.platform == "win32":
 from config.mogodbconfig import nosql_client
 from fastapi import FastAPI
 from config.database import db_connection 
-from routes import auth, order, product, checkout_routes, userEvents
+from auth.routes import router as auth_router
+from Product.routes import router as product_router
+from UserEvents.routes import router as user_events_router
+from Order.routes import router as order_router
+from Cart.routes import router as cart_router
 from config.chatModel import chatModel
 from fastapi.middleware.cors import CORSMiddleware
 from config.vectorDatabase import vectorDB
@@ -38,11 +42,11 @@ app.add_middleware(
 
 from routes.payment_routes import router as payment_router
 
-app.include_router(auth.router)
-app.include_router(product.router)
-app.include_router(userEvents.router)
-app.include_router(order.router)
-app.include_router(checkout_routes.router)
+app.include_router(auth_router)
+app.include_router(product_router)
+app.include_router(user_events_router)
+app.include_router(order_router)
+app.include_router(cart_router)
 app.include_router(payment_router, prefix="/api")
 
 from routes import chat_routes, a2a_routes, merchant_routes

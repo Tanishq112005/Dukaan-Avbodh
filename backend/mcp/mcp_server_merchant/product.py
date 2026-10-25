@@ -2,9 +2,9 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from fastapi import HTTPException
 from mcp_server_merchant.server import mcp
-from controllers.product import ProductController
-from schemas.product_schemas import AddProductRequest
-from models.product import ProductType
+from Product.controller import ProductController
+from Product.schemas import AddProductRequest
+from Product.models import ProductType
 
 
 # Initialize the controller
