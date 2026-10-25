@@ -57,6 +57,9 @@ app.include_router(ai_chat_router)
 app.include_router(a2a_routes.router)
 app.include_router(merchant_routes.router)
 
+from negotiation.routes import router as negotiation_router
+app.include_router(negotiation_router)
+
 
 @app.on_event("startup")
 async def startup():
