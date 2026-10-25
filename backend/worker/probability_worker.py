@@ -7,7 +7,7 @@ from sqlmodel import select
 from config.database import db_connection
 from config.redis import redisClient
 from Product.models import Product
-from recommedation.models import (
+from Recommedation.models import (
     ProbabilityOfShowingItems,
     ProbabilityOfShowingItemsForParticularUser,
 )
@@ -170,6 +170,15 @@ class ProbabilityWorker(BaseWorker):
             # 7. User-specific probability updates (if user events were present)
             if user_deltas:
                 user_ids = {u for (u, _) in user_deltas.keys()}
+
+                # Pre-fetch existing user probability records in ONE batch query (avoids N+1 query loop)
+                existing_user_records = (await session.exec(
+                    select(ProbabilityOfShowingItemsForParticularUser).where(
+                        ProbabilityOfShowingItemsForParticularUser.user_id.in_(user_ids)
+                    )
+                )).all()
+                existing_user_map = {(r.user_id, r.product_id): r for r in existing_user_records}
+
                 for uid in user_ids:
                     u_deltas = {p: d for (u, p), d in user_deltas.items() if u == uid}
                     u_raw: Dict[int, float] = {}
@@ -186,21 +195,18 @@ class ProbabilityWorker(BaseWorker):
                     u_sum = sum(u_raw.values())
                     for pid, val in u_raw.items():
                         u_prob = round((val / u_sum) if u_sum > 0 else (1.0 / len(all_product_ids)), 6)
-                        u_existing = (await session.exec(
-                            select(ProbabilityOfShowingItemsForParticularUser).where(
-                                ProbabilityOfShowingItemsForParticularUser.user_id == uid,
-                                ProbabilityOfShowingItemsForParticularUser.product_id == pid
-                            )
-                        )).first()
+                        u_existing = existing_user_map.get((uid, pid))
                         if u_existing:
                             u_existing.score = u_prob
                             session.add(u_existing)
                         else:
-                            session.add(ProbabilityOfShowingItemsForParticularUser(
+                            new_record = ProbabilityOfShowingItemsForParticularUser(
                                 user_id=uid,
                                 product_id=pid,
                                 score=u_prob
-                            ))
+                            )
+                            existing_user_map[(uid, pid)] = new_record
+                            session.add(new_record)
 
             # Commit all inserts and updates in one single transaction
             await session.commit()

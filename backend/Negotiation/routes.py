@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-from negotiation.controller import negotiationController
-from negotiation.schemas import (
+from Negotiation.controller import negotiationController
+from Negotiation.schemas import (
     MaxDiscountRequest,
     MaxDiscountResponse,
     NextDiscountRequest,

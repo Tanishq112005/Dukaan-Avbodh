@@ -3,11 +3,11 @@ from typing import Optional, Dict, Any, List
 
 from config.embeddingModel import embeddingModel
 from config.vectorDatabase import vectorDB
-from recommedation.database import (
+from Recommedation.database import (
     RecommendationDatabase,
     recommendation_db,
 )
-from recommedation.similarity import calculate_cosine_similarity
+from Recommedation.similarity import calculate_cosine_similarity
 
 logger = logging.getLogger(__name__)
 

@@ -67,16 +67,17 @@ class Cart:
     async def _recalculate_totals(
         self,
         session,
-        cart: CartModel
+        cart: CartModel,
+        results=None
     ) -> dict:
 
-        query = (
-            select(CartItem, Product)
-            .join(Product, CartItem.product_id == Product.id)
-            .where(CartItem.cart_id == cart.id)
-        )
-
-        results = (await session.exec(query)).all()
+        if results is None:
+            query = (
+                select(CartItem, Product)
+                .join(Product, CartItem.product_id == Product.id)
+                .where(CartItem.cart_id == cart.id)
+            )
+            results = (await session.exec(query)).all()
 
         subtotal = sum(
             item.quantity * product.price
@@ -316,8 +317,6 @@ class Cart:
         async with self.db.get_session() as session:
             cart = await self._get_cart(user_id, session)
 
-            totals = await self._recalculate_totals(session, cart)
-
             query = (
                 select(CartItem, Product)
                 .join(Product, CartItem.product_id == Product.id)
@@ -325,6 +324,7 @@ class Cart:
             )
 
             results = (await session.exec(query)).all()
+            totals = await self._recalculate_totals(session, cart, results=results)
 
             return {
                 "cart_id": cart.id,
@@ -343,6 +343,54 @@ class Cart:
                 ],
                 **totals
             }
+
+    # Bulk sync user cart items in a single transaction (avoids N+1 add_item queries)
+    async def sync_items(self, user_id: int, items: list) -> bool:
+        async with self.db.get_session() as session:
+            try:
+                cart = await self._get_cart(user_id, session)
+
+                # Clear existing items first
+                await session.exec(delete(CartItem).where(CartItem.cart_id == cart.id))
+
+                if items:
+                    raw_ids = [
+                        int(item["id"] if "id" in item else item["product_id"])
+                        for item in items
+                        if ("id" in item or "product_id" in item)
+                    ]
+
+                    if raw_ids:
+                        products_res = await session.exec(select(Product).where(Product.id.in_(raw_ids)))
+                        product_map = {p.id: p for p in products_res.all()}
+
+                        new_cart_items = []
+                        for item in items:
+                            pid = int(item.get("id") or item.get("product_id"))
+                            product = product_map.get(pid)
+                            if not product or product.stock <= 0:
+                                continue
+
+                            qty = min(int(item.get("qty") or item.get("quantity") or 1), product.stock)
+                            new_cart_items.append(CartItem(
+                                cart_id=cart.id,
+                                product_id=pid,
+                                quantity=qty,
+                                size=item.get("size")
+                            ))
+
+                        if new_cart_items:
+                            session.add_all(new_cart_items)
+
+                await self._recalculate_totals(session, cart)
+                session.add(cart)
+
+                await session.commit()
+                return True
+
+            except Exception:
+                await session.rollback()
+                raise
 
     # Clear the user's cart
     async def clear_cart(self, user_id: int) -> bool:
@@ -372,4 +420,5 @@ class Cart:
 cart = Cart(db_connection=db_connection)
 CartRepository = Cart
 cart_repository = cart
+cartRepository = cart
 cart_db = cart

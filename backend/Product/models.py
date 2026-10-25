@@ -3,7 +3,7 @@ from typing import List, Optional, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
 if TYPE_CHECKING:
     from Order.models import Order
-    from recommedation.models import ProbabilityOfShowingItems, ProbabilityOfShowingItemsForParticularUser
+    from Recommedation.models import ProbabilityOfShowingItems, ProbabilityOfShowingItemsForParticularUser
 
 
 class ProductType(str, Enum):

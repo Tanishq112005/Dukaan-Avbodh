@@ -2,13 +2,13 @@ import logging
 from typing import Optional, List, Any
 from fastapi import HTTPException, status
 
-from negotiation.database import NegotiationDatabase, negotiationDatabase
-from negotiation.tools import (
+from Negotiation.database import NegotiationDatabase, negotiationDatabase
+from Negotiation.tools import (
     calculate_discount_limits,
     calculate_next_offer,
     AGENT_MAX_DISCOUNT_PERCENT,
 )
-from negotiation.schemas import (
+from Negotiation.schemas import (
     MaxDiscountRequest,
     MaxDiscountResponse,
     NextDiscountRequest,
