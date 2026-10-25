@@ -23,7 +23,19 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
           ? "bg-stone-900 text-white rounded-tr-sm"
           : "bg-white border border-stone-100 text-stone-800 rounded-tl-sm"
       )}>
-        <div className="whitespace-pre-wrap">{renderMessage(msg.text, msg.payment_link)}</div>
+        {msg.streamingStatus && !msg.text ? (
+          <div className="flex items-center gap-2 text-xs text-stone-500 py-1">
+            <Loader2 size={13} className="animate-spin text-[#C45C26]" />
+            <span>{msg.streamingStatus}</span>
+          </div>
+        ) : (
+          <div className="whitespace-pre-wrap">
+            {renderMessage(msg.text, msg.payment_link)}
+            {msg.isStreaming && (
+              <span className="inline-block w-1.5 h-3.5 ml-1 bg-[#C45C26] animate-pulse align-middle" />
+            )}
+          </div>
+        )}
         {msg.payment_link && (
           <button
             type="button"

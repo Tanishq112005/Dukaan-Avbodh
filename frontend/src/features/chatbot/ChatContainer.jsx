@@ -13,7 +13,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
 export function AgentWidget() {
   const [input, setInput] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const { aiMessages, aiMessagesLastUpdated, isAiTyping, sendAiMessage, isAiConnected, comboOffer, connectAgent, disconnectAgent, isAgentOpen, setIsAgentOpen, openPaymentLink, pollPaymentStatus, startNewChat , threadId} = useStore();
+  const { aiMessages, aiMessagesLastUpdated, isAiTyping, sendAiMessage, isAiConnected, comboOffer, connectAgent, disconnectAgent, isAgentOpen, setIsAgentOpen, openPaymentLink, pollPaymentStatus, startNewChat } = useStore();
 
   useEffect(() => {
     connectAgent();
@@ -23,7 +23,7 @@ export function AgentWidget() {
       useStore.setState({ aiMessagesLastUpdated: Date.now() });
     }
     return () => disconnectAgent();
-  }, []);
+  }, [connectAgent, disconnectAgent, aiMessagesLastUpdated]);
 
   const chatContainerRef = useRef(null);
 
@@ -84,12 +84,31 @@ export function AgentWidget() {
         </div>
       )}
       {!isFullScreen && (
-        <button
-          onClick={() => setIsAgentOpen(!isAgentOpen)}
-          className="bg-stone-900 hover:bg-stone-800 text-white p-4 rounded-full shadow-[0_12px_40px_-8px_rgba(20,16,12,0.6)] transition-transform hover:scale-105 flex items-center justify-center"
-        >
-          {isAgentOpen ? <X size={24} /> : <MessageCircle size={24} />}
-        </button>
+        <div className="flex items-center gap-3">
+          {!isAgentOpen && (
+            <button
+              onClick={() => setIsAgentOpen(true)}
+              className="hidden sm:flex items-center gap-2 bg-white/95 backdrop-blur border border-stone-200/90 shadow-[0_8px_30px_rgb(0,0,0,0.12)] px-4 py-2.5 rounded-full text-xs font-semibold text-stone-800 hover:bg-stone-50 transition-all hover:scale-105 cursor-pointer"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Chat with Atelier Stylist</span>
+            </button>
+          )}
+          <button
+            onClick={() => setIsAgentOpen(!isAgentOpen)}
+            aria-label="Toggle AI Stylist Chat"
+            title="Chat with AI Stylist"
+            className="bg-stone-900 hover:bg-stone-800 text-white p-4 rounded-full shadow-[0_12px_40px_-8px_rgba(20,16,12,0.6)] transition-all hover:scale-110 flex items-center justify-center relative cursor-pointer"
+          >
+            {isAgentOpen ? <X size={24} /> : <MessageCircle size={24} />}
+            {!isAgentOpen && (
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C45C26] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-[#C45C26]"></span>
+              </span>
+            )}
+          </button>
+        </div>
       )}
     </div>
   );

@@ -34,7 +34,7 @@ function AppContent() {
         </Routes>
       </main>
       <Footer />
-      {token && <AgentWidget />}
+      <AgentWidget />
     </div>
   );
 }

@@ -148,38 +148,136 @@ export const createChatSlice = (set, get) => ({
   sendAiMessage: async (text) => {
     if (!text || !text.trim()) return;
 
+    const userMessage = { sender: "user", text };
+    const streamingAiMessage = {
+      sender: "ai",
+      text: "",
+      isStreaming: true,
+      streamingStatus: "Consulting stylist...",
+      suggested_products: [],
+    };
+
     set((state) => ({
-      aiMessages: [...state.aiMessages, { sender: "user", text }],
+      aiMessages: [...state.aiMessages, userMessage, streamingAiMessage],
       aiMessagesLastUpdated: Date.now(),
       isAgentOpen: true,
       isAiTyping: true,
     }));
 
+    const userId = get().user?.id || get().guestId;
+    const threadId = get().thread_id || get().threadId;
+    const cart = get().cart || [];
+
+    let accumulatedText = "";
+
     try {
-      const userId = get().user?.id || get().guestId;
-      const threadId = get().thread_id || get().threadId;
-      const cart = get().cart || [];
-
-      const responseData = await agentService.sendUserMessage({
-        userId,
-        threadId,
-        text,
-        cart,
-      });
-
-      get()._handleChatResponse(responseData);
-    } catch (e) {
-      console.error("[AgentWidget] Error communicating with assistant:", e);
-      set((state) => ({
-        aiMessages: [
-          ...state.aiMessages,
-          {
-            sender: "ai",
-            text: "I'm having a brief connection delay. Please feel free to ask again in a moment.",
+      await agentService.streamUserMessage(
+        { userId, threadId, text, cart },
+        {
+          onToken: (token) => {
+            accumulatedText += token;
+            set((state) => {
+              const msgs = [...state.aiMessages];
+              const last = msgs[msgs.length - 1];
+              if (last && last.sender === "ai") {
+                last.text = accumulatedText;
+                last.isStreaming = true;
+                last.streamingStatus = null;
+              }
+              return { aiMessages: msgs, isAiTyping: false };
+            });
           },
-        ],
-        isAiTyping: false,
-      }));
+          onNodeUpdate: (nodeName) => {
+            const statusMap = {
+              director: "Analyzing look and style...",
+              general: "Finding atelier recommendations...",
+              catalog: "Checking inventory...",
+              negotiation: "Calculating VIP discount...",
+              cart: "Updating shopping bag...",
+            };
+            const label = statusMap[nodeName] || "Stylist is thinking...";
+            set((state) => {
+              const msgs = [...state.aiMessages];
+              const last = msgs[msgs.length - 1];
+              if (last && last.sender === "ai" && !last.text) {
+                last.streamingStatus = label;
+              }
+              return { aiMessages: msgs };
+            });
+          },
+          onComplete: (payload) => {
+            set((state) => {
+              const msgs = [...state.aiMessages];
+              const last = msgs[msgs.length - 1];
+              if (last && last.sender === "ai") {
+                last.text = payload.message || accumulatedText;
+                last.isStreaming = false;
+                last.streamingStatus = null;
+                last.suggested_products = payload.suggested_products || [];
+                last.payment_link = payload.payment_link || null;
+              }
+              return { aiMessages: msgs, isAiTyping: false };
+            });
+
+            if (payload.combo_offer) set({ comboOffer: payload.combo_offer });
+            if (payload.cart && Array.isArray(payload.cart)) {
+              set({
+                cart: payload.cart.map((item) => ({
+                  id: item.id || item.product_id,
+                  name: item.name,
+                  price: item.price,
+                  qty: item.quantity || item.qty || 1,
+                  size: item.size || null,
+                  color: item.color || null,
+                  image_url: item.image_url,
+                })),
+              });
+            }
+            if (payload.ai_discount !== undefined) {
+              set({ aiDiscount: Number(payload.ai_discount) });
+            }
+            if (
+              payload.payment_link &&
+              String(payload.payment_link).startsWith("http") &&
+              !get().pendingPayment?.notified
+            ) {
+              get().watchPayment(payload.payment_link, payload.payment_link_id);
+            }
+          },
+        }
+      );
+    } catch (streamErr) {
+      console.warn("[AgentWidget] Stream error, falling back to standard JSON endpoint:", streamErr);
+      try {
+        const responseData = await agentService.sendUserMessage({
+          userId,
+          threadId,
+          text,
+          cart,
+        });
+        set((state) => {
+          const msgs = [...state.aiMessages];
+          if (msgs.length > 0 && msgs[msgs.length - 1].sender === "ai") {
+            msgs.pop();
+          }
+          return { aiMessages: msgs };
+        });
+        get()._handleChatResponse(responseData);
+      } catch (err) {
+        console.error("[AgentWidget] Both stream and fallback failed:", err);
+        set((state) => {
+          const msgs = [...state.aiMessages];
+          if (msgs.length > 0 && msgs[msgs.length - 1].sender === "ai") {
+            msgs[msgs.length - 1] = {
+              sender: "ai",
+              text: "I'm having a brief connection delay. Please feel free to ask again in a moment.",
+              isStreaming: false,
+              streamingStatus: null,
+            };
+          }
+          return { aiMessages: msgs, isAiTyping: false };
+        });
+      }
     }
   },
 

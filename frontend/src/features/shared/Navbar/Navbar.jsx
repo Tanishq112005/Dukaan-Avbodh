@@ -1,12 +1,23 @@
-import { Search as SearchIcon, ShoppingBag, User, Package, LogOut } from "lucide-react";
+import { Search as SearchIcon, ShoppingBag, User, Package, LogOut, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useStore } from "../../../store/useStore";
+import { useStore } from "../../../store/useStore.js";
 import { Search } from "../Search/Search";
 
-function NavActions({ cartCount, user, handleLogout }) {
+function NavActions({ cartCount, user, handleLogout, onOpenStylist }) {
   return (
-    <div className="flex items-center gap-5">
+    <div className="flex items-center gap-4 sm:gap-5">
       <SearchIcon className="h-5 w-5 md:hidden text-ink" />
+
+      {/* AI Stylist Button in Navbar */}
+      <button
+        onClick={onOpenStylist}
+        className="flex items-center gap-1.5 bg-stone-900 text-white px-3 py-1.5 rounded-full text-xs font-medium hover:bg-[#C45C26] transition-colors cursor-pointer shadow-xs"
+        title="Chat with Atelier AI Stylist"
+      >
+        <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+        <span className="hidden sm:inline">AI Stylist</span>
+      </button>
+
       <Link to="/cart" className="relative" title="Shopping Cart">
         <ShoppingBag className="h-5 w-5 text-ink" strokeWidth={1.5} />
         {cartCount > 0 && (
@@ -15,6 +26,7 @@ function NavActions({ cartCount, user, handleLogout }) {
           </span>
         )}
       </Link>
+
       <div className="flex items-center gap-4">
         {!user ? (
           <>
@@ -46,7 +58,7 @@ function NavActions({ cartCount, user, handleLogout }) {
             </div>
             <button
               onClick={handleLogout}
-              className="text-xs text-stone-500 hover:text-red-600 p-1"
+              className="text-xs text-stone-500 hover:text-red-600 p-1 cursor-pointer"
               title="Logout"
             >
               <LogOut className="w-4 h-4" />
@@ -59,7 +71,7 @@ function NavActions({ cartCount, user, handleLogout }) {
 }
 
 export function Navbar() {
-  const { user, logout, cart, searchQuery, setSearchQuery } = useStore();
+  const { user, logout, cart, searchQuery, setSearchQuery, setIsAgentOpen } = useStore();
   const cartCount = cart.reduce((acc, item) => acc + item.qty, 0);
   const navigate = useNavigate();
 
@@ -108,7 +120,12 @@ export function Navbar() {
               </div>
             </div>
             <Search searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} />
-            <NavActions cartCount={cartCount} user={user} handleLogout={handleLogout} />
+            <NavActions
+              cartCount={cartCount}
+              user={user}
+              handleLogout={handleLogout}
+              onOpenStylist={() => setIsAgentOpen(true)}
+            />
           </div>
         </div>
       </nav>

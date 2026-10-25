@@ -46,20 +46,22 @@ export const agentService = {
   },
 
   /**
-   * Streams chat responses via Server-Sent Events (SSE).
+   * Streams chat responses in real-time via Server-Sent Events (SSE).
+   * Connects to /chat/message/stream endpoint.
    * @param {Object} payload
    * @param {number} payload.userId
    * @param {string} payload.threadId
    * @param {string} payload.text
    * @param {Array} [payload.cart=[]]
-   * @param {Function} callbacks.onToken - Called for streaming text tokens
-   * @param {Function} callbacks.onEvent - Called for execution events
-   * @param {Function} callbacks.onComplete - Called with the final structured JSON payload
-   * @param {Function} callbacks.onError - Called on error
+   * @param {Object} callbacks
+   * @param {Function} [callbacks.onToken] - Called for streaming word/character tokens
+   * @param {Function} [callbacks.onNodeUpdate] - Called for graph progress nodes (director, negotiation, etc.)
+   * @param {Function} [callbacks.onComplete] - Called with the final structured JSON payload
+   * @param {Function} [callbacks.onError] - Called on network/stream errors
    */
   async streamUserMessage(
     { userId, threadId, text, cart = [] },
-    { onToken, onEvent, onComplete, onError } = {}
+    { onToken, onNodeUpdate, onComplete, onError } = {}
   ) {
     try {
       const response = await fetch(`${API_BASE_URL}/chat/message/stream`, {
@@ -77,11 +79,15 @@ export const agentService = {
       });
 
       if (!response.ok) {
-        throw new Error(`SSE streaming failed with status ${response.status}`);
+        throw new Error(`SSE streaming request failed with HTTP ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error("ReadableStream not supported on response body.");
       }
 
       const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+      const decoder = new TextDecoder("utf-8");
       let buffer = "";
 
       while (true) {
@@ -89,30 +95,48 @@ export const agentService = {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n\n");
-        buffer = lines.pop(); // Keep the trailing incomplete event
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // preserve incomplete trailing line
 
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith("data:")) continue;
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line || !line.startsWith("data:")) continue;
 
-          const rawData = trimmed.replace(/^data:\s*/, "");
+          const rawData = line.replace(/^data:\s*/, "").trim();
           if (rawData === "[DONE]") {
             continue;
           }
 
           try {
             const parsed = JSON.parse(rawData);
-            if (parsed.event === "token" && onToken) {
-              onToken(parsed.token || parsed.content || "");
-            } else if (parsed.event === "complete" && onComplete) {
-              onComplete(parsed.payload || parsed);
-            } else if (onEvent) {
-              onEvent(parsed);
+
+            // 1. Streaming text tokens
+            if (parsed.type === "token" || parsed.event === "token") {
+              if (onToken) {
+                onToken(parsed.content || parsed.token || "");
+              }
+            }
+            // 2. LangGraph node lifecycle updates
+            else if (parsed.type === "node_update" || parsed.event === "node_update") {
+              if (onNodeUpdate) {
+                onNodeUpdate(parsed.node, parsed);
+              }
+            }
+            // 3. Final structured chat reply payload
+            else if (
+              parsed.type === "chat_reply" ||
+              parsed.event === "complete" ||
+              parsed.type === "proactive_suggestion"
+            ) {
+              if (onComplete) {
+                onComplete(parsed);
+              }
             }
           } catch {
-            // Raw text fallback
-            if (onToken) onToken(rawData);
+            // Raw text fallback if JSON parsing fails
+            if (onToken && rawData) {
+              onToken(rawData);
+            }
           }
         }
       }
