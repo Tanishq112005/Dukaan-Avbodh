@@ -6,6 +6,7 @@ import { ProductGallery } from "./ProductGallery";
 import { ProductInfo } from "./ProductInfo";
 import { Loader } from "../../components/ui/Loader";
 import { productService } from "../../services/productService";
+import { userEventService, EVENT_TYPES } from "../../services/userEventService";
 
 export function ProductDetailPage() {
   const { id } = useParams();
@@ -24,6 +25,7 @@ export function ProductDetailPage() {
         if (mounted) {
           setProduct(data);
           setLoading(false);
+          userEventService.trackEvent(EVENT_TYPES.VIEWED, data.id || id);
         }
       })
       .catch((err) => {
@@ -42,6 +44,7 @@ export function ProductDetailPage() {
           };
           setProduct(fallback);
           setLoading(false);
+          userEventService.trackEvent(EVENT_TYPES.VIEWED, fallback.id);
         }
       });
 
