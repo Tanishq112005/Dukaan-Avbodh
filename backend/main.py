@@ -19,7 +19,7 @@ from agents.user import agent_service
 from agents.merchant import agent_service as merchant_agent_service
 
 # Feature routers
-from auth.routes import router as auth_router
+from Auth.routes import router as auth_router
 from Product.routes import router as product_router
 from UserEvents.routes import router as user_events_router
 from Order.routes import router as order_router

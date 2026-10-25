@@ -1,7 +1,8 @@
 from sqlmodel import select
 from sqlalchemy.orm import joinedload
 from config.database import db_connection
-from models import Order, Product
+from Order.models import Order
+from Product.models import Product
 from datetime import datetime
 from collections import defaultdict
 

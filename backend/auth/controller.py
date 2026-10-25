@@ -1,8 +1,8 @@
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 
-from auth.schemas import SignupRequest, LoginRequest
-from auth.jwt import AuthHandler
+from .schemas import SignupRequest, LoginRequest
+from .jwt import AuthHandler
 from User.models import User
 from User.database import userRepository
 

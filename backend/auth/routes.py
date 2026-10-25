@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-from auth.schemas import SignupRequest, LoginRequest
-from auth.controller import authController
+from .schemas import SignupRequest, LoginRequest
+from .controller import authController
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
