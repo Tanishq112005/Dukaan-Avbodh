@@ -1,6 +1,6 @@
 import numpy as np
 from typing import List
-
+from sentence_transformers.util import cos_sim
 
 def calculate_cosine_similarity(query_vec, candidate_matrix) -> List[float]:
     """
@@ -8,7 +8,7 @@ def calculate_cosine_similarity(query_vec, candidate_matrix) -> List[float]:
     with a lightweight NumPy fallback. Keeps the codebase minimal and fast.
     """
     try:
-        from sentence_transformers.util import cos_sim
+        
         scores = cos_sim(query_vec, candidate_matrix)
         if hasattr(scores, "cpu"):
             scores = scores.cpu().numpy()
