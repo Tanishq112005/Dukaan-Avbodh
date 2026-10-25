@@ -1,5 +1,5 @@
-import { cartService } from "../services/cartService";
-import { userEventService, EVENT_TYPES } from "../services/userEventService";
+import { cartService } from "../services/cartService.js";
+import { userEventService, EVENT_TYPES } from "../services/userEventService.js";
 
 export const createCartSlice = (set, get) => ({
   cart: [],

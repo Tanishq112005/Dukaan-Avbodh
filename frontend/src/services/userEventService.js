@@ -1,5 +1,5 @@
-import apiClient from "./api";
-import { useStore } from "../store/useStore";
+import apiClient from "./api.js";
+import { useStore } from "../store/useStore.js";
 
 /**
  * Valid event types supported by Dukaan backend (UserEvents/models.py).

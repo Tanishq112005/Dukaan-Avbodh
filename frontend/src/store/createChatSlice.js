@@ -1,5 +1,5 @@
-import { agentService } from "../services/agentService";
-import { userEventService, EVENT_TYPES } from "../services/userEventService";
+import { agentService } from "../services/agentService.js";
+import { userEventService, EVENT_TYPES } from "../services/userEventService.js";
 
 const generateUUID = () => {
   if (typeof window !== "undefined" && window.crypto?.randomUUID) {
@@ -126,8 +126,9 @@ export const createChatSlice = (set, get) => ({
     if (!pending || pending?.notified) return;
     const userId = get().user?.id || get().guestId;
     try {
+      const baseUrl = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) || "http://localhost:8000";
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/payment/status/${userId}`
+        `${baseUrl}/api/payment/status/${userId}`
       );
       const data = await res.json();
       if (data?.paid) {

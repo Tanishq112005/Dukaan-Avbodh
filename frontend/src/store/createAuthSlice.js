@@ -1,4 +1,4 @@
-import { userEventService, EVENT_TYPES } from "../services/userEventService";
+import { userEventService, EVENT_TYPES } from "../services/userEventService.js";
 
 export const createAuthSlice = (set, get) => ({
   user: null,

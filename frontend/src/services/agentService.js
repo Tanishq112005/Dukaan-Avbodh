@@ -1,6 +1,6 @@
-import apiClient from "./api";
+import apiClient from "./api.js";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE_URL = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) || "http://localhost:8000";
 
 /**
  * Service for interacting with user and merchant AI agents.

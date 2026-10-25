@@ -1,4 +1,4 @@
-import apiClient from "./api";
+import apiClient from "./api.js";
 
 /**
  * Service for Product catalog and management.

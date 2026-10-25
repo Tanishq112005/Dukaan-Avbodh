@@ -1,4 +1,4 @@
-import apiClient from "./api";
+import apiClient from "./api.js";
 
 /**
  * Authentication service for Dukaan.

@@ -1,7 +1,7 @@
 import axios from "axios";
-import { useStore } from "../store/useStore";
+import { useStore } from "../store/useStore.js";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE_URL = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) || "http://localhost:8000";
 
 /**
  * Centralized Axios instance configured for Dukaan backend APIs.
