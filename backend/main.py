@@ -1,7 +1,11 @@
 import sys
+import os
 import asyncio
 import logging
 import warnings
+from dotenv import load_dotenv
+
+load_dotenv()
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -95,28 +99,12 @@ async def startup():
     await db_connection.init_db()
     print("[OK] Database ready hai.")
 
-    '''
-    print("[LLM] Chat model (LLM) initialize ho raha hai...")
-    print("[LLM] Large initiliaze ho raha hai...")
-    chatModel._large_chat_model()
-    print("[LLM] Medium initiliaze ho raha hai...")
-    chatModel._medium_chat_model()
-    print("[LLM] Small initiliaze ho raha hai...")
-    chatModel._small_chat_model()
-    print("[OK] Chat model ready hai.")
-
-    print("[VECTOR] Vector database (Pinecone) se connect ho raha hai...")
-    vectorDB.get_index()
-    print("[OK] Vector database ready hai.")
-
-    print("[MCP] MCP user server se tools load ho rahe hain (user agent ban raha hai)...")
-    await agent_service.init_agent()
-    print("[OK] User Agent ready hai, saare tools connected hain.")
-
-    print("[MCP] MCP merchant server se tools load ho rahe hain (merchant agent ban raha hai)...")
-    await merchant_agent_service.init_merchant_agent()
-    print("[OK] Merchant Agent ready hai.")
-    '''
+    try:
+        print("[USER AGENT] User agent graph initialize ho raha hai...")
+        await agent_service.init_agent()
+        print("[OK] User Agent ready hai, saare tools connected hain.")
+    except Exception as agent_err:
+        print(f"[WARNING] User Agent startup initialization deferred: {agent_err}")
 
     print("Abh MongoDb se connect ho raha hai ...")
     nosql_client.get_client()

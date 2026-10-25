@@ -246,3 +246,33 @@ class ProbabilityWorker(BaseWorker):
 
         logger.info("[ProbabilityWorker] Processing batch of %d events...", len(events))
         return cls.process_events(events)
+
+
+if __name__ == "__main__":
+    import os
+    import sys
+
+    backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if backend_root not in sys.path:
+        sys.path.insert(0, backend_root)
+
+    from task_queue.connection import QueueConsumerManager
+
+    print("=" * 60)
+    print("Dukaan Probability Scoring Worker")
+    print("Listening to RQ queue: 'probability_queue'")
+    print("=" * 60)
+
+    try:
+        r = redisClient.get_redis_client()
+        r.ping()
+        print("[ProbabilityWorker] Successfully connected to Redis.")
+    except Exception as redis_err:
+        print(f"[ProbabilityWorker] WARNING: Redis is not reachable: {redis_err}")
+        print("Please ensure Redis is running at REDIS_URL in your .env file.")
+
+    consumer = QueueConsumerManager(
+        redis_client=redisClient.get_redis_client(),
+        queue_name="probability_queue",
+    )
+    consumer.start()

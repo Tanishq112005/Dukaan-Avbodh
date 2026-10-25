@@ -2,6 +2,22 @@ import os
 import asyncio
 import logging
 from typing import Optional, Dict
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+load_dotenv()
+
+# --- Patch redisvl for Aiven / Redis 7.2+ missing index error format ---
+try:
+    import redisvl.exceptions
+    if "not found in database" not in redisvl.exceptions._MISSING_INDEX_ERROR_FRAGMENTS:
+        redisvl.exceptions._MISSING_INDEX_ERROR_FRAGMENTS = (
+            *redisvl.exceptions._MISSING_INDEX_ERROR_FRAGMENTS,
+            "not found in database",
+            "not found",
+        )
+except Exception:
+    pass
 
 from pymongo import MongoClient
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -26,6 +42,20 @@ MongoDBSaver.aget_tuple = _aget_tuple
 MongoDBSaver.aput = _aput
 MongoDBSaver.aput_writes = _aput_writes
 
+# --- Monkey-patch RedisSaver for async support ---
+async def _redis_aget_tuple(self, config):
+    return await asyncio.to_thread(self.get_tuple, config)
+
+async def _redis_aput(self, config, checkpoint, metadata, new_versions):
+    return await asyncio.to_thread(self.put, config, checkpoint, metadata, new_versions)
+
+async def _redis_aput_writes(self, config, writes, task_id):
+    return await asyncio.to_thread(self.put_writes, config, writes, task_id)
+
+RedisSaver.aget_tuple = _redis_aget_tuple
+RedisSaver.aput = _redis_aput
+RedisSaver.aput_writes = _redis_aput_writes
+
 # --- Monkey-patch JsonPlusSerializer for serialization compatibility ---
 if not hasattr(JsonPlusSerializer, "dumps"):
     JsonPlusSerializer.dumps = JsonPlusSerializer.dumps_typed
@@ -46,7 +76,7 @@ class AgentCheckPointer:
         self.mongodb_memory: Optional[MongoDBSaver] = None
 
         # Redis configurations
-        self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+        self.redis_url = os.getenv("REDIS_URL") or "redis://localhost:6379"
         self.redis_memory: Optional[RedisSaver] = None
         self.checkpoint_prefix = os.getenv("REDIS_CHECKPOINT_PREFIX", "checkpoint:user_agent")
         self.checkpoint_write_prefix = os.getenv(
@@ -54,7 +84,6 @@ class AgentCheckPointer:
         )
         ttl_seconds = int(os.getenv("REDIS_CHECKPOINT_TTL", "86400"))
         self.ttl = {"checkpoint": ttl_seconds, "checkpoint_write": ttl_seconds}
-
 
     def getRedisCheckPointer(
         self,
@@ -81,9 +110,13 @@ class AgentCheckPointer:
             checkpoint_write_prefix=write_prefix,
             ttl=ttl_dict,
         )
+        try:
+            self.redis_memory.setup()
+            logger.info("RedisSaver RediSearch indexes verified/created successfully.")
+        except Exception as e:
+            logger.warning("RedisSaver.setup() encountered warning: %s", e)
+
         return self.redis_memory
-
-
 
     def getMongoDBCheckPointer(self) -> MongoDBSaver:
         """

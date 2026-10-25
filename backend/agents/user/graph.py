@@ -10,6 +10,7 @@ from agents.user.state import AgentState
 from agents.user.director import DirectorAgent
 from agents.user.general import GeneralAgent
 from agents.user.checkpointer import checkPointer
+from utils.text_cleaning import clean_ai_output
 
 
 # --- Tool Helpers ---
@@ -134,9 +135,7 @@ def post_process_node(state: AgentState):
             final_text = str(raw)
 
     if final_text:
-        final_text = re.sub(
-            r"<thought>.*?</thought>", "", final_text, flags=re.DOTALL
-        ).strip()
+        final_text = clean_ai_output(final_text)
 
     return {"final_response": final_text}
 

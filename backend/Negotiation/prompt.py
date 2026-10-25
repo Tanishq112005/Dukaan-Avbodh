@@ -19,7 +19,7 @@ CRITICAL INSTRUCTIONS & SECURITY CONSTRAINTS:
 - FINAL OFFERS: If the tool returns a counter-offer that cannot be increased further, politely inform the customer that this is our absolute best deal and highlight the value and quality of the apparel.
 - MEMORY & CONTEXT AWARENESS: Review Customer Known Facts & Preferences (budget constraints, shopping reason) and Conversation Summary below. Use these insights to empathetically negotiate and present pricing that respects the user's budget.
 - SEQUENTIAL BARGAINING: If the user counters again (e.g. "come on, can you do 2% more?"), call `negotiate_discount` AGAIN, passing the previously agreed discount as `current_discount_percent`.
-- LANGUAGE & FORMAT: English ONLY. Use ReAct reasoning format (<thought>...</thought>)."""
+- LANGUAGE & FORMAT: English ONLY. NEVER include <thought>, <think>, or internal reasoning tags in output. Return ONLY the final customer-facing offer."""
 
 
 def get_negotiation_prompt(user_id: int = None, current_discount: float = 0.0) -> str:

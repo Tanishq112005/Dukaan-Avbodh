@@ -8,44 +8,35 @@ from .nvidia import Nvidia
 class ChatModelFactory:
     
     @staticmethod
-    def get_method(model_type: str, access_key: str  , model_name: str = None):
+    def get_method(
+        model_type: str,
+        access_key: str = None,
+        model_name: str = None,
+        uri: str = None,
+        **kwargs,
+    ):
         # Imports are deferred to each branch so that an unused provider's SDK
         # (e.g. langchain_google_genai) being missing from requirements.txt
         # can't crash startup for everyone — only that provider breaks, and only
         # if someone actually asks for it.
+        key = access_key or uri
 
         if model_type == "groq":
-            
             model = Groq()
-            model.setModel(uri=access_key)
-            
+            model.setModel(uri=key)
             return model.getModel()
         
         elif model_type == "openrouter": 
-           
-            
-            model =  OpenRouter() 
-            model.setModel(uri=access_key , model_name=model_name)
-            
+            model = OpenRouter() 
+            model.setModel(uri=key, model_name=model_name)
             return model.getModel() 
         
         elif model_type == "google": 
-           
-            model =  Google() 
-            model.setModel(uri=access_key)
-            
+            model = Google() 
+            model.setModel(uri=key)
             return model.getModel() 
         
         elif model_type == "nvidia":
-            
-            model =  Nvidia() 
-            model.setModel(uri=access_key)
-            
+            model = Nvidia() 
+            model.setModel(uri=key)
             return model.getModel() 
-        
-        
-            
-             
-            
-        
-        

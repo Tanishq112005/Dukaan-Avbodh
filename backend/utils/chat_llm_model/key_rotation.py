@@ -80,7 +80,25 @@ class RotatingChatModel:
             _label=self._label,
         )
 
+    @staticmethod
+    def _sanitize_input_args(args):
+        if not args:
+            return args
+        first = args[0]
+        if isinstance(first, list):
+            cleaned = []
+            for msg in first:
+                has_tool_calls = bool(getattr(msg, "tool_calls", None))
+                content = getattr(msg, "content", None)
+                has_content = bool(content and str(content).strip())
+                if not has_tool_calls and not has_content:
+                    continue
+                cleaned.append(msg)
+            return (cleaned, *args[1:])
+        return args
+
     async def ainvoke(self, *args, **kwargs):
+        args = self._sanitize_input_args(args)
         last_err = None
         n = len(self._clients)
         for attempt in range(n):
@@ -95,6 +113,7 @@ class RotatingChatModel:
         raise last_err
 
     def invoke(self, *args, **kwargs):
+        args = self._sanitize_input_args(args)
         last_err = None
         n = len(self._clients)
         for attempt in range(n):
@@ -107,6 +126,7 @@ class RotatingChatModel:
         raise last_err
 
     async def astream(self, *args, **kwargs):
+        args = self._sanitize_input_args(args)
         last_err = None
         n = len(self._clients)
         for attempt in range(n):
@@ -123,6 +143,7 @@ class RotatingChatModel:
         raise last_err
 
     def stream(self, *args, **kwargs):
+        args = self._sanitize_input_args(args)
         last_err = None
         n = len(self._clients)
         for attempt in range(n):

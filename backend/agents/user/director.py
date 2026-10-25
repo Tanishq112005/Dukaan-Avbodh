@@ -1,11 +1,14 @@
 import re
+import logging
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
 from agents.user.state import AgentState
 from utils.prompt_utils import filter_history_by_intent
 from .interfaces import IAgentInterface
+
+logger = logging.getLogger(__name__)
 
 
 class Route(BaseModel):
@@ -16,7 +19,7 @@ class Route(BaseModel):
             "'recommendation' for searching, catalog browsing, or fashion recommendations, "
             "'cart' for adding/updating/removing items or checking cart summary, "
             "'negotiation' for discounts, combo offers, and price bargaining, "
-            "'general' for greetings, casual chat, store FAQ, or discovering shopper preferences (men/women, sizes)."
+            "'general' for greetings, casual chat, store FAQ, or discovering shopper preferences (men/women, category)."
         )
     )
 
@@ -61,8 +64,20 @@ Analyze the request and context carefully and output the single best matching in
         self.llm = llm.with_structured_output(Route)
 
     def _build_prompt(self, messages):
+        cleaned = []
+        for msg in messages:
+            msg_type = getattr(msg, "type", "")
+            if msg_type == "tool" or msg.__class__.__name__ == "ToolMessage":
+                continue
+            if hasattr(msg, "tool_calls") and msg.tool_calls:
+                content = getattr(msg, "content", "")
+                if content:
+                    cleaned.append(AIMessage(content=str(content)))
+                continue
+            cleaned.append(msg)
+
         filtered_messages = filter_history_by_intent(
-            messages, self.intent, last_recent_count=6, last_intent_count=0
+            cleaned, self.intent, last_recent_count=6, last_intent_count=0
         )
         return [SystemMessage(content=self.system_prompt)] + filtered_messages
 
@@ -86,9 +101,37 @@ Analyze the request and context carefully and output the single best matching in
         prompt = self._build_prompt(messages)
 
         # Uses structured output to determine route; does not append to visible chat history
-        route_obj = self.llm.invoke(prompt)
+        try:
+            route_obj = self.llm.invoke(prompt)
+        except Exception as e:
+            logger.warning("Director structured routing invoke failed: %s", e)
+            route_obj = None
 
-        updates = {"intent": route_obj.intent}
+        intent = "general"
+        if route_obj is not None:
+            if hasattr(route_obj, "intent") and route_obj.intent:
+                intent = str(route_obj.intent).lower()
+            elif isinstance(route_obj, dict) and route_obj.get("intent"):
+                intent = str(route_obj["intent"]).lower()
+
+        if intent not in ["recommendation", "cart", "negotiation", "general"]:
+            # Fallback heuristic from user message content
+            last_human_text = ""
+            for m in reversed(messages):
+                if getattr(m, "type", "") == "human" or m.__class__.__name__ == "HumanMessage":
+                    last_human_text = str(getattr(m, "content", "")).lower()
+                    break
+
+            if any(w in last_human_text for w in ["cart", "bag", "remove", "quantity", "checkout"]):
+                intent = "cart"
+            elif any(w in last_human_text for w in ["discount", "bargain", "cheaper", "offer", "price", "deal"]):
+                intent = "negotiation"
+            elif any(w in last_human_text for w in ["jeans", "shirt", "hoodie", "show", "find", "search", "looking for", "buy"]):
+                intent = "recommendation"
+            else:
+                intent = "general"
+
+        updates = {"intent": intent}
 
         # If gender is not yet set in state, detect if explicitly mentioned
         current_gender = state.get("gender")

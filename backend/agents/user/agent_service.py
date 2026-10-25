@@ -11,14 +11,14 @@ from config.mcp_config import mcp_user_client
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class AgentService:
     """
     Service class to handle the initialization and retrieval 
-    of the LangGraph checkout agent.
+    of the LangGraph user chat agent.
     """
-    
-    def __init__(self, max_retries: int = 10):
-        # Class variables with type hinting
+
+    def __init__(self, max_retries: int = 2):
         self.agent: Optional[Any] = None  
         self.tools_by_name: Dict[str, Any] = {}
         self.max_retries: int = max_retries
@@ -28,65 +28,76 @@ class AgentService:
         Fetches tools from the MCP server, initializes LLMs, 
         and compiles the LangGraph agent.
         """
-        logger.info("Fetching tools from MCP server...")
+        logger.info("Initializing User Agent Graph...")
         tools: Optional[List[Any]] = None
-        
-        # Retry mechanism for fetching tools
+
+        # Quick attempt to connect to MCP user server if running
         for attempt in range(self.max_retries):
             try:
                 tools = await mcp_user_client.get_tools()
                 if tools is not None:
                     break
             except Exception as e:
-                logger.warning(
+                logger.info(
                     f"[Attempt {attempt + 1}/{self.max_retries}] "
-                    f"Waiting for MCP server... Error: {e}"
+                    f"Remote MCP server check: {e}"
                 )
-                await asyncio.sleep(2)
-        
-        # Fallback if tools fail to load
-        if tools is None:
-            logger.error("MCP Server target offline! Activating empty tools fallback to prevent FastAPI crash.")
+                if attempt + 1 < self.max_retries:
+                    await asyncio.sleep(1)
+
+        # Fallback if remote MCP server is offline
+        if not tools:
+            logger.info("Remote MCP server offline or not configured. Using local direct tool suites.")
             tools = []
             self.tools_by_name = {}
         else:
             self.tools_by_name = {t.name: t for t in tools}
-            tool_names = ', '.join(sorted(self.tools_by_name.keys()))
-            logger.info(f"{len(tools)} tools fetched: {tool_names}")
+            tool_names = ", ".join(sorted(self.tools_by_name.keys()))
+            logger.info(f"{len(tools)} remote tools fetched: {tool_names}")
 
         # Initialize LLMs
         logger.info("Initializing LLM models...")
         large_llm = chatModel._large_chat_model()
         medium_llm = chatModel._medium_chat_model()  
         small_llm = chatModel._small_chat_model()
-        
-        if not tools:
-            logger.info("LLM operational without active server tools connection.")
 
         # Compile the agent graph
-        logger.info("Compiling LangGraph agent...")
+        logger.info("Compiling User LangGraph agent...")
         self.agent = compile_agent_graph(
             large_llm, 
             medium_llm, 
             small_llm, 
             self.tools_by_name
         )
-        logger.info("Agent compiled successfully with MongoDB per-user memory attached.")
-        
+        logger.info("User Agent compiled successfully.")
+
+        return self.agent
+
+    async def get_agent_async(self) -> Any:
+        """
+        Retrieves the compiled agent, lazily initializing it if not yet compiled.
+        """
+        if self.agent is None:
+            await self.init_agent()
         return self.agent
 
     def get_agent(self) -> Any:
         """
-        Retrieves the compiled agent. 
-        Raises a RuntimeError if called before initialization.
+        Retrieves the compiled agent, lazily initializing if not yet compiled.
         """
         if self.agent is None:
-            raise RuntimeError(
-                "Agent is not initialized. 'await agent_service.init_agent()' "
-                "must be called on FastAPI startup."
-            )
-        return self.agent
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
 
+            if loop and loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    return pool.submit(asyncio.run, self.init_agent()).result()
+            else:
+                return asyncio.run(self.init_agent())
+        return self.agent
 
 
 agent_service = AgentService()

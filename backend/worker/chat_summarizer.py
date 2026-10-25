@@ -6,6 +6,7 @@ from typing import Optional, List
 from redis import Redis, WatchError
 from config.redis import redisClient
 from config.chatModel import chatModel
+from utils.text_cleaning import clean_ai_output
 from .base import BaseWorker
 
 
@@ -208,9 +209,7 @@ class ChatSummarizerWorker(BaseWorker):
                     else str(raw_response)
                 )
                 # Strip reasoning / thoughts
-                cleaned_text = re.sub(
-                    r"<thought>.*?</thought>", "", raw_text, flags=re.DOTALL
-                ).strip()
+                cleaned_text = clean_ai_output(raw_text)
                 json_match = re.search(
                     r"```(?:json)?\s*(\{.*?\})\s*```", cleaned_text, flags=re.DOTALL
                 )
@@ -311,3 +310,33 @@ class ChatSummarizerWorker(BaseWorker):
                     pipe.unwatch()
                     return None
         return None
+
+
+if __name__ == "__main__":
+    import sys
+
+    backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if backend_root not in sys.path:
+        sys.path.insert(0, backend_root)
+
+    from task_queue.connection import QueueConsumerManager
+
+    print("=" * 60)
+    print("Dukaan Chat Summarizer Worker")
+    print("Listening to RQ queue: 'summarizer'")
+    print("=" * 60)
+
+    try:
+        r = redisClient.get_redis_client()
+        r.ping()
+        print("[ChatSummarizer] Successfully connected to Redis.")
+    except Exception as redis_err:
+        print(f"[ChatSummarizer] WARNING: Redis is not reachable: {redis_err}")
+        print("Please ensure Redis is running at REDIS_URL in your .env file.")
+
+    consumer = QueueConsumerManager(
+        redis_client=redisClient.get_redis_client(),
+        queue_name="summarizer",
+    )
+    consumer.start()
+

@@ -52,8 +52,8 @@ Your current state:
 """
 
 def get_system_reminder():
-    return """[SYSTEM REMINDER: English ONLY. Use ReAct (<thought>...</thought>).
-1. Ask for missing info (like size) BEFORE adding to cart.
+    return """[SYSTEM REMINDER: English ONLY. NEVER output <thought> or <think> tags.
+1. Do NOT ask for size while browsing; ask for size ONLY when adding an item to the cart if not already known.
 2. Search -> `search_products`.
 3. Suggestions -> `recommend_products`.
 4. Check price -> `calculate_combo_offer`.

@@ -3,6 +3,7 @@ import re
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from agents.merchant.agent_state import AgentState
 from agents.merchant.agent_prompts import get_system_prompt, get_system_reminder
+from utils.text_cleaning import clean_ai_output
 
 def _extract_text(res) -> str:
     if isinstance(res, tuple):
@@ -43,7 +44,7 @@ def create_agent_node(fast_llm):
             final_text = str(final_text)
 
         if final_text:
-            final_text = re.sub(r'<thought>.*?</thought>', '', final_text, flags=re.DOTALL).strip()
+            final_text = clean_ai_output(final_text)
 
         updates = {"messages": [response], "final_response": final_text}
         return updates

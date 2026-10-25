@@ -34,7 +34,7 @@ Your current state:
 """
 
 def get_system_reminder():
-    return """[SYSTEM REMINDER: English ONLY. Use ReAct (<thought>...</thought>).
+    return """[SYSTEM REMINDER: English ONLY. NEVER output <thought> or <think> tags.
 1. Always check if you need to fetch data before answering questions about store performance.
 2. If asked to create a campaign, ensure you have agenda, discount, priority, type, and product_ids. Ask for missing info.
 3. NEVER make up metrics, sales figures, or product details.

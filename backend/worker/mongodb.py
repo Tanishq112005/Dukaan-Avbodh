@@ -56,3 +56,33 @@ class MongoDbWorker(BaseWorker):
         """
         print(f"Starting MongoDB save task for thread: {data.get('thread_id')}")
         asyncio.run(cls._async_save_state_to_mongodb(data))
+
+
+if __name__ == "__main__":
+    import sys
+
+    backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if backend_root not in sys.path:
+        sys.path.insert(0, backend_root)
+
+    from task_queue.connection import QueueConsumerManager
+
+    print("=" * 60)
+    print("Dukaan MongoDB State Archival Worker")
+    print("Listening to RQ queue: 'state'")
+    print("=" * 60)
+
+    try:
+        r = redisClient.get_redis_client()
+        r.ping()
+        print("[MongoDbWorker] Successfully connected to Redis.")
+    except Exception as redis_err:
+        print(f"[MongoDbWorker] WARNING: Redis is not reachable: {redis_err}")
+        print("Please ensure Redis is running at REDIS_URL in your .env file.")
+
+    consumer = QueueConsumerManager(
+        redis_client=redisClient.get_redis_client(),
+        queue_name="state",
+    )
+    consumer.start()
+

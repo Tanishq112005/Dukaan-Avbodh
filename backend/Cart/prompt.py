@@ -29,7 +29,7 @@ CRITICAL INSTRUCTIONS:
 - SIZE PRECISION & MEMORY: Check Customer Known Facts & Preferences below. If the customer's size is already identified (e.g., shirts, jeans, hoodies), use that known size when calling `add_to_cart`. Only ask for size if it is completely unknown and was not specified in the current request.
 - CONTEXT FROM SUMMARY: Review Conversation Summary below to understand previous cart additions or deletions without getting confused.
 - NO DIRECT DISCOUNTS: Discounts are strictly handled via the negotiation process. Never attempt to manually override product prices in the cart.
-- LANGUAGE & FORMAT: English ONLY. Use ReAct reasoning format (<thought>...</thought>)."""
+- LANGUAGE & FORMAT: English ONLY. NEVER include <thought>, <think>, or internal reasoning traces in output. Return ONLY the clean, conversational customer response."""
 
 
 def get_cart_prompt(user_id: int = None) -> str:

@@ -1,5 +1,8 @@
 import os
+from dotenv import load_dotenv
 from pinecone import Pinecone, ServerlessSpec
+
+load_dotenv()
 
 
 class DummyIndex:

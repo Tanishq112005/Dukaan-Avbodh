@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 load_dotenv()
 
 
@@ -82,8 +83,85 @@ class PostgressDatabaseConnection:
     # Alias so both .session() and .get_session() work identically as async context managers
     session = get_session
 
+    async def init_db(self):
+        """
+        Creates all SQLModel tables in PostgreSQL if they do not exist.
+        Preserves existing data in tables like 'product'.
+        """
+        from sqlmodel import SQLModel
+        # Ensure all models are registered with SQLModel.metadata
+        import Product.models
+        import User.models
+        import Cart.models
+        import Order.models
+        import UserEvents.models
+        import Recommedation.models
+
+        async with self._engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+
+    async def reset_tables_except_product(self) -> dict:
+        """
+        Drops all relational tables EXCEPT 'product' to allow schema updates,
+        and then recreates fresh tables matching current model definitions.
+        """
+        from sqlalchemy import text
+        from sqlmodel import SQLModel
+        import Product.models
+        import User.models
+        import Cart.models
+        import Order.models
+        import UserEvents.models
+        import Recommedation.models
+
+        # Drop previous tables with CASCADE, strictly preserving 'product'
+        tables_to_drop = [
+            "cartitem",
+            "cart",
+            "order",
+            "userevent",
+            "probabilityofshowingitems",
+            "probabilityofshowingitemsforparticularuser",
+            "campaignproductlink",
+            "campaign",
+            "discountpolicy",
+            "user",
+        ]
+
+        async with self._engine.begin() as conn:
+            for table in tables_to_drop:
+                await conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE;'))
+
+            # Recreate all fresh tables according to current model definitions
+            await conn.run_sync(SQLModel.metadata.create_all)
+
+            # Check and verify product table count
+            product_count_res = await conn.execute(text("SELECT COUNT(*) FROM product;"))
+            product_count = product_count_res.scalar() or 0
+
+            # List active tables
+            res = await conn.execute(
+                text("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;")
+            )
+            tables = [r[0] for r in res.fetchall()]
+
+        return {
+            "dropped_tables": tables_to_drop,
+            "current_tables": tables,
+            "preserved_product_count": product_count,
+        }
+
     async def close(self):
         await self._engine.dispose()
 
 
 db_connection = PostgressDatabaseConnection()
+
+# Ensure all SQLModel models are registered in the global SQLAlchemy registry
+import Product.models  # noqa: F401
+import User.models  # noqa: F401
+import Cart.models  # noqa: F401
+import Order.models  # noqa: F401
+import UserEvents.models  # noqa: F401
+import Recommedation.models  # noqa: F401
+

@@ -14,6 +14,7 @@ from Cart.database import cart_repository
 from Chat.models import ChatMessage
 from Chat.schemas import ChatRequest, EventRequest
 from Chat.database import chat_audit_repo
+from utils.text_cleaning import clean_ai_output
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,17 @@ class UserController:
         Audits AI reply, syncs thread patch to MongoDB, queues rolling summary task,
         and constructs final response payload.
         """
-        ai_reply = state.get("final_response") or "Sorry, system error."
+        ai_reply = state.get("final_response")
+        if not ai_reply:
+            messages = state.get("messages", [])
+            for msg in reversed(messages):
+                msg_type = getattr(msg, "type", "")
+                content = getattr(msg, "content", "")
+                has_tool_calls = bool(getattr(msg, "tool_calls", None))
+                if (msg_type == "ai" or hasattr(msg, "tool_calls")) and not has_tool_calls and content:
+                    ai_reply = str(content)
+                    break
+        ai_reply = clean_ai_output(ai_reply) if ai_reply else "Sorry, system error."
         combo_offer = state.get("combo_offer", None)
         suggested_products = state.get("suggested_products", [])
         payment_link = state.get("pending_payment_link")
@@ -171,7 +182,7 @@ class UserController:
             )
 
             # Invoke LangGraph conversation agent
-            agent = self.agent_service.get_agent()
+            agent = await self.agent_service.get_agent_async()
             result = await agent.ainvoke(initial_state, config=config)
 
             return await self._post_process_chat_completion(
@@ -215,7 +226,7 @@ class UserController:
             # Signal stream initiation
             yield f"data: {json.dumps({'type': 'stream_start', 'thread_id': thread_id_val})}\n\n"
 
-            agent = self.agent_service.get_agent()
+            agent = await self.agent_service.get_agent_async()
             latest_state = dict(initial_state)
 
             async for mode, chunk in agent.astream(
@@ -246,7 +257,7 @@ class UserController:
                         if "combo_offer" in updates:
                             node_payload["combo_offer"] = updates["combo_offer"]
                         if "final_response" in updates:
-                            node_payload["final_response"] = updates["final_response"]
+                            node_payload["final_response"] = clean_ai_output(updates["final_response"])
 
                         yield f"data: {json.dumps(node_payload)}\n\n"
 
@@ -291,7 +302,7 @@ class UserController:
         # Event 1: Combo Declined
         if req.event == "combo_declined":
             try:
-                agent = self.agent_service.get_agent()
+                agent = await self.agent_service.get_agent_async()
                 await agent.aupdate_state(config, {"combo_offer": None})
             except Exception as e:
                 logger.warning("combo_declined langgraph update failed: %s", e)
@@ -309,7 +320,7 @@ class UserController:
                 content="[SYSTEM EVENT: payment] The customer says they finished paying. Call check_payment_status immediately and tell them the result."
             )
             try:
-                agent = self.agent_service.get_agent()
+                agent = await self.agent_service.get_agent_async()
                 result = await agent.ainvoke(
                     {
                         "messages": [hidden_msg],
@@ -337,7 +348,7 @@ class UserController:
         # Event 3: Proactive Suggestion Triggers
         if req.event in ["idle_timeout", "viewed_multiple_products", "viewed_checkout", "activity_threshold_reached"]:
             try:
-                agent = self.agent_service.get_agent()
+                agent = await self.agent_service.get_agent_async()
                 state_snapshot = agent.get_state(config)
                 if state_snapshot and state_snapshot.values and "messages" in state_snapshot.values:
                     msgs = state_snapshot.values["messages"]
@@ -365,7 +376,7 @@ class UserController:
                     ChatMessage(sender="system", message=f"Event triggered: {req.event}"),
                 )
 
-                agent = self.agent_service.get_agent()
+                agent = await self.agent_service.get_agent_async()
                 result = await agent.ainvoke(
                     {
                         "messages": [hidden_msg],
@@ -418,3 +429,4 @@ class UserController:
 
 
 userController = UserController()
+user_controller = userController

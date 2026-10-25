@@ -1,19 +1,18 @@
 from typing import Optional
 from sqlmodel import select
 from config.database import db_connection
-from User.models import User
-from User.models import UserRole
+from User.models import User as UserModel, UserRole
 from Cart.models import Cart as CartModel
 
 
-class User:
+class UserRepository:
     ### Initialization of the repo
     def __init__(self, db_connection=None):
         from config.database import db_connection as default_db
         self.db = db_connection or default_db
 
     ### Create user and automatically create their cart
-    async def create(self, user: User) -> User:
+    async def create(self, user: UserModel) -> UserModel:
         async with self.db.get_session() as session:
             try:
                 session.add(user)
@@ -38,10 +37,10 @@ class User:
                 raise e
 
     ### Checking user is already there or not by email
-    async def getUserByEmail(self, email: str) -> Optional[User]:
+    async def getUserByEmail(self, email: str) -> Optional[UserModel]:
         async with self.db.get_session() as session:
             result = await session.exec(
-                select(User).where(User.email == email)
+                select(UserModel).where(UserModel.email == email)
             )
             return result.first()
 
@@ -49,9 +48,9 @@ class User:
     get_by_identifier = getUserByEmail
 
     ### Get user by id
-    async def get_by_id(self, user_id: int) -> Optional[User]:
+    async def get_by_id(self, user_id: int) -> Optional[UserModel]:
         async with self.db.get_session() as session:
-            return await session.get(User, user_id)
+            return await session.get(UserModel, user_id)
 
     ### Get or create user
     async def get_or_create(
@@ -60,11 +59,11 @@ class User:
         role: str,
         email: str,
         address: Optional[str] = None
-    ) -> User:
+    ) -> UserModel:
         existing = await self.getUserByEmail(email)
         if existing:
             return existing
-        new_user = User(
+        new_user = UserModel(
             name=name,
             role=role,
             email=email,
@@ -79,10 +78,10 @@ class User:
         name: Optional[str] = None,
         email: Optional[str] = None,
         address: Optional[str] = None,
-    ) -> Optional[User]:
+    ) -> Optional[UserModel]:
         async with self.db.get_session() as session:
             try:
-                result = await session.exec(select(User).where(User.id == user_id))
+                result = await session.exec(select(UserModel).where(UserModel.id == user_id))
                 user = result.first()
                 if not user:
                     return None
@@ -101,11 +100,11 @@ class User:
                 raise e
 
     ### Update user address
-    async def update_address(self, user_id: int, address: str) -> Optional[User]:
+    async def update_address(self, user_id: int, address: str) -> Optional[UserModel]:
         async with self.db.get_session() as session:
             try:
                 result = await session.exec(
-                    select(User).where(User.id == user_id)
+                    select(UserModel).where(UserModel.id == user_id)
                 )
                 user = result.first()
                 if user:
@@ -119,10 +118,10 @@ class User:
                 raise e
 
     ### Ensure guest user exists (and their cart is created)
-    async def ensure_guest_exists(self, user_id: int) -> Optional[User]:
+    async def ensure_guest_exists(self, user_id: int) -> Optional[UserModel]:
         async with self.db.get_session() as session:
             try:
-                result = await session.exec(select(User).where(User.id == user_id))
+                result = await session.exec(select(UserModel).where(UserModel.id == user_id))
                 user = result.first()
                 if user:
                     # Ensure cart exists for existing user
@@ -136,7 +135,7 @@ class User:
                         await session.commit()
                     return user
 
-                guest = User(
+                guest = UserModel(
                     id=user_id,
                     name=f"Guest {user_id}",
                     role=UserRole.CUSTOMER,
@@ -157,7 +156,7 @@ class User:
                 raise
 
 
-UserRepository = User
-userRepository = User(db_connection=db_connection)
+User = UserRepository
+userRepository = UserRepository(db_connection=db_connection)
 user_repo = userRepository
 user_db = userRepository

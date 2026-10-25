@@ -1,5 +1,7 @@
+import os
 from redis import Redis
-from rq import Queue, Worker
+from redis.exceptions import ConnectionError as RedisConnectionError
+from rq import Queue, Worker, SimpleWorker
 
 
 ### for the class for creating the producer
@@ -19,14 +21,18 @@ class QueueProducerManager:
         job_options     : RQ settings (job_timeout, retry, result_ttl, ...)
         """
         options = dict(job_options or {})
-        job = self.queue.enqueue(
-            worker_function,
-            *args,
-            **options,
-            **kwargs,
-        )
-        print(f"Task assigned! Job ID {job.id} added to {self.queue_name}")
-        return job.id
+        try:
+            job = self.queue.enqueue(
+                worker_function,
+                *args,
+                **options,
+                **kwargs,
+            )
+            print(f"Task assigned! Job ID {job.id} added to {self.queue_name}")
+            return job.id
+        except RedisConnectionError as r_err:
+            print(f"[QueueProducerManager] Warning: Cannot enqueue task to {self.queue_name} (Redis unreachable): {r_err}")
+            return None
 
 
 ### for the class for creating the consumer or worker
@@ -39,8 +45,24 @@ class QueueConsumerManager:
         self.queues = [queue_name] if isinstance(queue_name, str) else queue_name
 
     def start(self):
-        print(f"Starting RQ worker on queues: {self.queues}...")
-        # The Worker connects to Redis and blocks forever, executing tasks as they arrive
-        worker = Worker(self.queues, connection=self.redis_client)
-        print("Worker is Started")
-        worker.work()
+        # On Windows (nt) or environments without os.fork, RQ requires SimpleWorker
+        is_windows = os.name == "nt" or not hasattr(os, "fork")
+        worker_cls = SimpleWorker if is_windows else Worker
+
+        # Check Redis connectivity first with friendly message
+        try:
+            self.redis_client.ping()
+        except RedisConnectionError as r_err:
+            print(f"[QueueConsumerManager] ERROR: Redis is offline or unreachable: {r_err}")
+            print("[QueueConsumerManager] To run the background workers, please start Redis:")
+            print("  - Via Docker: docker run -d -p 6379:6379 --name dukaan-redis redis:alpine")
+            print("  - Or update REDIS_URL in your backend/.env to a cloud Redis instance (e.g., Upstash / Redis Cloud)")
+            return
+
+        print(f"Starting RQ {worker_cls.__name__} on queues: {self.queues}...")
+        try:
+            worker = worker_cls(self.queues, connection=self.redis_client)
+            print(f"Worker is Started ({worker_cls.__name__})")
+            worker.work()
+        except Exception as err:
+            print(f"[QueueConsumerManager] Worker stopped: {err}")

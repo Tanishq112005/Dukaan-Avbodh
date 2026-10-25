@@ -124,6 +124,11 @@ def filter_history_by_intent(
     for msg in messages:
         msg_id = id(msg)
         if msg_id in latest_turn_ids or msg_id in recent_msg_ids or msg_id in intent_msg_ids:
+            has_tool_calls = bool(getattr(msg, "tool_calls", None))
+            content = getattr(msg, "content", None)
+            has_content = bool(content and str(content).strip())
+            if not has_tool_calls and not has_content:
+                continue
             filtered.append(msg)
 
     return filtered

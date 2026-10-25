@@ -1,0 +1,1295 @@
+{
+  "info": {
+    "_postman_id": "25db3441-8e0a-43c1-a8dc-0f11d13f135e",
+    "name": "Dukaan E-Commerce & AI Agent Platform",
+    "description": "Complete API collection for Dukaan platform including User AI Agent with real-time SSE streaming, Product Discovery, Shopping Cart, Pricing & Negotiation, Orders, Payments, Merchant Analytics, and A2A Agent communication.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "threadId",
+      "value": "postman_session_101",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. User AI Agent (Chat & Streaming)",
+      "description": "Multi-agent graph conversation endpoints supporting both standard JSON and real-time Server-Sent Events (SSE) streaming.",
+      "item": [
+        {
+          "name": "Stream Chat Message (SSE Stream)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/message/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "message",
+                "stream"
+              ]
+            },
+            "description": "Streams LangGraph execution events, real-time node updates (Director, Recommendation, Cart, Negotiation, Tools), token deltas, and final structured response via Server-Sent Events (SSE).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"text\": \"Recommend me some stylish men blue jeans and tell me what discount you can offer\",\n  \"thread_id\": \"{{threadId}}\",\n  \"cart\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Chat Message (Standard JSON)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/message",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "message"
+              ]
+            },
+            "description": "Synchronous chat message endpoint returning full structured response (message, suggested_products, cart, ai_discount, payment_link).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"text\": \"Show me oversized cotton t-shirts for men\",\n  \"thread_id\": \"{{threadId}}\",\n  \"cart\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Chat Message (SSE via Header)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/message",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "message"
+              ]
+            },
+            "description": "Calls /chat/message with 'Accept: text/event-stream' to automatically enable streaming on the main endpoint.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"text\": \"Add product 1 to my cart in size M\",\n  \"thread_id\": \"{{threadId}}\",\n  \"cart\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Stream Chat (Alias /chat/stream)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "stream"
+              ]
+            },
+            "description": "Convenience alias endpoint for SSE streaming.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"text\": \"Can you give me 10% discount on my cart?\",\n  \"thread_id\": \"{{threadId}}\",\n  \"cart\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Chat Event (Payment Completed)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/event",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "event"
+              ]
+            },
+            "description": "Triggered when payment is confirmed or completed by customer.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"event\": \"payment_completed\",\n  \"thread_id\": \"{{threadId}}\",\n  \"cart\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Chat Event (Combo Declined)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/event",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "event"
+              ]
+            },
+            "description": "Triggered when customer declines a suggested combo offer.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"event\": \"combo_declined\",\n  \"thread_id\": \"{{threadId}}\",\n  \"cart\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Stream Chat Event (SSE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/event/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "event",
+                "stream"
+              ]
+            },
+            "description": "Streams system event processing over SSE.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"event\": \"viewed_multiple_products\",\n  \"thread_id\": \"{{threadId}}\",\n  \"cart\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Authentication",
+      "description": "User registration and authentication with JWT token extraction.",
+      "item": [
+        {
+          "name": "Signup New Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            },
+            "description": "Registers a new customer account.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rahul Sharma\",\n  \"email\": \"rahul.sharma@example.com\",\n  \"password\": \"Password@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const data = pm.response.json();",
+                  "    const token = data.access_token || data.token;",
+                  "    const userId = data.user_id || (data.user && data.user.id);",
+                  "",
+                  "    if (token) {",
+                  "        pm.collectionVariables.set('authToken', token);",
+                  "        pm.environment.set('authToken', token);",
+                  "        pm.globals.set('authToken', token);",
+                  "    }",
+                  "",
+                  "    if (userId) {",
+                  "        pm.collectionVariables.set('userId', String(userId));",
+                  "        pm.environment.set('userId', String(userId));",
+                  "        pm.globals.set('userId', String(userId));",
+                  "    }",
+                  "",
+                  "    pm.test('AuthToken and UserId saved', function () {",
+                  "        pm.expect(token).to.be.a('string').and.not.empty;",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates customer and stores JWT bearer token in environment.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"rahul.sharma@example.com\",\n  \"password\": \"Password@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const data = pm.response.json();",
+                  "    const token = data.access_token || data.token;",
+                  "    const userId = data.user_id || (data.user && data.user.id);",
+                  "",
+                  "    if (token) {",
+                  "        pm.collectionVariables.set('authToken', token);",
+                  "        pm.environment.set('authToken', token);",
+                  "        pm.globals.set('authToken', token);",
+                  "    }",
+                  "",
+                  "    if (userId) {",
+                  "        pm.collectionVariables.set('userId', String(userId));",
+                  "        pm.environment.set('userId', String(userId));",
+                  "        pm.globals.set('userId', String(userId));",
+                  "    }",
+                  "",
+                  "    pm.test('AuthToken and UserId saved', function () {",
+                  "        pm.expect(token).to.be.a('string').and.not.empty;",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Products & Catalog",
+      "description": "Product browsing, stock checks, and catalog management.",
+      "item": [
+        {
+          "name": "Get Products by Type",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/type/jeans",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "type",
+                "jeans"
+              ]
+            },
+            "description": "Fetches in-stock products filtered by category (t-shirt, jeans, shirt, hoodie, short)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get In-Stock Items",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/item/Stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "item",
+                "Stock"
+              ]
+            },
+            "description": "Returns all products currently having available inventory stock > 0."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Products by IDs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/ids",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "ids"
+              ]
+            },
+            "description": "Fetches full details for a batch of product IDs.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\n    1,\n    2,\n    3\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add New Product (Merchant/Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/add",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "add"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Vintage Denim Jacket\",\n  \"description\": \"Classic rugged denim jacket with sherpa fleece lining.\",\n  \"price\": 2499.0,\n  \"cost_price\": 1200.0,\n  \"stock\": 25,\n  \"type\": \"shirt\",\n  \"gender\": \"men\",\n  \"min_profit_margin_percent\": 15.0,\n  \"image_url\": \"https://images.unsplash.com/photo-1576995853123-5a10305d93c0\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Shopping Cart",
+      "description": "Cart management: add items, adjust quantities, calculate totals, and clear cart.",
+      "item": [
+        {
+          "name": "Get Cart Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/summary?user_id={{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "summary?user_id={{userId}}"
+              ]
+            },
+            "description": "Retrieves active cart subtotal, discount amount, and total payable amount."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Cart Items",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/items?user_id={{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "items?user_id={{userId}}"
+              ]
+            },
+            "description": "Returns all items currently in the user's shopping bag."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Item to Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/add",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "add"
+              ]
+            },
+            "description": "Adds a product to the user's cart.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"product_id\": 1,\n  \"quantity\": 1,\n  \"size\": \"L\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Cart Item Quantity",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "update"
+              ]
+            },
+            "description": "Updates the quantity of an item in the cart. Setting to 0 removes the item.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"product_id\": 1,\n  \"quantity\": 2,\n  \"size\": \"L\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Item from Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/remove",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "remove"
+              ]
+            },
+            "description": "Removes a specific item from the cart.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"product_id\": 1,\n  \"size\": \"L\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Apply Discount to Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/discount",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "discount"
+              ]
+            },
+            "description": "Directly records an agreed discount percentage to the user's cart.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"discount_percentage\": 10.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/clear?user_id={{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "clear?user_id={{userId}}"
+              ]
+            },
+            "description": "Empties all items from the customer's cart."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Negotiation & Pricing",
+      "description": "Calculates profit bounds and counter-offers for discount bargaining.",
+      "item": [
+        {
+          "name": "Calculate Next Discount Offer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/negotiation/next-discount",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "negotiation",
+                "next-discount"
+              ]
+            },
+            "description": "Evaluates requested discount percentage against confidential store margins and calculates next counter-offer price.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"requested_discount_percent\": 15.0,\n  \"current_discount_percent\": 0.0,\n  \"apply_to_cart\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Calculate Maximum Possible Discount (Internal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/negotiation/max-discount",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "negotiation",
+                "max-discount"
+              ]
+            },
+            "description": "Merchant-facing financial limit calculation to inspect allowable discount ceiling.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Orders",
+      "description": "Order creation, listing, and order status tracking.",
+      "item": [
+        {
+          "name": "Create Order from Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/order/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "order",
+                "create"
+              ]
+            },
+            "description": "Converts customer's active shopping cart into a confirmed order.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"shipping_address\": \"Flat 402, Green Valley Apartments, Bengaluru, Karnataka 560001\",\n  \"payment_method\": \"upi\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/order/get?user_id={{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "order",
+                "get?user_id={{userId}}"
+              ]
+            },
+            "description": "Fetches order history for a customer."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Payments & Checkout",
+      "description": "Payment order generation, signature verification, and status polling.",
+      "item": [
+        {
+          "name": "Create Payment Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payment/create-order",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payment",
+                "create-order"
+              ]
+            },
+            "description": "Generates a payment order / link for checkout.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"amount\": 1499.0,\n  \"currency\": \"INR\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payment/status/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payment",
+                "status",
+                "{{userId}}"
+              ]
+            },
+            "description": "Polls whether customer payment has succeeded."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payment/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payment",
+                "verify"
+              ]
+            },
+            "description": "Verifies razorpay/payment signature.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razorpay_order_id\": \"order_mock_123\",\n  \"razorpay_payment_id\": \"pay_mock_456\",\n  \"razorpay_signature\": \"mock_sig_789\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. Merchant & Analytics",
+      "description": "Store performance, revenue breakdown, audit logs, and AI conversation monitoring.",
+      "item": [
+        {
+          "name": "Get Dashboard Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/merchant/analytics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "merchant",
+                "analytics"
+              ]
+            },
+            "description": "Retrieves aggregate revenue, average order value, conversion rates, and discount concessions."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/merchant/audit-logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "merchant",
+                "audit-logs"
+              ]
+            },
+            "description": "Retrieves MongoDB audit logs for all monetary and discount changes."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Chat Threads for Auditing",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/merchant/chat-threads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "merchant",
+                "chat-threads"
+              ]
+            },
+            "description": "Lists all customer chat threads for supervision."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Store Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/merchant/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "merchant",
+                "orders"
+              ]
+            },
+            "description": "Lists all customer orders placed across the store."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "9. User Events & Behavioral Analytics",
+      "description": "Tracks customer interactions (VIEWED, ADD_TO_CART, REMOVE_FROM_CART, PURCHASED) to train recommendation rankings.",
+      "item": [
+        {
+          "name": "Record User Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/userEvents/add",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "userEvents",
+                "add"
+              ]
+            },
+            "description": "Records an interaction event.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"product_id\": 1,\n  \"event_type\": \"viewed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/userEvents/get?user_id={{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "userEvents",
+                "get?user_id={{userId}}"
+              ]
+            },
+            "description": "Fetches recent interactions recorded for a customer."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10. Agent-to-Agent (A2A)",
+      "description": "Autonomous buyer agent protocol and catalog negotiation.",
+      "item": [
+        {
+          "name": "Get Agent Card (Manifest)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/.well-known/agent-card.json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                ".well-known",
+                "agent-card.json"
+              ]
+            },
+            "description": "A2A Agent Card detailing capabilities, store policies, and supported interaction protocols."
+          },
+          "response": []
+        },
+        {
+          "name": "Start A2A Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/a2a/start_session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "a2a",
+                "start_session"
+              ]
+            },
+            "description": "Initiates an autonomous buyer negotiation session.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyer_agent_id\": \"buyer_gemini_pro_007\",\n  \"budget\": 2000.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send A2A Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/a2a/interact/message:send",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "a2a",
+                "interact",
+                "message:send"
+              ]
+            },
+            "description": "Sends an A2A bargaining message.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"mock_a2a_session_1\",\n  \"text\": \"Offering 1200 INR for the blue jeans.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
