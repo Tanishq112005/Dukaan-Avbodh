@@ -34,6 +34,7 @@ from Negotiation.routes import router as negotiation_router
 # Service and integration routers
 from routes.chat_routes import router as ai_chat_router
 from routes.payment_routes import router as payment_router
+from Payment.routes import router as direct_payment_router
 from routes.a2a_routes import router as a2a_router
 from routes.merchant_routes import router as merchant_router
 
