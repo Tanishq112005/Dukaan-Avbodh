@@ -22,9 +22,6 @@ from .tools import (
     get_recommendation_langchain_tools,
 )
 
-from .agent import RecommendationAgent
-from .prompt import RECOMMENDATION_SYSTEM_PROMPT, get_recommendation_prompt
-
 __all__ = [
     "RecommendationDatabase",
     "recommendation_db",
@@ -41,7 +38,4 @@ __all__ = [
     "get_category_best_sellers",
     "get_global_best_sellers",
     "get_recommendation_langchain_tools",
-    "RecommendationAgent",
-    "RECOMMENDATION_SYSTEM_PROMPT",
-    "get_recommendation_prompt",
 ]
