@@ -104,7 +104,16 @@ class UserController:
                     break
         ai_reply = clean_ai_output(ai_reply) if ai_reply else "Sorry, system error."
         combo_offer = state.get("combo_offer", None)
-        suggested_products = state.get("suggested_products", [])
+        raw_suggested = state.get("suggested_products", [])
+        suggested_products = []
+        for p in raw_suggested:
+            if isinstance(p, dict) and "product" in p and isinstance(p["product"], dict):
+                prod_info = dict(p["product"])
+                if "id" not in prod_info and "product_id" in p:
+                    prod_info["id"] = p["product_id"]
+                suggested_products.append(prod_info)
+            elif isinstance(p, dict):
+                suggested_products.append(p)
         payment_link = state.get("pending_payment_link")
         payment_link_id = state.get("pending_payment_link_id")
         current_discount = state.get("current_discount_percent", 0.0)
