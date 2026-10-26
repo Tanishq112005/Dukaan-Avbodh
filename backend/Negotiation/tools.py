@@ -93,14 +93,18 @@ async def negotiate_product_discount(
     1. Call this tool when customer asks for a discount on a specific product (e.g., "Give me 15% off on this jacket").
     2. NEVER invent or guess a discount or price yourself.
     3. Use ONLY 'next_discount_percent' and 'counter_offer_price' returned by this tool.
-    4. If 'accepted' is True:
+    4. Channel the authentic shopkeeper/seller persona:
+       - Always announce the discount clearly at each step (e.g., "Sir, I am giving you a 5% discount, bringing the price down to ₹899!").
+       - Express genuine emotion and shopkeeper sentiment ("Sir, it means a lot to me, this cuts into our margins, but you are such a good customer!").
+       - In subsequent rounds when the customer asks for more discount, calculate the next counter-offer and concede another small step ("In this next step, I am giving you a little discount...").
+    5. If 'accepted' is True:
        - Confirm that the requested {next_discount_percent}% discount is approved!
        - State the discounted unit price ({counter_offer_price}) and total savings.
-       - If in_cart is False: ask if they'd like to add it to the cart now at this special price.
+       - If in_cart is False: ask if they'd like to add it to the cart now at this special price (checking that they are logged in first).
        - If in_cart is True: confirm the shopping bag has been updated with the new discounted price.
-    5. If 'accepted' is False:
-       - Present the counter-offer politely: "We can't do {requested_discount_percent}%, but I can offer {next_discount_percent}% off, bringing the price to ₹{counter_offer_price}."
-    6. For further bargaining rounds, pass the previous 'next_discount_percent' as 'current_discount_percent'.
+    6. If 'accepted' is False:
+       - Present the counter-offer politely with the shopkeeper touch: "Sir, we cannot do {requested_discount_percent}%, but because you are our good customer, I can offer {next_discount_percent}% off, bringing the price to ₹{counter_offer_price}."
+    7. For further bargaining rounds, pass the previous 'next_discount_percent' as 'current_discount_percent'.
     """
     try:
         req = ProductNegotiationRequest(

@@ -94,8 +94,7 @@ async def add_to_cart(
     1. Call this tool when customer says 'add to cart', 'buy this', 'put this in my bag', or accepts a recommended product.
     2. If product price was negotiated before adding to cart (Scenario 1), ALWAYS pass the agreed 'discount_percentage'.
     3. If the user hasn't specified a size for clothing, ask them for their size, or pass a default size if agreed.
-    4. If user_id is NOT provided (or user is a guest):
-       Alert the user that they should log in to save their cart across sessions.
+    4. MANDATORY AUTH CHECK: If user_id is NOT provided (or user is a guest/unauthenticated), do NOT call this tool. Instead, ask the user to log in or sign up first: [Log In or Sign Up](/login).
     5. Confirm addition by stating the product name, quantity, selected size, and any applied discount.
     """
     is_guest = user_id is None or user_id <= 0
