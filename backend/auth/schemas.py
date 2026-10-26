@@ -9,11 +9,13 @@ class SignupRequest(BaseModel):
     password: Optional[str] = None
     email: str 
     role: Optional[UserRole] = None
+    thread_id: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
     email: str 
     password: str
+    thread_id: Optional[str] = None
 
 
 class UpdateProfileRequest(BaseModel):

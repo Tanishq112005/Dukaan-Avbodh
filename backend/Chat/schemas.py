@@ -7,6 +7,7 @@ class ChatRequest(BaseModel):
     text: str
     thread_id: Optional[str] = None
     cart: List[dict] = []
+    access_token: Optional[str] = None
 
 
 class EventRequest(BaseModel):
@@ -14,6 +15,14 @@ class EventRequest(BaseModel):
     event: str
     thread_id: Optional[str] = None
     cart: List[dict] = []
+    access_token: Optional[str] = None
+
+
+class AuthSyncRequest(BaseModel):
+    thread_id: Optional[str] = None
+    access_token: Optional[str] = None
+    user_id: Optional[int] = None
+    event: Optional[str] = "login"
 
 
 class MerchantChatRequest(BaseModel):
