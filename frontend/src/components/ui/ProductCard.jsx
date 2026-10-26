@@ -68,11 +68,6 @@ export function ProductCard({
             width="160"
             height="200"
           />
-          {discount > 0 && (
-            <span className="absolute top-2 left-2 bg-[#6e1423] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-xs">
-              -{discount}%
-            </span>
-          )}
         </Link>
         <div className="p-2 sm:p-2.5 flex flex-col flex-1 justify-between bg-white">
           <div>
@@ -123,15 +118,8 @@ export function ProductCard({
         onClick={() => onProductClick?.(finalId)}
         className="relative aspect-[3/4] bg-stone-100 overflow-hidden block"
       >
-        {/* Discount badge */}
-        {discount > 0 && (
-          <span className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 z-10 bg-[#6e1423] text-white text-[9px] sm:text-xs font-bold px-2 py-0.5 rounded-full shadow-sm tracking-wide">
-            -{discount}% OFF
-          </span>
-        )}
-
         {/* Index counter if specified */}
-        {typeof index === "number" && !discount && (
+        {typeof index === "number" && (
           <span className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 z-10 text-[9px] sm:text-[10px] font-semibold text-stone-600 bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded-full border border-stone-200/60">
             #{String(index + 1).padStart(2, "0")}
           </span>
@@ -225,11 +213,6 @@ export function ProductCard({
                 </span>
               )}
             </div>
-            {discount > 0 && (
-              <span className="inline-block sm:hidden text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded mt-0.5">
-                Save {discount}%
-              </span>
-            )}
           </div>
 
           {/* Mobile Tap-To-Add button */}
@@ -245,12 +228,6 @@ export function ProductCard({
           >
             {justAdded ? <Check size={13} strokeWidth={2.5} /> : <ShoppingBag size={13} />}
           </button>
-
-          {discount > 0 && (
-            <span className="hidden sm:inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-              Save {discount}%
-            </span>
-          )}
         </div>
       </div>
     </div>
