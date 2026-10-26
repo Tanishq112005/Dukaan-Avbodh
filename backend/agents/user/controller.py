@@ -438,11 +438,6 @@ class AgentController:
                                     tools_payload[key] = output[key]
                             yield f"data: {json.dumps(tools_payload)}\n\n"
 
-                            # Stream any interactive UI cards produced by the tools immediately
-                            if "cards" in output and isinstance(output["cards"], list):
-                                for card in deduplicate_cards(output["cards"]):
-                                    yield f"data: {json.dumps({'type': 'card', 'card': card})}\n\n"
-
             # Flush any remaining clean buffer from thought filter
             flushed = thought_filter.flush()
             if flushed:

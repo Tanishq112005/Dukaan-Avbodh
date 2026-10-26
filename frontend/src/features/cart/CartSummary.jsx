@@ -15,13 +15,15 @@ export function CartSummary() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const subtotal = cartItems.reduce((acc, item) => acc + (item.price || 0) * (item.qty || 1), 0);
-  const originalSubtotal = cartItems.reduce((acc, item) => acc + (item.original_price || item.price || 0) * (item.qty || 1), 0);
-  const itemsDiscountAmount = cartItems.reduce((acc, item) => {
-    const orig = (item.original_price || item.price || 0) * (item.qty || 1);
-    const curr = (item.price || 0) * (item.qty || 1);
-    return acc + Math.max(0, orig - curr);
+  const subtotal = cartItems.reduce((acc, item) => acc + (Number(item.price || 0)) * (item.qty || 1), 0);
+  const originalSubtotal = cartItems.reduce((acc, item) => {
+    const discPct = Number(item.discount_percentage || 0);
+    const curr = Number(item.price || 0);
+    const rawOrig = Number(item.original_price || 0);
+    const orig = rawOrig > curr ? rawOrig : (discPct > 0 ? Math.round(curr / (1 - discPct / 100)) : curr);
+    return acc + orig * (item.qty || 1);
   }, 0);
+  const itemsDiscountAmount = Math.max(0, originalSubtotal - subtotal);
   const delivery = subtotal > 0 ? 15 : 0;
   const total = Math.max(0, subtotal + delivery);
 
@@ -116,7 +118,7 @@ export function CartSummary() {
           prefill: {
             name: user?.name || "Valued Dukaan Customer",
             email: user?.email || "client@dukaan.store",
-            contact: "9999999999",
+            contact: user?.phone || "",
           },
           theme: { color: "#1c1917" },
           modal: {

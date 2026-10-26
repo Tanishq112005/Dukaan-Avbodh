@@ -468,6 +468,7 @@ class Cart:
                     "original_price": public_price,
                     "discount_percentage": disc_pct,
                     "discounted_price": item.discounted_price,
+                    "image_url": product.image_url,
                     "line_total": round(current_price * item.quantity, 2),
                 })
 
@@ -490,6 +491,15 @@ class Cart:
         async with self.db.get_session() as session:
             try:
                 cart = await self._get_cart(user_id, session)
+
+                # Preserve existing negotiated discounts if incoming items do not specify discount
+                existing_res = await session.exec(select(CartItem).where(CartItem.cart_id == cart.id))
+                existing_items = existing_res.all()
+                existing_disc_map = {
+                    it.product_id: (float(it.discount_percentage or 0.0), it.discounted_price)
+                    for it in existing_items
+                    if (it.discount_percentage or 0.0) > 0
+                }
 
                 # Clear existing items first
                 await session.exec(delete(CartItem).where(CartItem.cart_id == cart.id))
@@ -515,6 +525,11 @@ class Cart:
                             qty = min(int(item.get("qty") or item.get("quantity") or 1), product.stock)
                             disc_pct = float(item.get("discount_percentage", 0.0) or 0.0)
                             disc_price = item.get("discounted_price")
+                            # If incoming item doesn't specify a discount, preserve existing negotiated discount
+                            if disc_pct <= 0 and pid in existing_disc_map:
+                                saved_pct, saved_price = existing_disc_map[pid]
+                                disc_pct = float(saved_pct or 0.0)
+                                disc_price = saved_price
                             if disc_price is not None:
                                 disc_price = float(disc_price)
                             elif disc_pct > 0:

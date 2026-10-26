@@ -39,8 +39,6 @@ const deduplicateCards = (rawCards) => {
     let key = type;
     if (type === "negotiation") {
       key = prodId ? `negotiation_${prodId}` : "negotiation";
-    } else if (type === "size_advisor") {
-      key = prodId ? `size_advisor_${prodId}` : "size_advisor";
     }
 
     cardMap.set(key, card);
@@ -152,15 +150,24 @@ export const createChatSlice = (set, get) => ({
 
       if (data.cart && Array.isArray(data.cart)) {
         set({
-          cart: data.cart.map((item) => ({
-            id: item.id || item.product_id,
-            name: item.name,
-            price: item.price,
-            qty: item.quantity || item.qty || 1,
-            size: item.size || null,
-            color: item.color || null,
-            image_url: item.image_url,
-          })),
+          cart: data.cart.map((item) => {
+            const origPrice = Number(item.original_price ?? item.price ?? 0);
+            const discPct = Number(item.discount_percentage || 0);
+            const currPrice = Number(item.price ?? (discPct > 0 ? origPrice * (1 - discPct / 100) : origPrice));
+            return {
+              id: item.id || item.product_id,
+              product_id: item.product_id || item.id,
+              name: item.name,
+              price: currPrice,
+              original_price: origPrice > 0 ? origPrice : currPrice,
+              discount_percentage: discPct,
+              discounted_price: item.discounted_price ?? (discPct > 0 ? currPrice : null),
+              qty: item.quantity || item.qty || 1,
+              size: item.size || null,
+              color: item.color || null,
+              image_url: item.image_url,
+            };
+          }),
         });
       }
 
@@ -411,15 +418,24 @@ export const createChatSlice = (set, get) => ({
             if (payload.combo_offer) set({ comboOffer: payload.combo_offer });
             if (payload.cart && Array.isArray(payload.cart)) {
               set({
-                cart: payload.cart.map((item) => ({
-                  id: item.id || item.product_id,
-                  name: item.name,
-                  price: item.price,
-                  qty: item.quantity || item.qty || 1,
-                  size: item.size || null,
-                  color: item.color || null,
-                  image_url: item.image_url,
-                })),
+                cart: payload.cart.map((item) => {
+                  const origPrice = Number(item.original_price ?? item.price ?? 0);
+                  const discPct = Number(item.discount_percentage || 0);
+                  const currPrice = Number(item.price ?? (discPct > 0 ? origPrice * (1 - discPct / 100) : origPrice));
+                  return {
+                    id: item.id || item.product_id,
+                    product_id: item.product_id || item.id,
+                    name: item.name,
+                    price: currPrice,
+                    original_price: origPrice > 0 ? origPrice : currPrice,
+                    discount_percentage: discPct,
+                    discounted_price: item.discounted_price ?? (discPct > 0 ? currPrice : null),
+                    qty: item.quantity || item.qty || 1,
+                    size: item.size || null,
+                    color: item.color || null,
+                    image_url: item.image_url,
+                  };
+                }),
               });
             }
             if (payload.ai_discount !== undefined) {

@@ -163,16 +163,6 @@ export function ProductInfo({ product, addToCart }) {
           <span className="font-bold uppercase tracking-wider text-stone-500 text-[11px]">
             Select Size
           </span>
-          <button
-            type="button"
-            onClick={() => {
-              setIsAgentOpen(true);
-              sendAiMessage(`What size should I get for ${product.name} if I am 5'10?`);
-            }}
-            className="text-[#6e1423] hover:text-[#C45C26] text-xs font-semibold transition-colors cursor-pointer"
-          >
-            Ask Stylist for Sizing advice
-          </button>
         </div>
 
         <div className="flex flex-wrap gap-2">

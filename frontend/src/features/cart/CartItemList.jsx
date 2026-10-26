@@ -39,7 +39,13 @@ export function CartItemList() {
       <div className="divide-y divide-stone-100 space-y-6">
         {cartItems.map((item, idx) => {
           const finalId = item.id || item.product_id;
-          const formattedPrice = `₹${Number(item.price || 0).toLocaleString("en-IN")}`;
+          const discPct = Number(item.discount_percentage || 0);
+          const currentPrice = Number(item.price || 0);
+          const rawOrig = Number(item.original_price || 0);
+          const origPrice = rawOrig > currentPrice
+            ? rawOrig
+            : (discPct > 0 ? Math.round(currentPrice / (1 - discPct / 100)) : currentPrice);
+          const formattedPrice = `₹${currentPrice.toLocaleString("en-IN")}`;
 
           return (
             <div key={`${finalId}-${item.size || "M"}-${idx}`} className="pt-6 first:pt-0 flex gap-4 sm:gap-6">
@@ -89,14 +95,14 @@ export function CartItemList() {
                 <div className="flex items-center justify-between mt-4 pt-2">
                   <div className="flex items-baseline gap-2">
                     <span className="font-bold text-lg text-stone-900">{formattedPrice}</span>
-                    {item.discount_percentage > 0 && item.original_price && item.original_price > item.price && (
+                    {discPct > 0 && origPrice > currentPrice && (
                       <span className="text-xs text-stone-400 line-through">
-                        ₹{Number(item.original_price).toLocaleString("en-IN")}
+                        ₹{origPrice.toLocaleString("en-IN")}
                       </span>
                     )}
-                    {item.discount_percentage > 0 && (
+                    {discPct > 0 && (
                       <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
-                        {item.discount_percentage}% OFF
+                        {discPct}% OFF
                       </span>
                     )}
                   </div>

@@ -8,12 +8,17 @@ import { Link } from "react-router-dom";
 
 export function CartPage() {
   const sendAiEvent = useStore(state => state.sendAiEvent);
+  const fetchBackendCart = useStore(state => state.fetchBackendCart);
 
   useEffect(() => {
+    // Sync cart with latest database items, negotiated discounts, and pricing
+    if (fetchBackendCart) {
+      fetchBackendCart();
+    }
     // Background event: let the AI agent know user is on the cart/checkout page
     // so it can proactively calculate combinations and pop up a deal!
     sendAiEvent("viewed_checkout");
-  }, [sendAiEvent]);
+  }, [sendAiEvent, fetchBackendCart]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

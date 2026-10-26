@@ -26,8 +26,6 @@ export function deduplicateCards(rawCards) {
     let key = type;
     if (type === "negotiation") {
       key = prodId ? `negotiation_${prodId}` : "negotiation";
-    } else if (type === "size_advisor") {
-      key = prodId ? `size_advisor_${prodId}` : "size_advisor";
     }
 
     // Overwrite previous card with the latest card
@@ -41,7 +39,7 @@ export function deduplicateCards(rawCards) {
 const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage, onPayClick, onProductClick, onAction }) {
   // Normalize and synthesize purpose-built cards for any data in the message
   const cards = useMemo(() => {
-    const list = Array.isArray(msg.cards) ? [...msg.cards] : [];
+    const list = Array.isArray(msg.cards) ? msg.cards.filter((c) => c && c.type !== "size_advisor") : [];
 
     // 1. Synthesize Recommendation Card from suggested_products if not already present
     if (
@@ -120,20 +118,7 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
       });
     }
 
-    // 6. Synthesize Size Advisor Card if sizing info is present
-    if (!list.some((c) => c.type === "size_advisor") && msg.size_recommendation) {
-      list.push({
-        type: "size_advisor",
-        data: {
-          recommended_size: msg.size_recommendation.size || msg.size_recommendation,
-          product: msg.size_recommendation.product || msg.product,
-          fit_type: msg.size_recommendation.fit_type || "True to Size · Regular Fit",
-          rationale: msg.size_recommendation.rationale,
-        },
-      });
-    }
-
-    // 7. Synthesize Combo Lookbook Card if lookbook items are present
+    // 6. Synthesize Combo Lookbook Card if lookbook items are present
     if (!list.some((c) => c.type === "combo_lookbook") && msg.combo_lookbook) {
       list.push({
         type: "combo_lookbook",
@@ -223,8 +208,8 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
           </div>
         )}
 
-        {/* Generative UI Purpose-Built Cards */}
-        {hasCards && (
+        {/* Generative UI Purpose-Built Cards: render at the end once message streaming is complete */}
+        {hasCards && !msg.isStreaming && (
           <div className="space-y-3 mt-3">
             {cards.map((card, idx) => (
               <AiCard

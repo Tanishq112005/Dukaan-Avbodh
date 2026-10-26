@@ -714,9 +714,13 @@ def create_tools_node(tools_dict=None):
                 if new_cards:
                     cards.extend(new_cards)
 
-                if tool_name in ("add_to_cart", "update_cart_quantity", "remove_from_cart") and parsed.get("success"):
+                if (
+                    tool_name in ("add_to_cart", "update_cart_quantity", "remove_from_cart", "clear_cart", "apply_cart_item_discount") and parsed.get("success")
+                ) or (
+                    tool_name in ("negotiate_product_discount", "negotiate_discount", "evaluate_counter_offer") and (parsed.get("updated_in_cart") or parsed.get("success") or parsed.get("accepted"))
+                ):
                     cart_modified = True
-                    cart_user_id = tool_args.get("user_id") or cart_user_id
+                    cart_user_id = tool_args.get("user_id") or state.get("user_id", 0) or cart_user_id
 
                 _log_tool_audit(tool_name, tool_args, parsed, state)
 
@@ -807,9 +811,13 @@ def create_tools_node(tools_dict=None):
                 if new_cards:
                     cards.extend(new_cards)
 
-                if tool_name in ("add_to_cart", "update_cart_quantity", "remove_from_cart") and parsed.get("success"):
+                if (
+                    tool_name in ("add_to_cart", "update_cart_quantity", "remove_from_cart", "clear_cart", "apply_cart_item_discount") and parsed.get("success")
+                ) or (
+                    tool_name in ("negotiate_product_discount", "negotiate_discount", "evaluate_counter_offer") and (parsed.get("updated_in_cart") or parsed.get("success") or parsed.get("accepted"))
+                ):
                     cart_modified = True
-                    cart_user_id = tool_args.get("user_id") or cart_user_id
+                    cart_user_id = tool_args.get("user_id") or state.get("user_id", 0) or cart_user_id
 
                 _log_tool_audit(tool_name, tool_args, parsed, state)
 
