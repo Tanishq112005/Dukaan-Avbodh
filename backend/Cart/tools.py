@@ -15,6 +15,7 @@ from Cart.controller import cartController
 from Cart.schemas import (
     AddItemRequest,
     UpdateItemRequest,
+    UpdateItemDiscountRequest,
     DeleteItemRequest,
 )
 from UserEvents.models import EventType
@@ -41,6 +42,7 @@ async def get_cart_policy_resource() -> Dict[str, Any]:
     - Adding items to cart verifies real-time stock availability.
     - Size specification is strongly recommended for apparel (e.g. S, M, L for shirts; 30, 32, 34 for jeans).
     - Setting an item's quantity to 0 removes it from the cart.
+    - When an item had a previously negotiated discount, pass discount_percentage when adding to cart.
     """
     return {
         "cart_policy": "Real-time stock reservation and size selection.",
@@ -48,7 +50,7 @@ async def get_cart_policy_resource() -> Dict[str, Any]:
             "Quantities must be positive integers.",
             "Always ask or confirm the desired size before adding clothing to the cart.",
             "Items remain in the customer's cart across active browsing sessions.",
-            "Discounts must be negotiated via the negotiation tools, not directly modified.",
+            "Negotiated per-product discounts apply directly to cart items.",
         ],
     }
 
@@ -75,22 +77,26 @@ async def add_to_cart(
     user_id: Optional[int] = None,
     quantity: int = 1,
     size: Optional[str] = None,
+    discount_percentage: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Adds an in-stock product to the customer's shopping cart.
+    Supports attaching an agreed negotiated discount percentage.
     
     Parameters:
     - product_id (int, Required): The ID of the product to add.
     - user_id (int, Optional): Customer ID whose cart will be updated.
     - quantity (int, Optional, default=1): Number of units to add (must be at least 1).
     - size (str, Optional): Size of the apparel (e.g. 'M', 'L', 'XL' for tops; '30', '32', '34' for jeans).
+    - discount_percentage (float, Optional, default=0.0): If price was negotiated with customer prior to adding, pass the approved discount percentage here.
 
     LLM Usage & Instructions:
-    1. Call this tool when the customer says 'add to cart', 'buy this', 'put this in my bag', or accepts a recommendation.
-    2. If the user hasn't specified a size for clothing, ask them for their size, or pass a default size if they agreed.
-    3. If user_id is NOT provided (or user is a guest):
+    1. Call this tool when customer says 'add to cart', 'buy this', 'put this in my bag', or accepts a recommended product.
+    2. If product price was negotiated before adding to cart (Scenario 1), ALWAYS pass the agreed 'discount_percentage'.
+    3. If the user hasn't specified a size for clothing, ask them for their size, or pass a default size if agreed.
+    4. If user_id is NOT provided (or user is a guest):
        Alert the user that they should log in to save their cart across sessions.
-    4. Confirm addition by stating the product name, quantity, and selected size.
+    5. Confirm addition by stating the product name, quantity, selected size, and any applied discount.
     """
     is_guest = user_id is None or user_id <= 0
 
@@ -107,6 +113,7 @@ async def add_to_cart(
             product_id=product_id,
             quantity=max(1, int(quantity)),
             size=size.strip().upper() if size else None,
+            discount_percentage=float(discount_percentage or 0.0),
         )
 
         res = await cartController.add_item(
@@ -140,11 +147,66 @@ async def add_to_cart(
 
 
 @mcp.tool()
+async def apply_cart_item_discount(
+    product_id: int,
+    discount_percentage: float,
+    user_id: Optional[int] = None,
+    size: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Applies a negotiated discount percentage directly to an existing item in the customer's cart.
+    
+    Parameters:
+    - product_id (int, Required): ID of the product in the cart.
+    - discount_percentage (float, Required): Negotiated discount percent (between 0.0 and 100.0).
+    - user_id (int, Optional): Customer ID.
+    - size (str, Optional): Size of the item in the cart if applicable.
+    """
+    is_guest = user_id is None or user_id <= 0
+    if is_guest:
+        return {
+            "success": False,
+            "error": "A customer user_id is required to apply cart item discounts.",
+            "requires_login": True,
+            "login_prompt": LOGIN_NUDGE_FOR_CART,
+        }
+
+    try:
+        payload = UpdateItemDiscountRequest(
+            product_id=product_id,
+            discount_percentage=float(discount_percentage),
+            size=size.strip().upper() if size else None,
+        )
+
+        res = await cartController.update_item_discount(
+            user_id=user_id,
+            payload=payload,
+        )
+
+        return {
+            "success": True,
+            "message": res.get("message", "Cart item discount updated successfully."),
+            "item": res.get("item"),
+            "summary": res.get("summary"),
+        }
+    except HTTPException as http_err:
+        return {
+            "success": False,
+            "error": http_err.detail,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to update cart item discount for product {product_id}: {str(e)}",
+        }
+
+
+@mcp.tool()
 async def get_cart_items(
     user_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    Retrieves all items currently present in the customer's shopping cart.
+    Retrieves all items currently present in the customer's shopping cart with their discounts and prices.
     
     Parameters:
     - user_id (int, Optional): Customer ID to look up cart items for.
@@ -206,10 +268,6 @@ async def update_cart_quantity(
     - quantity (int, Required): The new total quantity (0 to remove).
     - user_id (int, Optional): Customer ID.
     - size (str, Optional): Size of the item being updated.
-
-    LLM Usage & Instructions:
-    1. Call this tool when the customer asks to change quantity (e.g. 'make it 2', 'increase quantity to 3').
-    2. State the updated quantity or confirm removal if set to 0.
     """
     is_guest = user_id is None or user_id <= 0
 
@@ -233,7 +291,6 @@ async def update_cart_quantity(
             payload=payload,
         )
 
-        # Record user event: REMOVE_FROM_CART if quantity reduced to 0 or less
         if int(quantity) <= 0:
             await record_user_event(
                 user_id=user_id,
@@ -272,10 +329,6 @@ async def remove_from_cart(
     - product_id (int, Required): ID of the product to delete.
     - user_id (int, Optional): Customer ID.
     - size (str, Optional): Size of the product to remove.
-
-    LLM Usage & Instructions:
-    1. Call this tool when the customer says 'remove this from my cart', 'delete this item', 'I don't want this'.
-    2. Confirm removal politely to the customer.
     """
     is_guest = user_id is None or user_id <= 0
 
@@ -298,7 +351,6 @@ async def remove_from_cart(
             payload=payload,
         )
 
-        # Record user event: REMOVE_FROM_CART for authenticated customer
         await record_user_event(
             user_id=user_id,
             product_id=product_id,
@@ -328,14 +380,10 @@ async def get_cart_summary(
 ) -> Dict[str, Any]:
     """
     Retrieves the complete price breakdown of the customer's cart: subtotal,
-    applied discounts, items list, and total final payable price.
+    applied per-item discounts, items list, and total final payable price.
     
     Parameters:
     - user_id (int, Optional): Customer ID.
-
-    LLM Usage & Instructions:
-    1. Call this tool when the customer asks 'what is my total?', 'how much do I owe?', or before checkout.
-    2. Present the subtotal, any discounts applied, and the final payable amount clearly.
     """
     is_guest = user_id is None or user_id <= 0
 
@@ -357,6 +405,7 @@ async def get_cart_summary(
             "subtotal": res.get("subtotal", 0.0),
             "discount_amount": res.get("discount_amount", 0.0),
             "total_amount": res.get("total_amount", 0.0),
+            "effective_discount_percentage": res.get("effective_discount_percentage", 0.0),
             "items": res.get("items", []),
         }
 
@@ -381,10 +430,6 @@ async def clear_cart(
     
     Parameters:
     - user_id (int, Optional): Customer ID.
-
-    LLM Usage & Instructions:
-    1. Call this tool when the customer explicitly says 'clear cart', 'empty my cart', 'delete everything'.
-    2. Confirm that the cart is now empty.
     """
     is_guest = user_id is None or user_id <= 0
 
@@ -397,7 +442,6 @@ async def clear_cart(
         }
 
     try:
-        # Fetch current items to track removal events before clearing
         try:
             cart_data = await cartController.get_items(user_id=user_id)
             for item in cart_data.get("items", []):
@@ -444,6 +488,11 @@ def get_cart_langchain_tools() -> List[StructuredTool]:
             coroutine=add_to_cart,
             name="add_to_cart",
             description=add_to_cart.__doc__,
+        ),
+        StructuredTool.from_function(
+            coroutine=apply_cart_item_discount,
+            name="apply_cart_item_discount",
+            description=apply_cart_item_discount.__doc__,
         ),
         StructuredTool.from_function(
             coroutine=get_cart_items,

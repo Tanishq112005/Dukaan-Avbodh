@@ -5,6 +5,8 @@ from Negotiation.schemas import (
     MaxDiscountResponse,
     NextDiscountRequest,
     NextDiscountResponse,
+    ProductNegotiationRequest,
+    ProductNegotiationResponse,
 )
 
 router = APIRouter(prefix="/negotiation", tags=["Negotiation"])
@@ -26,3 +28,13 @@ async def calculate_next_discount(req: NextDiscountRequest):
     Currently treats every customer as loyal (concession factor = 0.40).
     """
     return await negotiationController.get_next_discount(req)
+
+
+@router.post("/product", response_model=ProductNegotiationResponse)
+async def negotiate_product_discount(req: ProductNegotiationRequest):
+    """
+    Evaluate and negotiate discount for an individual product.
+    Supports negotiation before item is added to cart (Scenario 1)
+    and negotiation on an item already present in the cart (Scenario 2).
+    """
+    return await negotiationController.negotiate_product_discount(req)

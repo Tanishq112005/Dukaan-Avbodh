@@ -2,7 +2,9 @@ from .database import NegotiationDatabase, negotiationDatabase, negotiation_db
 from .utils import (
     maximumDiscountPossible,
     calculate_discount_limits,
+    calculate_product_discount_limits,
     calculate_next_offer,
+    calculate_product_next_offer,
     AGENT_MAX_DISCOUNT_PERCENT,
 )
 from .controller import NegotiationController, negotiationController
@@ -12,9 +14,12 @@ from .schemas import (
     MaxDiscountResponse,
     NextDiscountRequest,
     NextDiscountResponse,
+    ProductNegotiationRequest,
+    ProductNegotiationResponse,
 )
 from .tools import (
     negotiate_discount,
+    negotiate_product_discount,
     get_negotiation_langchain_tools,
 )
 
@@ -24,7 +29,9 @@ __all__ = [
     "negotiation_db",
     "maximumDiscountPossible",
     "calculate_discount_limits",
+    "calculate_product_discount_limits",
     "calculate_next_offer",
+    "calculate_product_next_offer",
     "AGENT_MAX_DISCOUNT_PERCENT",
     "NegotiationController",
     "negotiationController",
@@ -33,6 +40,9 @@ __all__ = [
     "MaxDiscountResponse",
     "NextDiscountRequest",
     "NextDiscountResponse",
+    "ProductNegotiationRequest",
+    "ProductNegotiationResponse",
     "negotiate_discount",
+    "negotiate_product_discount",
     "get_negotiation_langchain_tools",
 ]

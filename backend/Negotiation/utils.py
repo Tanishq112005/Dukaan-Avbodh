@@ -72,6 +72,47 @@ def calculate_discount_limits(items: List[Any]) -> Dict[str, Any]:
     }
 
 
+def calculate_product_discount_limits(product: Any) -> Dict[str, Any]:
+    """
+    Calculate profit margins and maximum allowable discount percentage for an individual product.
+    Respects:
+      1. Minimum required merchant profit margin (cost_price * min_profit_margin_percent).
+      2. Product-specific discount limit if configured by merchant (product.discount).
+      3. Hard system ceiling (AGENT_MAX_DISCOUNT_PERCENT = 15%).
+    """
+    cost, price, margin, _ = _extract_item_fields(product)
+    product_discount_ceiling = float(getattr(product, "discount", 0.0) or 0.0)
+
+    min_unit_selling = cost + ((cost * margin) / 100.0)
+    is_loss_leader = price <= cost
+
+    if price <= 0 or price <= min_unit_selling:
+        margin_max_pct = 0.0
+    else:
+        margin_max_pct = ((price - min_unit_selling) / price) * 100.0
+
+    # Determine absolute allowed ceiling
+    if product_discount_ceiling > 0:
+        allowed_ceiling = min(margin_max_pct, product_discount_ceiling, AGENT_MAX_DISCOUNT_PERCENT)
+    else:
+        allowed_ceiling = min(margin_max_pct, AGENT_MAX_DISCOUNT_PERCENT)
+
+    allowed_ceiling = round(max(0.0, allowed_ceiling), 2)
+    max_discount_amount = round(price * (allowed_ceiling / 100.0), 2)
+    min_selling_price = round(price - max_discount_amount, 2)
+
+    return {
+        "price": round(price, 2),
+        "cost_price": round(cost, 2),
+        "min_profit_margin_percent": round(margin, 2),
+        "min_selling_price": min_selling_price,
+        "max_discount_amount": max_discount_amount,
+        "max_discount_percentage": allowed_ceiling,
+        "product_configured_discount": product_discount_ceiling,
+        "is_loss_leader": is_loss_leader,
+    }
+
+
 def maximumDiscountPossible(itemsList: List[Any]) -> float:
     """
     Calculate the maximum discount percentage possible across the items in the cart
@@ -130,4 +171,55 @@ def calculate_next_offer(
         "counter": next_offer,
         "max_allowed": ceiling,
         "reason": f"Counter-offered at {next_offer}%. Requested was {requested}%, maximum possible is {ceiling}%.",
+    }
+
+
+def calculate_product_next_offer(
+    product: Any,
+    requested_discount_percent: float,
+    current_discount_percent: float = 0.0,
+    concession_factor: float = 0.40,
+) -> Dict[str, Any]:
+    """
+    Step-by-step negotiation calculator for an individual product.
+    Computes diminishing return counter-offers strictly bounded by product economics.
+    """
+    limits = calculate_product_discount_limits(product)
+    ceiling = limits["max_discount_percentage"]
+
+    if limits["is_loss_leader"] or limits["price"] <= 0:
+        return {
+            "accepted": False,
+            "next_discount_percent": 0.0,
+            "counter_offer_price": limits["price"],
+            "original_price": limits["price"],
+            "absolute_max_discount_percent": 0.0,
+            "reason": "Product price is at or below cost price. No discount can be offered.",
+        }
+
+    result = calculate_next_offer(
+        requested=requested_discount_percent,
+        current=current_discount_percent,
+        absolute_max=ceiling,
+        concession_factor=concession_factor,
+    )
+
+    counter_discount = result["counter"]
+    counter_price = round(limits["price"] * (1.0 - counter_discount / 100.0), 2)
+
+    # Financial floor check: price must stay strictly above cost
+    if counter_price <= limits["cost_price"]:
+        counter_price = round(limits["cost_price"] + 0.01, 2)
+        result["accepted"] = False
+        if limits["price"] > 0:
+            counter_discount = round(max(0.0, (1.0 - counter_price / limits["price"]) * 100.0), 2)
+        result["reason"] = "Counter discount clipped to protect base cost."
+
+    return {
+        "accepted": result["accepted"],
+        "next_discount_percent": counter_discount,
+        "counter_offer_price": counter_price,
+        "original_price": limits["price"],
+        "absolute_max_discount_percent": ceiling,
+        "reason": result["reason"],
     }

@@ -186,6 +186,7 @@ class OrderRepository:
         3. Strict inventory check: if any product has insufficient stock, the transaction
            aborts immediately and raises InsufficientStockError.
         4. Stock is decremented within the same atomic ACID transaction.
+        5. Supports individual product negotiated discounts.
         """
         # If no explicit items provided, read from user's active cart
         if items is None:
@@ -202,6 +203,7 @@ class OrderRepository:
                 {
                     "product_id": it.get("product_id") if isinstance(it, dict) else it.product_id,
                     "quantity": it.get("quantity") if isinstance(it, dict) else it.quantity,
+                    "discount_percentage": float(it.get("discount_percentage", 0.0) or 0.0) if isinstance(it, dict) else float(getattr(it, "discount_percentage", 0.0) or 0.0),
                 }
                 for it in cart_items
             ]
@@ -209,14 +211,17 @@ class OrderRepository:
         if not items:
             raise ValueError("No items provided for order checkout.")
 
-        # Aggregate requested quantities per product_id
+        # Aggregate requested quantities and per-item discounts per product_id
         product_quantities: Dict[int, int] = {}
+        product_discounts: Dict[int, float] = {}
         for it in items:
             pid = int(it.get("product_id") or it.get("id"))
             qty = int(it.get("quantity") or it.get("qty") or 1)
             if qty <= 0:
                 continue
             product_quantities[pid] = product_quantities.get(pid, 0) + qty
+            it_disc = float(it.get("discount_percentage", 0.0) or 0.0)
+            product_discounts[pid] = max(product_discounts.get(pid, 0.0), it_disc, discount_percentage)
 
         if not product_quantities:
             raise ValueError("Invalid item quantities.")
@@ -250,7 +255,6 @@ class OrderRepository:
 
                     # Reserve/decrement stock and build orders
                     orders: List[OrderModel] = []
-                    discount_factor = max(0.0, 1.0 - (discount_percentage / 100.0))
 
                     for pid, requested_qty in product_quantities.items():
                         product = product_map[pid]
@@ -258,8 +262,11 @@ class OrderRepository:
                         product.stock -= requested_qty
                         session.add(product)
 
+                        item_disc = product_discounts.get(pid, discount_percentage)
+                        item_discount_factor = max(0.0, 1.0 - (item_disc / 100.0))
+
                         item_subtotal = product.price * requested_qty
-                        item_final_amount = round(item_subtotal * discount_factor, 2)
+                        item_final_amount = round(item_subtotal * item_discount_factor, 2)
 
                         order = OrderModel(
                             product_id=product.id,
@@ -271,7 +278,7 @@ class OrderRepository:
                             provider=provider,
                             payment_status=PaymentStatus.PENDING,
                             total_amount=item_final_amount,
-                            discount_applied=discount_percentage,
+                            discount_applied=item_disc,
                         )
                         orders.append(order)
 
