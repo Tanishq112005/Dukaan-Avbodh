@@ -117,6 +117,25 @@ class UserRepository:
                 await session.rollback()
                 raise e
 
+    ### Update user password
+    async def update_password(self, user_id: int, password_hash: str) -> Optional[UserModel]:
+        async with self.db.get_session() as session:
+            try:
+                result = await session.exec(
+                    select(UserModel).where(UserModel.id == user_id)
+                )
+                user = result.first()
+                if not user:
+                    return None
+                user.password_hash = password_hash
+                session.add(user)
+                await session.commit()
+                await session.refresh(user)
+                return user
+            except Exception as e:
+                await session.rollback()
+                raise e
+
     ### Ensure guest user exists (and their cart is created)
     async def ensure_guest_exists(self, user_id: int) -> Optional[UserModel]:
         async with self.db.get_session() as session:
