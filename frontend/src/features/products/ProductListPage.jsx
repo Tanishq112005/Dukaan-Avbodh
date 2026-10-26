@@ -88,7 +88,7 @@ export function ProductListPage() {
   if (loading) return <Loader />;
 
   return (
-    <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7">
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center gap-2 text-xs sm:text-sm text-stone-500 mb-4 sm:mb-5">
         <Link to="/" className="hover:text-stone-900 transition-colors">Home</Link>
@@ -104,7 +104,7 @@ export function ProductListPage() {
 
       {/* Main Page Layout: items-start allows sticky children to float along scroll track */}
       <div className="flex flex-col md:flex-row items-start gap-5 lg:gap-6">
-        {/* Desktop Sticky Sidebar */}
+        {/* Desktop Sticky Sidebar aligned with Dukaan logo */}
         <FilterSidebar />
 
         {/* Mobile Filters Drawer Modal */}
@@ -219,7 +219,7 @@ export function ProductListPage() {
 
           {/* Product Cards Grid: 4 cards per row on desktop */}
           {filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-4.5">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-3.5 lg:gap-4">
               {filteredProducts.map((p, i) => (
                 <ProductCard key={p.id || i} {...p} index={i} />
               ))}
