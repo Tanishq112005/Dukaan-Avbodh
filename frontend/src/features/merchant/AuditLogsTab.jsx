@@ -63,19 +63,19 @@ export function AuditLogsTab({ logs, loading, error }) {
   });
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-4 animate-fadeIn">
       {/* Top Header Card */}
-      <div className="bg-stone-900 text-white p-7 rounded-3xl shadow-lg shadow-stone-950/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <ShieldCheck size={24} className="text-emerald-400" />
-            <h2 className="text-xl font-black tracking-tight">Security & Financial Audit Trail</h2>
+      <div className="bg-stone-900 text-white p-3.5 sm:px-4 sm:py-2.5 rounded-2xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <ShieldCheck size={18} className="text-emerald-400" />
+          <div>
+            <h2 className="text-sm font-bold tracking-tight text-white">Security & Financial Audit Trail</h2>
+            <p className="text-[10px] text-stone-400">
+              Immutable log of AI automated decisions, discount enforcements, and payments
+            </p>
           </div>
-          <p className="text-xs text-stone-400 mt-1 max-w-xl">
-            Immutable log of all AI automated decisions, discount bound enforcements, cart modifications, and payment events.
-          </p>
         </div>
-        <span className="text-xs font-mono font-bold bg-white/10 px-3.5 py-1.5 rounded-xl self-start sm:self-auto border border-white/10">
+        <span className="text-[11px] font-mono font-bold bg-white/10 px-2.5 py-1 rounded-lg self-start sm:self-auto border border-white/10">
           {filteredLogs.length} Events Audited
         </span>
       </div>
