@@ -61,21 +61,30 @@ export function ProductDetailPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-        <Link to="/" className="hover:text-stone-900 cursor-pointer">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7">
+      {/* Clean Breadcrumb Navigation */}
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-stone-400 mb-5">
+        <Link to="/" className="hover:text-stone-900 transition-colors cursor-pointer">
           Home
-        </Link>{" "}
-        <ChevronRight className="h-4 w-4" />{" "}
-        <Link to="/products" className="hover:text-stone-900 cursor-pointer">
+        </Link>
+        <ChevronRight className="h-3 w-3 text-stone-300" />
+        <Link to="/products" className="hover:text-stone-900 transition-colors cursor-pointer">
           Shop
-        </Link>{" "}
-        <ChevronRight className="h-4 w-4" />{" "}
-        <span className="text-black capitalize">{product.type || "T-shirts"}</span>
-      </div>
-      <div className="flex flex-col md:flex-row gap-10">
-        <ProductGallery product={product} />
-        <ProductInfo product={product} addToCart={handleAddToCart} />
+        </Link>
+        <ChevronRight className="h-3 w-3 text-stone-300" />
+        <span className="text-stone-800 font-medium capitalize truncate max-w-[200px]">
+          {product.type || "Apparel"}
+        </span>
+      </nav>
+
+      {/* Main Two-Column Showcase: Sticky Gallery + Refined Info */}
+      <div className="flex flex-col md:flex-row items-start gap-8 lg:gap-12">
+        <div className="w-full md:w-[44%] lg:w-[42%] md:sticky md:top-24 flex-shrink-0">
+          <ProductGallery product={product} />
+        </div>
+        <div className="w-full md:w-[56%] lg:w-[58%] flex-1 min-w-0">
+          <ProductInfo product={product} addToCart={handleAddToCart} />
+        </div>
       </div>
     </div>
   );

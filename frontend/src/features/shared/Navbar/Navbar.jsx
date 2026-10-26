@@ -61,14 +61,6 @@ function NavActions({ cartCount, user, handleLogout, onOpenStylist, onToggleMobi
           </>
         ) : (
           <div className="flex items-center gap-2 sm:gap-2.5">
-            <Link
-              to="/orders"
-              className="hidden sm:flex items-center gap-1 text-xs font-medium text-stone-600 hover:text-stone-900 border border-stone-200 px-3 py-1.5 rounded-full transition-colors"
-              title="My Orders"
-            >
-              <Package className="w-3.5 h-3.5" />
-              <span>Orders</span>
-            </Link>
             <div
               title={`${user.name || user.email} (${user.role || 'customer'})`}
               className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-stone-100 border border-stone-300 text-stone-900 flex items-center justify-center text-xs font-bold"
