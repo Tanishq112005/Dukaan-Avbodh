@@ -29,7 +29,7 @@ export function AuthForm({
               <span className="w-1.5 h-1.5 rounded-full bg-[#6e1423]" />
             </div>
 
-            {/* Display Headline like Claude */}
+            {/* Display Headline */}
             <h1 className="font-display text-3xl sm:text-4xl font-extrabold uppercase tracking-tight text-stone-900 leading-tight mb-2">
               {title}
             </h1>
@@ -85,20 +85,30 @@ export function AuthForm({
             </form>
 
             {/* Bottom Switcher */}
-            <p className="mt-5 text-center sm:text-left text-xs text-stone-500 font-medium">
-              {linkText}{" "}
-              <Link
-                to={linkTo}
-                className="text-stone-900 font-bold hover:text-[#6e1423] underline underline-offset-4 transition-colors"
-              >
-                {linkLabel}
-              </Link>
-            </p>
+            <div className="mt-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-stone-500 font-medium">
+              <p>
+                {linkText}{" "}
+                <Link
+                  to={linkTo}
+                  className="text-stone-900 font-bold hover:text-[#6e1423] underline underline-offset-4 transition-colors"
+                >
+                  {linkLabel}
+                </Link>
+              </p>
+              {linkTo === "/signup" && (
+                <Link
+                  to="/forgot-password"
+                  className="text-stone-500 hover:text-[#C45C26] transition-colors hover:underline"
+                >
+                  Forgot your password?
+                </Link>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Right Column: Running Clothes & AI Agent Showcase */}
-        <div className="hidden lg:block lg:col-span-6 xl:col-span-7">
+        <div className="lg:col-span-6 xl:col-span-7 hidden lg:block">
           <AuthShowcase />
         </div>
       </div>

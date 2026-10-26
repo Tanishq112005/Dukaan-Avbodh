@@ -5,7 +5,7 @@ import { Input } from "../../components/ui/input";
 import { AuthForm } from "./AuthForm";
 import { PasswordInput } from "./PasswordInput";
 import { authService } from "../../services/authService";
-import { Mail } from "lucide-react";
+import { Mail, KeyRound } from "lucide-react";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -100,9 +100,10 @@ export function LoginPage() {
           </label>
           <Link
             to="/forgot-password"
-            className="text-[11px] text-stone-500 hover:text-stone-900 transition-colors cursor-pointer font-medium"
+            className="text-xs font-semibold text-[#C45C26] hover:text-[#6e1423] transition-colors cursor-pointer inline-flex items-center gap-1 hover:underline"
           >
-            Forgot Password?
+            <KeyRound size={12} />
+            <span>Forgot Password?</span>
           </Link>
         </div>
         <PasswordInput
@@ -112,6 +113,14 @@ export function LoginPage() {
           required
           disabled={loading}
         />
+        <div className="flex justify-end mt-2">
+          <Link
+            to="/forgot-password"
+            className="text-[11px] font-medium text-stone-500 hover:text-stone-900 transition-colors cursor-pointer"
+          >
+            Having trouble signing in? <span className="text-[#C45C26] font-semibold underline">Reset Password</span>
+          </Link>
+        </div>
       </div>
     </AuthForm>
   );
