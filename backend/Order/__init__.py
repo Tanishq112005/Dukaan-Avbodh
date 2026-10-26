@@ -8,6 +8,7 @@ from .database import (
 )
 from .schemas import OrderRequest, VerifyRequest
 from .models import Order, PaymentStatus
+from .notifications import enqueue_order_confirmation_notification
 
 __all__ = [
     "OrderController",
@@ -21,4 +22,5 @@ __all__ = [
     "order_db",
     "OrderRequest",
     "VerifyRequest",
+    "enqueue_order_confirmation_notification",
 ]

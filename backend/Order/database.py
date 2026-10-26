@@ -118,6 +118,19 @@ class OrderRepository:
                     for o in updated_orders:
                         await session.refresh(o)
 
+                    # Dispatch order confirmation receipt to RabbitMQ
+                    try:
+                        from Order.notifications import enqueue_order_confirmation_notification
+                        import asyncio
+                        asyncio.create_task(
+                            enqueue_order_confirmation_notification(
+                                orders=updated_orders,
+                                user_id=user_id,
+                            )
+                        )
+                    except Exception as notif_err:
+                        logger.warning('Could not trigger order notification: %s', notif_err)
+
                 return updated_orders
             except Exception as e:
                 await session.rollback()
