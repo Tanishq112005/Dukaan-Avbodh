@@ -1,52 +1,46 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X } from 'lucide-react';
-import { useStore } from '../../store/useStore';
-import { ChatMessages } from "./ChatMessages";
-import { ChatInput } from "./ChatInput";
-import { ChatHeader } from "./ChatHeader";
-import { renderMessage } from "./renderMessage";
+import { MessageCircle } from 'lucide-react';
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { useStore } from '../../store/useStore';
+import { renderMessage } from './renderMessage';
+import { ChatHeader } from './ChatHeader';
+import { ChatMessages } from './ChatMessages';
+import { ChatInput } from './ChatInput';
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 export function AgentWidget() {
-  const [input, setInput] = useState('');
-  const [isFullScreen, setIsFullScreen] = useState(false);
   const {
+    isAgentOpen,
+    setIsAgentOpen,
+    isAiConnected,
+    connectAgent,
+    disconnectAgent,
     aiMessages,
     isAiTyping,
     sendAiMessage,
-    isAiConnected,
+    startNewChat,
     comboOffer,
-    connectAgent,
-    disconnectAgent,
-    isAgentOpen,
-    setIsAgentOpen,
     openPaymentLink,
     pollPaymentStatus,
-    startNewChat,
   } = useStore();
+
+  const [input, setInput] = useState('');
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
     connectAgent();
 
-    // Clean up any stale or interrupted streaming placeholders restored from localStorage on initial mount
-    const state = useStore.getState();
-    const lastUpdated = state.aiMessagesLastUpdated;
-    if (lastUpdated && (Date.now() - lastUpdated > 24 * 60 * 60 * 1000)) {
-      useStore.setState({
-        aiMessages: [],
-        aiMessagesLastUpdated: Date.now(),
-        comboOffer: null,
-        isAiTyping: false,
-      });
-    } else {
-      useStore.setState((s) => ({
-        aiMessages: (s.aiMessages || [])
-          .filter((m) => !(m.isStreaming && !m.text))
-          .map((m) => (m.isStreaming ? { ...m, isStreaming: false, streamingStatus: null } : m)),
-        isAiTyping: false,
+    // Hydrate state from localStorage if available
+    const stored = localStorage.getItem('dukaan-store');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const cachedMessages = parsed.state?.aiMessages || [];
+      const lastUpdated = parsed.state?.aiMessagesLastUpdated;
+      useStore.setState((state) => ({
+        ...state,
+        aiMessages: cachedMessages.length > 0 ? cachedMessages : state.aiMessages,
         aiMessagesLastUpdated: lastUpdated || Date.now(),
       }));
     }
@@ -103,6 +97,9 @@ export function AgentWidget() {
   const handleProductClick = () => {
     if (isFullScreen) {
       setIsFullScreen(false);
+    }
+    if (window.innerWidth < 640) {
+      setIsAgentOpen(false);
     }
   };
 

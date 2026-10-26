@@ -24,7 +24,7 @@ class AgentController:
     Controller for the User AI Chat Agent.
     Orchestrates user-cart synchronization, in-memory LangGraph execution,
     real-time Server-Sent Events (SSE) token streaming with online thought filtering,
-    Generative UI card dispatching, and non-blocking asynchronous state queueing.
+    Generative UI card dispatching strictly scoped to the active turn, and non-blocking state queueing.
     """
 
     def __init__(self, service=None, audit_repo=None, cart_repo=None):
@@ -54,6 +54,7 @@ class AgentController:
     async def _prepare_initial_state(self, user_id: int, thread_id_val: str, human_msg: HumanMessage):
         """
         Hydrates cached conversation summary and important customer facts from Redis.
+        Initializes turn-scoped cards and suggested products to empty arrays.
         """
         cached_summary = None
         cached_facts = None
@@ -72,6 +73,8 @@ class AgentController:
             "messages": [human_msg],
             "user_id": user_id,
             "thread_id": thread_id_val,
+            "cards": [],
+            "suggested_products": [],
         }
         if cached_summary:
             initial_state["conversation_summary"] = cached_summary
@@ -90,7 +93,7 @@ class AgentController:
         human_msg: HumanMessage,
     ) -> dict:
         """
-        Extracts final AI reply, normalizes products, packages UI cards,
+        Extracts final AI reply, packages turn-scoped UI cards,
         and dispatches state to the background queue asynchronously without blocking the user response.
         """
         ai_reply = state.get("final_response")
@@ -106,7 +109,11 @@ class AgentController:
 
         ai_reply = clean_ai_output(ai_reply) if ai_reply else "Sorry, system error."
         combo_offer = state.get("combo_offer", None)
-        raw_suggested = state.get("suggested_products", [])
+        cards = list(state.get("cards") or [])
+
+        # Strictly scope suggested_products: only return if a recommendation card was produced in THIS turn
+        has_rec = any(c.get("type") == "recommendation" for c in cards)
+        raw_suggested = state.get("suggested_products", []) if has_rec else []
         suggested_products = []
         for p in raw_suggested:
             if isinstance(p, dict) and "product" in p and isinstance(p["product"], dict):
@@ -120,7 +127,6 @@ class AgentController:
         payment_link = state.get("pending_payment_link")
         payment_link_id = state.get("pending_payment_link_id")
         current_discount = state.get("current_discount_percent", 0.0)
-        cards = list(state.get("cards") or [])
 
         # Asynchronously dispatch state to task queue for background summarization and Mongo persistence
         try:
@@ -196,6 +202,7 @@ class AgentController:
                 "type": "chat_reply",
                 "message": "Sorry, something went wrong. Please try again!",
                 "cards": [],
+                "suggested_products": [],
             }
 
     async def stream_message(self, req: ChatRequest) -> AsyncGenerator[str, None]:
@@ -313,6 +320,7 @@ class AgentController:
                 "type": "chat_reply",
                 "message": "Sorry, something went wrong while processing your request.",
                 "cards": [],
+                "suggested_products": [],
                 "error": str(e),
             }
             yield f"data: {json.dumps(error_payload)}\n\n"
@@ -329,7 +337,7 @@ class AgentController:
         if req.event == "combo_declined":
             try:
                 agent = await self.agent_service.get_agent_async()
-                await agent.aupdate_state(config, {"combo_offer": None})
+                await agent.aupdate_state(config, {"combo_offer": None, "cards": []})
             except Exception as e:
                 logger.warning("combo_declined langgraph update failed: %s", e)
 
@@ -347,6 +355,8 @@ class AgentController:
                         "messages": [hidden_msg],
                         "user_id": req.user_id,
                         "thread_id": thread_id_val,
+                        "cards": [],
+                        "suggested_products": [],
                     },
                     config=config,
                 )
@@ -373,7 +383,7 @@ class AgentController:
                     "message": ai_reply or "Checking your payment now...",
                     "cards": cards,
                     "combo_offer": result.get("combo_offer", None),
-                    "suggested_products": result.get("suggested_products", []),
+                    "suggested_products": [],
                     "cart": updated_cart,
                     "ai_discount": result.get("current_discount_percent", 0.0),
                 }
@@ -411,6 +421,8 @@ class AgentController:
                         "messages": [hidden_msg],
                         "user_id": req.user_id,
                         "thread_id": thread_id_val,
+                        "cards": [],
+                        "suggested_products": [],
                     },
                     config=config,
                 )
@@ -418,12 +430,15 @@ class AgentController:
                 ai_reply = result.get("final_response")
                 if ai_reply:
                     updated_cart = result.get("cart") or await self.cart_repo.get_items(req.user_id)
+                    cards = list(result.get("cards") or [])
+                    has_rec = any(c.get("type") == "recommendation" for c in cards)
+                    suggested = result.get("suggested_products", []) if has_rec else []
                     return {
                         "type": "proactive_suggestion",
                         "message": ai_reply,
-                        "cards": result.get("cards", []),
+                        "cards": cards,
                         "combo_offer": result.get("combo_offer", None),
-                        "suggested_products": result.get("suggested_products", []),
+                        "suggested_products": suggested,
                         "cart": updated_cart,
                     }
 

@@ -1,15 +1,18 @@
 import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Sparkles, ShoppingBag, Check, ArrowRight } from "lucide-react";
 import { useStore } from "../../../store/useStore";
 
 export function RecommendationCard({ data, onProductClick }) {
   const products = data?.products || [];
   const addToCart = useStore((state) => state.addToCart);
+  const navigate = useNavigate();
   const [addedIds, setAddedIds] = useState({});
 
   if (!products || products.length === 0) return null;
 
   const handleQuickAdd = (e, product) => {
+    e.preventDefault();
     e.stopPropagation();
     const finalId = product.id || product.product_id;
     addToCart(
@@ -30,6 +33,14 @@ export function RecommendationCard({ data, onProductClick }) {
     setTimeout(() => {
       setAddedIds((prev) => ({ ...prev, [finalId]: false }));
     }, 1800);
+  };
+
+  const handleProductNavigate = (p) => {
+    const finalId = p.id || p.product_id;
+    if (finalId) {
+      navigate(`/product/${finalId}`);
+      if (onProductClick) onProductClick(p);
+    }
   };
 
   return (
@@ -59,11 +70,15 @@ export function RecommendationCard({ data, onProductClick }) {
           return (
             <div
               key={finalId ? `rec-card-${finalId}` : `item-${idx}`}
-              onClick={() => onProductClick?.(p)}
-              className="group flex-shrink-0 w-36 sm:w-40 bg-white border border-stone-200/80 rounded-xl overflow-hidden hover:border-[#C45C26]/50 hover:shadow-md transition-all duration-200 cursor-pointer snap-start flex flex-col justify-between"
+              className="group flex-shrink-0 w-36 sm:w-40 bg-white border border-stone-200/80 rounded-xl overflow-hidden hover:border-[#C45C26]/50 hover:shadow-md transition-all duration-200 snap-start flex flex-col justify-between"
             >
-              {/* Image thumbnail */}
-              <div className="relative aspect-[4/5] bg-stone-100 overflow-hidden">
+              {/* Image thumbnail linking to product detail page */}
+              <Link
+                to={`/product/${finalId}`}
+                onClick={() => onProductClick?.(p)}
+                className="relative aspect-[4/5] bg-stone-100 overflow-hidden block cursor-pointer"
+                title={`View ${p.name}`}
+              >
                 <img
                   src={imgUrl}
                   alt={p.name}
@@ -75,14 +90,19 @@ export function RecommendationCard({ data, onProductClick }) {
                     {p.brand}
                   </span>
                 )}
-              </div>
+              </Link>
 
               {/* Product Info */}
               <div className="p-2.5 flex-1 flex flex-col justify-between">
                 <div>
-                  <h4 className="font-semibold text-xs text-stone-900 line-clamp-1 group-hover:text-[#C45C26] transition-colors">
+                  <Link
+                    to={`/product/${finalId}`}
+                    onClick={() => onProductClick?.(p)}
+                    className="block font-semibold text-xs text-stone-900 line-clamp-1 group-hover:text-[#C45C26] transition-colors cursor-pointer"
+                    title={p.name}
+                  >
                     {p.name || "Curated Apparel"}
-                  </h4>
+                  </Link>
                   <div className="flex items-baseline gap-1.5 mt-1">
                     <span className="font-bold text-xs text-stone-900">{formattedPrice}</span>
                     {p.discount > 0 && (
@@ -97,7 +117,7 @@ export function RecommendationCard({ data, onProductClick }) {
                 <button
                   type="button"
                   onClick={(e) => handleQuickAdd(e, p)}
-                  className={`mt-2 w-full py-1.5 px-2 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all ${
+                  className={`mt-2 w-full py-1.5 px-2 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
                     isAdded
                       ? "bg-emerald-600 text-white"
                       : "bg-stone-900 hover:bg-[#6e1423] text-white"
