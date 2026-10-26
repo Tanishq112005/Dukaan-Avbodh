@@ -109,7 +109,7 @@ export function MerchantAgentTab() {
                   ? 'bg-black text-white rounded-tr-sm'
                   : 'bg-white border border-stone-200 text-stone-800 rounded-tl-sm'
               }`}>
-                <div className="whitespace-pre-wrap">{renderMessage(msg.text)}</div>
+                <div className="leading-relaxed">{renderMessage(msg.text)}</div>
               </div>
             </div>
           ))

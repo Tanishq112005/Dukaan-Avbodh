@@ -200,11 +200,8 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
             </span>
           </div>
         ) : (
-          <div className="whitespace-pre-wrap font-normal">
-            {renderMessage(msg.text, msg.payment_link)}
-            {msg.isStreaming && (
-              <span className="inline-block w-1.5 h-3.5 ml-1 bg-[#C45C26] animate-pulse align-middle rounded-sm" />
-            )}
+          <div className="font-normal">
+            {renderMessage(msg.text, msg.payment_link, msg.isStreaming)}
           </div>
         )}
 

@@ -177,7 +177,7 @@ export function ChatTranscriptsTab({ threads, loading }) {
                           : "bg-white text-stone-800 border border-stone-200/90 rounded-tl-none"
                       }`}
                     >
-                      <div className="whitespace-pre-wrap leading-relaxed">
+                      <div className="leading-relaxed">
                         {renderMessage(msg.message || msg.content || "")}
                       </div>
 

@@ -82,9 +82,21 @@ export function CartUpdateCard({ data, onProductClick }) {
                   <div className="flex items-center gap-2 mt-0.5 text-[11px] text-stone-500">
                     {cartItem.size && <span>Size: <strong className="text-stone-700">{cartItem.size}</strong></span>}
                     <span>Qty: <strong className="text-stone-700">{cartItem.qty || cartItem.quantity || 1}</strong></span>
+                    {Number(cartItem.discount_percentage || cartItem.discount_percent || 0) > 0 && (
+                      <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-md">
+                        -{Number(cartItem.discount_percentage || cartItem.discount_percent)}% OFF
+                      </span>
+                    )}
                   </div>
                 </div>
-                <span className="font-bold text-xs text-stone-900">{price}</span>
+                <div className="text-right flex-shrink-0">
+                  <span className="font-bold text-xs text-stone-900 block">{price}</span>
+                  {Number(cartItem.discount_percentage || cartItem.discount_percent || 0) > 0 && cartItem.original_price && (
+                    <span className="text-[10px] text-stone-400 line-through block">
+                      ₹{Number(cartItem.original_price).toLocaleString("en-IN")}
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -121,6 +133,11 @@ export function CartUpdateCard({ data, onProductClick }) {
             <div className="flex items-center gap-2 mt-0.5 text-[11px] text-stone-500">
               {item.size && <span>Size: <strong className="text-stone-700">{item.size}</strong></span>}
               {item.qty && <span>Qty: <strong className="text-stone-700">{item.qty}</strong></span>}
+              {Number(item.discount_percentage || item.discount_percent || 0) > 0 && (
+                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-md">
+                  -{Number(item.discount_percentage || item.discount_percent)}% OFF
+                </span>
+              )}
               {item.price !== undefined && (
                 <span className="font-bold text-stone-900">₹{Number(item.price).toLocaleString("en-IN")}</span>
               )}
@@ -129,13 +146,21 @@ export function CartUpdateCard({ data, onProductClick }) {
         </div>
       )}
 
-      {/* Cart Subtotal */}
+      {/* Cart Subtotal & Discount */}
       {cartTotal !== undefined && cartTotal !== null && (
-        <div className="mt-2.5 pt-2 border-t border-stone-200/60 flex items-center justify-between text-xs">
-          <span className="text-stone-500">Cart Total</span>
-          <span className="font-bold text-stone-900">
-            ₹{Number(cartTotal).toLocaleString("en-IN")}
-          </span>
+        <div className="mt-2.5 pt-2 border-t border-stone-200/60 space-y-1 text-xs">
+          {Number(data?.discount_amount || 0) > 0 && (
+            <div className="flex items-center justify-between text-emerald-700 font-semibold">
+              <span>Negotiated Savings</span>
+              <span>-₹{Number(data.discount_amount).toLocaleString("en-IN")}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-stone-500">Cart Total</span>
+            <span className="font-bold text-stone-900">
+              ₹{Number(cartTotal).toLocaleString("en-IN")}
+            </span>
+          </div>
         </div>
       )}
 

@@ -5,7 +5,7 @@
 export function cleanAiText(rawText, isStreaming = false) {
   if (!rawText || typeof rawText !== "string") return "";
 
-  let text = rawText;
+  let text = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
   // 1. Detect and parse raw JSON responses (e.g. ```json { "message": "..." } ``` or raw `{ "message": "..." }`)
   const jsonBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
