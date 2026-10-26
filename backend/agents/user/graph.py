@@ -7,8 +7,7 @@ from langchain_core.messages import ToolMessage
 from langchain_core.runnables import RunnableLambda
 
 from agents.user.state import AgentState
-from agents.user.director import DirectorAgent
-from agents.user.general import GeneralAgent
+from agents.user.agent import UserAgent
 from agents.user.checkpointer import checkPointer
 from utils.text_cleaning import clean_ai_output
 
@@ -140,33 +139,24 @@ def post_process_node(state: AgentState):
     return {"final_response": final_text}
 
 
-def route_from_director(state: AgentState):
-    """Routes from Director classification directly to the target specialist agent."""
-    intent = state.get("intent", "general")
-    if intent in ("product", "product_search", "recommendation"):
-        return "recommendation"
-    if intent in ("cart", "cart_editing"):
-        return "cart"
-    if intent in ("pricing", "negotiation", "pricing_negotiation"):
-        return "negotiation"
-    return "general"
-
-
-def route_specialist(state: AgentState):
-    """Routes specialist response to tool execution if tool_calls are present; otherwise to post_process."""
+def route_agent(state: AgentState):
+    """Routes agent response to tool execution if tool_calls are present; otherwise to post_process."""
     messages = state.get("messages", [])
     if messages and getattr(messages[-1], "tool_calls", None):
         return "tools"
     return "post_process"
 
 
+# Backward-compatible alias
+route_specialist = route_agent
+
+
 # --- Tools Node Creation ---
 
-def create_tools_node(tools_dict=None):
+def resolve_all_tools(tools_dict=None) -> dict:
     """
-    Creates a dual sync/async tools execution node for the user agent graph.
-    Resolves tools from MCP tools_dict and local feature modules (Cart, Negotiation, Recommedation),
-    executes tool calls, and propagates structured output back to AgentState.
+    Resolves tools from MCP tools_dict and local feature modules (Cart, Negotiation, Recommedation).
+    Returns a unified dict mapping tool names to tool objects.
     """
     resolved_tools = {}
     if tools_dict:
@@ -175,7 +165,8 @@ def create_tools_node(tools_dict=None):
         elif isinstance(tools_dict, list):
             for t in tools_dict:
                 name = getattr(t, "name", None) or getattr(t, "__name__", str(t))
-                resolved_tools[name] = t
+                if name:
+                    resolved_tools[name] = t
 
     # Ensure local feature tool suites are available
     for module_name, getter_name in [
@@ -192,6 +183,17 @@ def create_tools_node(tools_dict=None):
                     resolved_tools[name] = t
         except Exception:
             pass
+
+    return resolved_tools
+
+
+def create_tools_node(tools_dict=None):
+    """
+    Creates a dual sync/async tools execution node for the user agent graph.
+    Resolves tools from MCP tools_dict and local feature modules (Cart, Negotiation, Recommedation),
+    executes tool calls, and propagates structured output back to AgentState.
+    """
+    resolved_tools = resolve_all_tools(tools_dict)
 
     def _sync_execute_tools(state: AgentState):
         messages = state.get("messages", [])
@@ -392,75 +394,58 @@ def create_tools_node(tools_dict=None):
 
 # --- Graph Assembly ---
 
-def initialize_agents(fast_llm, medium_llm, small_llm, tools_dict):
-    """Initializes and returns all specialist agents and the tools node."""
-    from Cart.agent import CartAgent
-    from Negotiation.agent import NegotiationAgent
-    from Recommedation.agent import RecommendationAgent
+def initialize_agents(fast_llm, medium_llm=None, small_llm=None, tools_dict=None):
+    """
+    Initializes and returns the unified UserAgent and the tools node.
+    Binds all tools directly to the single agent for zero-switch execution.
+    """
+    resolved_tools = resolve_all_tools(tools_dict)
+    tools_list = list(resolved_tools.values())
+
+    user_agent = UserAgent(fast_llm, tools=tools_list)
+    tools_node = create_tools_node(resolved_tools)
 
     agents = {
-        "director": DirectorAgent(small_llm),
-        "recommendation": RecommendationAgent(fast_llm),
-        "cart": CartAgent(fast_llm),
-        "negotiation": NegotiationAgent(fast_llm),
-        "general": GeneralAgent(small_llm, tools=[]),
+        "agent": user_agent,
     }
-
-    tools_node = create_tools_node(tools_dict)
     return agents, tools_node
 
 
 def setup_nodes(workflow: StateGraph, agents: dict, tools_node):
     """Registers all workflow nodes to the StateGraph."""
-    workflow.add_node("director", agents["director"].run)
-    workflow.add_node("recommendation", agents["recommendation"].run)
-    workflow.add_node("cart", agents["cart"].run)
-    workflow.add_node("negotiation", agents["negotiation"].run)
-    workflow.add_node("general", agents["general"].run)
+    workflow.add_node("agent", agents["agent"].run)
     workflow.add_node("tools", tools_node)
     workflow.add_node("post_process", post_process_node)
 
 
 def setup_edges(workflow: StateGraph):
     """
-    Registers edges and routing logic:
-    1. Director routes to the chosen specialist.
-    2. Specialist routes to 'tools' if tool_calls exist, else 'post_process'.
-    3. When tools finish, they route BACK TO DIRECTOR to handle any follow-up intent (adding to cart, negotiation, etc.).
-    4. PostProcess routes to END.
+    Registers edges and routing logic for the unified user agent:
+    1. 'agent' is the direct entry point.
+    2. 'agent' routes to 'tools' if tool calls are present; otherwise routes to 'post_process'.
+    3. 'tools' routes DIRECTLY back to 'agent' to synthesize results (no router/director ping-pong).
+    4. 'post_process' routes to END.
     """
-    workflow.set_entry_point("director")
+    workflow.set_entry_point("agent")
 
-    # 1. Route from Director
     workflow.add_conditional_edges(
-        "director",
-        route_from_director,
+        "agent",
+        route_agent,
         {
-            "recommendation": "recommendation",
-            "cart": "cart",
-            "negotiation": "negotiation",
-            "general": "general",
+            "tools": "tools",
+            "post_process": "post_process",
         },
     )
 
-    # 2. Route from Specialists to tools (if tool calls) or post_process (if complete)
-    specialist_nodes = ["recommendation", "cart", "negotiation", "general"]
-    for node in specialist_nodes:
-        workflow.add_conditional_edges(
-            node,
-            route_specialist,
-            {"tools": "tools", "post_process": "post_process"},
-        )
+    # When tools finish, route directly back to the agent
+    workflow.add_edge("tools", "agent")
 
-    # 3. When tools return results, re-evaluate through Director
-    workflow.add_edge("tools", "director")
-
-    # 4. Final step
+    # Final step to completion
     workflow.add_edge("post_process", END)
 
 
-def compile_agent_graph(fast_llm, medium_llm, small_llm, tools_dict):
-    """Main orchestrator function that compiles the entire user agent graph."""
+def compile_agent_graph(fast_llm, medium_llm=None, small_llm=None, tools_dict=None):
+    """Main orchestrator function that compiles the entire unified user agent graph."""
     workflow = StateGraph(AgentState)
     agents, tools_node = initialize_agents(fast_llm, medium_llm, small_llm, tools_dict)
 
