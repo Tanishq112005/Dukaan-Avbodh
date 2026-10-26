@@ -3,17 +3,20 @@ import json
 import asyncio
 import logging
 from typing import Optional, Dict, Any, List, AsyncGenerator
-from fastapi import HTTPException
+from fastapi import Request, HTTPException
 from langchain_core.messages import HumanMessage
 from sqlmodel import select
 
 from agents.user import agent_service
 from config.database import db_connection
 from User.models import User, UserRole
+from User.database import userRepository
 from Cart.database import cart_repository
 from Chat.models import ChatMessage
 from Chat.schemas import ChatRequest, EventRequest
 from Chat.database import chat_audit_repo
+from Auth.jwt import AuthHandler
+from Auth.controller import is_real_user
 from utils.text_cleaning import clean_ai_output, StreamingThoughtFilter
 
 logger = logging.getLogger(__name__)
@@ -22,7 +25,7 @@ logger = logging.getLogger(__name__)
 class AgentController:
     """
     Controller for the User AI Chat Agent.
-    Orchestrates user-cart synchronization, in-memory LangGraph execution,
+    Orchestrates user-cart synchronization, access token resolution, in-memory LangGraph execution,
     real-time Server-Sent Events (SSE) token streaming with online thought filtering,
     Generative UI card dispatching strictly scoped to the active turn, and non-blocking state queueing.
     """
@@ -31,6 +34,78 @@ class AgentController:
         self.agent_service = service or agent_service
         self.audit_repo = audit_repo or chat_audit_repo
         self.cart_repo = cart_repo or cart_repository
+
+    @staticmethod
+    def extract_token_from_request(
+        request: Optional[Request] = None, token_param: Optional[str] = None
+    ) -> Optional[str]:
+        """Extracts Bearer access token from HTTP headers, request parameters, or explicit string."""
+        if token_param and str(token_param).strip():
+            raw = str(token_param).strip()
+            return raw[7:].strip() if raw.lower().startswith("bearer ") else raw
+
+        if request is not None:
+            auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+            if auth_header and auth_header.strip():
+                raw = auth_header.strip()
+                return raw[7:].strip() if raw.lower().startswith("bearer ") else raw
+            query_token = request.query_params.get("token") or request.query_params.get("access_token")
+            if query_token and query_token.strip():
+                return query_token.strip()
+
+        return None
+
+    async def resolve_user_context(
+        self,
+        user_id: int,
+        token: Optional[str] = None,
+        request: Optional[Request] = None,
+    ) -> Dict[str, Any]:
+        """
+        Decodes access token if available to resolve the verified user_id and customer profile.
+        Falls back to verifying user_id against the database.
+        Returns a dict: {"user_id": int, "is_authenticated": bool, "customer_profile": Optional[dict], "token": Optional[str]}
+        """
+        extracted_token = self.extract_token_from_request(request, token)
+        authenticated_user_id = None
+        customer_profile = None
+        is_authenticated = False
+
+        if extracted_token:
+            try:
+                decoded = AuthHandler.decode_token(extracted_token)
+                if decoded and "user_id" in decoded:
+                    authenticated_user_id = int(decoded["user_id"])
+                    is_authenticated = True
+            except Exception as e:
+                logger.debug("Access token decoding failed or expired: %s", e)
+
+        # If token was verified, use its user_id; otherwise use passed user_id
+        effective_user_id = authenticated_user_id if authenticated_user_id is not None else user_id
+
+        # Lookup user profile in database
+        try:
+            db_user = await userRepository.get_by_id(effective_user_id)
+            if db_user:
+                real_user = is_real_user(db_user)
+                if real_user:
+                    is_authenticated = True
+                customer_profile = {
+                    "id": db_user.id,
+                    "name": db_user.name,
+                    "email": db_user.email,
+                    "address": db_user.address,
+                    "role": db_user.role.value if hasattr(db_user.role, "value") else str(db_user.role),
+                }
+        except Exception as db_err:
+            logger.warning("Could not load user profile for user_id=%s: %s", effective_user_id, db_err)
+
+        return {
+            "user_id": effective_user_id,
+            "is_authenticated": is_authenticated,
+            "customer_profile": customer_profile,
+            "token": extracted_token,
+        }
 
     async def sync_cart_and_user(self, user_id: int, cart_data: list):
         """
@@ -51,11 +126,23 @@ class AgentController:
 
         await self.cart_repo.sync_items(user_id, cart_data)
 
-    async def _prepare_initial_state(self, user_id: int, thread_id_val: str, human_msg: HumanMessage):
+    async def _prepare_initial_state(
+        self,
+        user_id: int,
+        thread_id_val: str,
+        human_msg: HumanMessage,
+        token: Optional[str] = None,
+        request: Optional[Request] = None,
+    ):
         """
-        Hydrates cached conversation summary and important customer facts from Redis.
+        Hydrates cached conversation summary and customer identity from access token, DB, and Redis.
         Initializes turn-scoped cards and suggested products to empty arrays.
         """
+        user_ctx = await self.resolve_user_context(user_id=user_id, token=token, request=request)
+        eff_user_id = user_ctx["user_id"]
+        is_authenticated = user_ctx["is_authenticated"]
+        customer_profile = user_ctx["customer_profile"]
+
         cached_summary = None
         cached_facts = None
         try:
@@ -66,13 +153,21 @@ class AgentController:
                 cached_data = json.loads(raw_cached)
                 cached_summary = cached_data.get("conversation_summary")
                 cached_facts = cached_data.get("important_facts")
+                if not customer_profile and cached_data.get("customer_profile"):
+                    customer_profile = cached_data.get("customer_profile")
+                if not is_authenticated and cached_data.get("is_authenticated"):
+                    is_authenticated = True
+                if eff_user_id <= 0 and cached_data.get("user_id"):
+                    eff_user_id = int(cached_data.get("user_id"))
         except Exception as cache_err:
             logger.warning("Could not read cached agent state: %s", cache_err)
 
         initial_state = {
             "messages": [human_msg],
-            "user_id": user_id,
+            "user_id": eff_user_id,
             "thread_id": thread_id_val,
+            "is_authenticated": is_authenticated,
+            "customer_profile": customer_profile,
             "cards": [],
             "suggested_products": [],
         }
@@ -81,7 +176,7 @@ class AgentController:
         if cached_facts:
             initial_state["important_facts"] = cached_facts
 
-        return initial_state, cached_summary, cached_facts
+        return initial_state, cached_summary, cached_facts, eff_user_id
 
     async def _post_process_chat_completion(
         self,
@@ -222,24 +317,28 @@ class AgentController:
             "ai_discount": current_discount,
             "payment_link": payment_link,
             "payment_link_id": payment_link_id,
+            "user_id": user_id,
         }
 
-    async def process_message(self, req: ChatRequest) -> dict:
+    async def process_message(self, req: ChatRequest, request: Optional[Request] = None) -> dict:
         """
         Fast execution for chat messages without blocking audit database calls.
+        Extracts authentication from request headers or body token.
         """
-        try:
-            await self.sync_cart_and_user(req.user_id, req.cart)
-        except Exception as e:
-            logger.warning("sync_cart_and_user failed during process_message: %s", e)
-
+        token = getattr(req, "access_token", None)
         thread_id_val = req.thread_id or str(req.user_id)
         config = {"configurable": {"thread_id": thread_id_val}}
         human_msg = HumanMessage(content=req.text)
 
-        initial_state, cached_summary, cached_facts = await self._prepare_initial_state(
-            req.user_id, thread_id_val, human_msg
+        initial_state, cached_summary, cached_facts, eff_user_id = await self._prepare_initial_state(
+            req.user_id, thread_id_val, human_msg, token=token, request=request
         )
+        req.user_id = eff_user_id
+
+        try:
+            await self.sync_cart_and_user(eff_user_id, req.cart)
+        except Exception as e:
+            logger.warning("sync_cart_and_user failed during process_message: %s", e)
 
         try:
             # Directly invoke LangGraph conversation agent without pre-call database blocking
@@ -247,7 +346,7 @@ class AgentController:
             result = await agent.ainvoke(initial_state, config=config)
 
             return await self._post_process_chat_completion(
-                req.user_id, thread_id_val, result, cached_summary, cached_facts, human_msg
+                eff_user_id, thread_id_val, result, cached_summary, cached_facts, human_msg
             )
 
         except Exception as e:
@@ -259,32 +358,36 @@ class AgentController:
                 "suggested_products": [],
             }
 
-    async def stream_message(self, req: ChatRequest) -> AsyncGenerator[str, None]:
+    async def stream_message(
+        self, req: ChatRequest, request: Optional[Request] = None
+    ) -> AsyncGenerator[str, None]:
         """
         Streams LangGraph execution tokens in REAL TIME as they are produced by the LLM.
         Applies StreamingThoughtFilter to strip internal <think>, <thought>, and <reasoning> tags
         so zero internal model monologue leaks into the UI.
         Emits graph node updates, intermediate tool state, real-time tokens, Generative UI cards, and final payload.
         """
-        try:
-            await self.sync_cart_and_user(req.user_id, req.cart)
-        except Exception as e:
-            logger.warning("sync_cart_and_user failed during stream_message: %s", e)
-
+        token = getattr(req, "access_token", None)
         thread_id_val = req.thread_id or str(req.user_id)
         config = {"configurable": {"thread_id": thread_id_val}}
         human_msg = HumanMessage(content=req.text)
 
-        initial_state, cached_summary, cached_facts = await self._prepare_initial_state(
-            req.user_id, thread_id_val, human_msg
+        initial_state, cached_summary, cached_facts, eff_user_id = await self._prepare_initial_state(
+            req.user_id, thread_id_val, human_msg, token=token, request=request
         )
+        req.user_id = eff_user_id
+
+        try:
+            await self.sync_cart_and_user(eff_user_id, req.cart)
+        except Exception as e:
+            logger.warning("sync_cart_and_user failed during stream_message: %s", e)
 
         thought_filter = StreamingThoughtFilter()
         streamed_tokens: List[str] = []
 
         try:
             # Signal stream initiation immediately
-            yield f"data: {json.dumps({'type': 'stream_start', 'thread_id': thread_id_val})}\n\n"
+            yield f"data: {json.dumps({'type': 'stream_start', 'thread_id': thread_id_val, 'user_id': eff_user_id})}\n\n"
 
             agent = await self.agent_service.get_agent_async()
             latest_state = dict(initial_state)
@@ -347,7 +450,7 @@ class AgentController:
 
             # Final response assembly and non-blocking background queue persistence
             final_payload = await self._post_process_chat_completion(
-                req.user_id, thread_id_val, latest_state, cached_summary, cached_facts, human_msg
+                eff_user_id, thread_id_val, latest_state, cached_summary, cached_facts, human_msg
             )
 
             # If the LLM provider did not support token streaming, stream words as fallback
@@ -380,18 +483,52 @@ class AgentController:
             yield f"data: {json.dumps(error_payload)}\n\n"
             yield "data: [DONE]\n\n"
 
-    async def process_event(self, req: EventRequest) -> dict:
+    async def process_event(self, req: EventRequest, request: Optional[Request] = None) -> dict:
         """
         Fast execution for system/UI triggered events.
         """
-        thread_id_val = req.thread_id or str(req.user_id)
+        token = getattr(req, "access_token", None)
+        user_ctx = await self.resolve_user_context(user_id=req.user_id, token=token, request=request)
+        eff_user_id = user_ctx["user_id"]
+        req.user_id = eff_user_id
+
+        thread_id_val = req.thread_id or str(eff_user_id)
         config = {"configurable": {"thread_id": thread_id_val}}
+
+        # Event 0: Authentication Sync Event (login or signup)
+        if req.event in ["login", "signup", "user_login", "user_signup", "auth_sync"]:
+            sync_res = await self.sync_auth_state(
+                thread_id=thread_id_val,
+                user_id=eff_user_id,
+                token=token or user_ctx.get("token"),
+                customer_profile=user_ctx.get("customer_profile"),
+                request=request,
+            )
+            cart_items = []
+            try:
+                cart_items = await self.cart_repo.get_items(eff_user_id)
+            except Exception:
+                pass
+
+            return {
+                "type": "chat_reply",
+                "message": sync_res.get("message"),
+                "cards": [],
+                "suggested_products": [],
+                "user_id": eff_user_id,
+                "is_authenticated": True,
+                "customer_profile": sync_res.get("customer_profile"),
+                "cart": cart_items,
+            }
 
         # Event 1: Combo Declined
         if req.event == "combo_declined":
             try:
                 agent = await self.agent_service.get_agent_async()
-                await agent.aupdate_state(config, {"combo_offer": None, "cards": []})
+                try:
+                    await agent.aupdate_state(config, {"combo_offer": None, "cards": []}, as_node="agent")
+                except Exception:
+                    await agent.aupdate_state(config, {"combo_offer": None, "cards": []})
             except Exception as e:
                 logger.warning("combo_declined langgraph update failed: %s", e)
 
@@ -407,7 +544,7 @@ class AgentController:
                 result = await agent.ainvoke(
                     {
                         "messages": [hidden_msg],
-                        "user_id": req.user_id,
+                        "user_id": eff_user_id,
                         "thread_id": thread_id_val,
                         "cards": [],
                         "suggested_products": [],
@@ -416,7 +553,7 @@ class AgentController:
                 )
 
                 ai_reply = result.get("final_response")
-                updated_cart = result.get("cart") or await self.cart_repo.get_items(req.user_id)
+                updated_cart = result.get("cart") or await self.cart_repo.get_items(eff_user_id)
                 cards = list(result.get("cards") or [])
 
                 if result.get("payment_confirmed"):
@@ -440,6 +577,7 @@ class AgentController:
                     "suggested_products": [],
                     "cart": updated_cart,
                     "ai_discount": result.get("current_discount_percent", 0.0),
+                    "user_id": eff_user_id,
                 }
             except Exception as e:
                 logger.exception("payment_completed event failed: %s", e)
@@ -463,7 +601,7 @@ class AgentController:
                 pass
 
             try:
-                await self.sync_cart_and_user(req.user_id, req.cart)
+                await self.sync_cart_and_user(eff_user_id, req.cart)
             except Exception as e:
                 logger.warning("sync_cart_and_user failed during proactive event: %s", e)
 
@@ -473,7 +611,7 @@ class AgentController:
                 result = await agent.ainvoke(
                     {
                         "messages": [hidden_msg],
-                        "user_id": req.user_id,
+                        "user_id": eff_user_id,
                         "thread_id": thread_id_val,
                         "cards": [],
                         "suggested_products": [],
@@ -483,7 +621,7 @@ class AgentController:
 
                 ai_reply = result.get("final_response")
                 if ai_reply:
-                    updated_cart = result.get("cart") or await self.cart_repo.get_items(req.user_id)
+                    updated_cart = result.get("cart") or await self.cart_repo.get_items(eff_user_id)
                     cards = list(result.get("cards") or [])
                     has_rec = any(c.get("type") == "recommendation" for c in cards)
                     suggested = result.get("suggested_products", []) if has_rec else []
@@ -494,6 +632,7 @@ class AgentController:
                         "combo_offer": result.get("combo_offer", None),
                         "suggested_products": suggested,
                         "cart": updated_cart,
+                        "user_id": eff_user_id,
                     }
 
             except Exception as e:
@@ -501,35 +640,97 @@ class AgentController:
 
         return {"success": True}
 
-    async def stream_event(self, req: EventRequest) -> AsyncGenerator[str, None]:
+    async def stream_event(
+        self, req: EventRequest, request: Optional[Request] = None
+    ) -> AsyncGenerator[str, None]:
         """
         Streams system/UI event handling via Server-Sent Events (SSE).
         """
         thread_id_val = req.thread_id or str(req.user_id)
         yield f"data: {json.dumps({'type': 'stream_start', 'event': req.event, 'thread_id': thread_id_val})}\n\n"
 
-        res = await self.process_event(req)
+        res = await self.process_event(req, request=request)
         yield f"data: {json.dumps(res)}\n\n"
         yield "data: [DONE]\n\n"
 
-    async def sync_auth_state(self, thread_id: str, user_id: int, token: Optional[str] = None):
+    async def sync_auth_state(
+        self,
+        thread_id: Optional[str],
+        user_id: Optional[int] = None,
+        token: Optional[str] = None,
+        customer_profile: Optional[dict] = None,
+        request: Optional[Request] = None,
+    ) -> dict:
         """
-        Syncs newly authenticated customer session with active LangGraph conversation thread and Redis cache.
+        Directly injects the authenticated user ID and customer profile into the LangGraph AgentState,
+        Redis cache, and chat database for the specified thread_id after processing the access token.
         """
+        user_ctx = await self.resolve_user_context(
+            user_id=user_id or 0,
+            token=token,
+            request=request,
+        )
+        eff_user_id = user_ctx["user_id"]
+        is_authenticated = user_ctx["is_authenticated"]
+        profile = customer_profile or user_ctx["customer_profile"]
+        auth_token = user_ctx["token"]
+
+        thread_id_val = thread_id or str(eff_user_id)
+        config = {"configurable": {"thread_id": thread_id_val}}
+
+        updates = {
+            "user_id": eff_user_id,
+            "is_authenticated": is_authenticated,
+            "customer_profile": profile,
+        }
+        if auth_token:
+            updates["auth_token"] = auth_token
+
+        # 1. Update LangGraph state for active conversation thread
+        try:
+            agent = await self.agent_service.get_agent_async()
+            try:
+                await agent.aupdate_state(config, updates, as_node="agent")
+            except Exception:
+                await agent.aupdate_state(config, updates)
+            logger.info("LangGraph agent state updated for thread %s: user_id=%s", thread_id_val, eff_user_id)
+        except Exception as lg_err:
+            logger.warning("aupdate_state in sync_auth_state warning: %s", lg_err)
+
+        # 2. Update Redis cached state
         try:
             from config.redis import redisClient
             r_client = redisClient.get_redis_client()
-            cache_key = f"agent_state:{thread_id}"
+            cache_key = f"agent_state:{thread_id_val}"
             raw = r_client.get(cache_key)
             state_data = json.loads(raw) if raw else {}
-            state_data["user_id"] = user_id
-            state_data["is_authenticated"] = True
-            if token:
-                state_data["auth_token"] = token
+            state_data.update(updates)
             r_client.set(cache_key, json.dumps(state_data), ex=86400)
-            logger.info("Synced authenticated user %s with agent thread %s", user_id, thread_id)
-        except Exception as e:
-            logger.warning("Could not sync agent auth state for thread %s: %s", thread_id, e)
+            logger.info("Synced authenticated user %s with agent thread %s in Redis", eff_user_id, thread_id_val)
+        except Exception as r_err:
+            logger.warning("Redis sync_auth_state warning for thread %s: %s", thread_id_val, r_err)
+
+        # 3. Ensure user exists in cart repository and SQL
+        try:
+            await self.cart_repo.ensure_user_cart(eff_user_id)
+        except Exception:
+            pass
+
+        client_name = profile.get("name") if profile else None
+        greeting = (
+            f"Welcome back, {client_name}! You're logged in and your shopping bag is synced."
+            if client_name
+            else "You're now logged in! How can I help you today?"
+        )
+
+        return {
+            "success": True,
+            "user_id": eff_user_id,
+            "thread_id": thread_id_val,
+            "is_authenticated": is_authenticated,
+            "customer_profile": profile,
+            "message": greeting,
+        }
 
 
 agentController = AgentController()

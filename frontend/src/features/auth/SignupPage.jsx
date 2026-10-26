@@ -16,7 +16,7 @@ export function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { login } = useStore();
+  const { login, thread_id } = useStore();
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
@@ -30,6 +30,7 @@ export function SignupPage() {
         email,
         password,
         role,
+        thread_id,
       });
 
       login(

@@ -2,11 +2,44 @@ import apiClient from "./api.js";
 
 const API_BASE_URL = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) || "http://localhost:8000";
 
+const getStoredToken = () => {
+  try {
+    const stored = localStorage.getItem("dukaan-store");
+    if (stored) {
+      const parsedStored = JSON.parse(stored);
+      return parsedStored?.state?.token || null;
+    }
+  } catch {
+    // Ignore localStorage retrieval issues
+  }
+  return null;
+};
+
 /**
  * Service for interacting with user and merchant AI agents.
  * Interfaces with agents.user.routes, routes.chat_routes, routes.merchant_routes, and Negotiation/routes.
  */
 export const agentService = {
+  /**
+   * Synchronizes the authenticated user ID and access token directly with the AI AgentState.
+   * Called immediately upon user login or signup.
+   * @param {Object} payload
+   * @param {string} payload.token
+   * @param {number} payload.userId
+   * @param {string} payload.threadId
+   * @param {string} [payload.event="login"]
+   * @returns {Promise<Object>}
+   */
+  async syncAuth({ token, userId, threadId, event = "login" }) {
+    const res = await apiClient.post("/chat/auth-sync", {
+      access_token: token,
+      user_id: Number(userId),
+      thread_id: String(threadId),
+      event,
+    });
+    return res.data;
+  },
+
   /**
    * Sends a user message to the conversational shopping agent (Standard JSON).
    * @param {Object} payload
@@ -14,14 +47,17 @@ export const agentService = {
    * @param {string} payload.threadId
    * @param {string} payload.text
    * @param {Array} [payload.cart=[]]
+   * @param {string} [payload.accessToken]
    * @returns {Promise<Object>}
    */
-  async sendUserMessage({ userId, threadId, text, cart = [] }) {
+  async sendUserMessage({ userId, threadId, text, cart = [], accessToken = null }) {
+    const token = accessToken || getStoredToken();
     const res = await apiClient.post("/chat/message", {
       user_id: Number(userId),
       thread_id: String(threadId),
       text: String(text),
       cart,
+      access_token: token,
     });
     return res.data;
   },
@@ -31,16 +67,19 @@ export const agentService = {
    * @param {Object} payload
    * @param {number} payload.userId
    * @param {string} payload.threadId
-   * @param {string} payload.event - E.g. "payment_completed", "viewed_checkout", "combo_declined"
+   * @param {string} payload.event - E.g. "payment_completed", "viewed_checkout", "combo_declined", "login", "signup"
    * @param {Array} [payload.cart=[]]
+   * @param {string} [payload.accessToken]
    * @returns {Promise<Object>}
    */
-  async sendUserEvent({ userId, threadId, event, cart = [] }) {
+  async sendUserEvent({ userId, threadId, event, cart = [], accessToken = null }) {
+    const token = accessToken || getStoredToken();
     const res = await apiClient.post("/chat/event", {
       user_id: Number(userId),
       thread_id: String(threadId),
       event: String(event),
       cart,
+      access_token: token,
     });
     return res.data;
   },
@@ -53,6 +92,7 @@ export const agentService = {
    * @param {string} payload.threadId
    * @param {string} payload.text
    * @param {Array} [payload.cart=[]]
+   * @param {string} [payload.accessToken]
    * @param {Object} callbacks
    * @param {Function} [callbacks.onToken] - Called for streaming word/character tokens
    * @param {Function} [callbacks.onNodeUpdate] - Called for graph progress nodes (director, negotiation, etc.)
@@ -61,7 +101,7 @@ export const agentService = {
    * @param {Function} [callbacks.onError] - Called on network/stream errors
    */
   async streamUserMessage(
-    { userId, threadId, text, cart = [] },
+    { userId, threadId, text, cart = [], accessToken = null },
     { onToken, onNodeUpdate, onCard, onComplete, onError } = {}
   ) {
     try {
@@ -70,17 +110,9 @@ export const agentService = {
         Accept: "text/event-stream",
       };
 
-      try {
-        const stored = localStorage.getItem("dukaan-store");
-        if (stored) {
-          const parsedStored = JSON.parse(stored);
-          const token = parsedStored?.state?.token;
-          if (token) {
-            headers["Authorization"] = `Bearer ${token}`;
-          }
-        }
-      } catch {
-        // Ignore localStorage retrieval issues
+      const token = accessToken || getStoredToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
       }
 
       const response = await fetch(`${API_BASE_URL}/chat/message/stream`, {
@@ -91,6 +123,7 @@ export const agentService = {
           thread_id: String(threadId),
           text: String(text),
           cart,
+          access_token: token,
         }),
       });
 

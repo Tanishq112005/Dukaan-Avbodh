@@ -10,6 +10,11 @@ export const createAuthSlice = (set, get) => ({
     if (fetchBackendCart) {
       fetchBackendCart();
     }
+    // Directly sync the authenticated user ID and token into AI AgentState
+    const syncAiAuth = get().syncAiAuth;
+    if (syncAiAuth) {
+      syncAiAuth(userData, token, "login");
+    }
   },
   logout: () => {
     set({
@@ -19,5 +24,9 @@ export const createAuthSlice = (set, get) => ({
       aiDiscount: 0,
       comboOffer: null,
     });
+    const startNewChat = get().startNewChat;
+    if (startNewChat) {
+      startNewChat();
+    }
   },
 });

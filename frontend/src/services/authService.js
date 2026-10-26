@@ -17,14 +17,16 @@ export const authService = {
    * @param {string} payload.email - User's email
    * @param {string} payload.password - User's password
    * @param {string} [payload.role="customer"] - "customer" | "merchant"
-   * @returns {Promise<{ access_token: string, user_id: number, role: string }>}
+   * @param {string|null} [payload.thread_id=null] - Active conversation thread to sync AgentState
+   * @returns {Promise<{ access_token: string, user_id: number, role: string, name?: string, email?: string }>}
    */
-  async signup({ name, email, password, role = "customer" }) {
+  async signup({ name, email, password, role = "customer", thread_id = null }) {
     const res = await apiClient.post("/auth/signup", {
       name,
       email,
       password,
       role,
+      thread_id,
     });
     return res.data;
   },
@@ -34,12 +36,14 @@ export const authService = {
    * @param {Object} payload
    * @param {string} payload.email - User's email
    * @param {string} payload.password - User's password
-   * @returns {Promise<{ access_token: string, user_id: number, role: string }>}
+   * @param {string|null} [payload.thread_id=null] - Active conversation thread to sync AgentState
+   * @returns {Promise<{ access_token: string, user_id: number, role: string, name?: string, email?: string, address?: string }>}
    */
-  async login({ email, password }) {
+  async login({ email, password, thread_id = null }) {
     const res = await apiClient.post("/auth/login", {
       email,
       password,
+      thread_id,
     });
     return res.data;
   },

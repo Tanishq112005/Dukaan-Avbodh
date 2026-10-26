@@ -12,7 +12,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useStore();
+  const { login, thread_id } = useStore();
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
@@ -21,12 +21,14 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      const data = await authService.login({ email, password });
+      const data = await authService.login({ email, password, thread_id });
       login(
         {
           email,
           id: data.user_id,
           role: data.role,
+          name: data.name,
+          address: data.address,
         },
         data.access_token
       );

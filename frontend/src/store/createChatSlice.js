@@ -64,6 +64,38 @@ export const createChatSlice = (set, get) => ({
   },
   clearComboOffer: () => set({ comboOffer: null }),
 
+  syncAiAuth: async (userData, token, event = "login") => {
+    const userId = userData?.id || userData?.user_id;
+    const threadId = get().thread_id || get().threadId;
+    if (!userId) return;
+
+    try {
+      const res = await agentService.syncAuth({
+        token,
+        userId,
+        threadId,
+        event,
+      });
+
+      // If the chat has existing messages or is active, post confirmation so AI state is visibly reflected
+      if (res && res.message && get().aiMessages.length > 0) {
+        const authAiMsg = {
+          id: "ai_auth_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
+          sender: "ai",
+          text: res.message,
+          cards: [],
+          suggested_products: [],
+        };
+        set((state) => ({
+          aiMessages: [...state.aiMessages, authAiMsg],
+          aiMessagesLastUpdated: Date.now(),
+        }));
+      }
+    } catch (err) {
+      console.warn("[ChatSlice] AI auth sync warning:", err);
+    }
+  },
+
   _handleChatResponse: (data) => {
     if (!data) return;
 
@@ -225,6 +257,7 @@ export const createChatSlice = (set, get) => ({
       });
     };
 
+    const token = get().token;
     const userId = get().user?.id || get().guestId;
     const threadId = get().thread_id || get().threadId;
     const cart = get().cart || [];
@@ -234,7 +267,7 @@ export const createChatSlice = (set, get) => ({
 
     try {
       await agentService.streamUserMessage(
-        { userId, threadId, text, cart },
+        { userId, threadId, text, cart, accessToken: token },
         {
           onToken: (token) => {
             accumulatedText += token;
@@ -370,6 +403,7 @@ export const createChatSlice = (set, get) => ({
           threadId,
           text,
           cart,
+          accessToken: token,
         });
         set((state) => ({
           aiMessages: state.aiMessages.filter((m) => m.id !== streamMessageId),
@@ -393,6 +427,7 @@ export const createChatSlice = (set, get) => ({
     if (showTyping) set({ isAiTyping: true, isAgentOpen: true });
 
     try {
+      const token = get().token;
       const userId = get().user?.id || get().guestId;
       const threadId = get().thread_id || get().threadId;
       const cart = get().cart || [];
@@ -402,6 +437,7 @@ export const createChatSlice = (set, get) => ({
         threadId,
         event: eventName,
         cart,
+        accessToken: token,
         ...payload,
       });
 
