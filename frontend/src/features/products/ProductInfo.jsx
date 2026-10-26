@@ -67,7 +67,7 @@ export function ProductInfo({ product, addToCart }) {
           <span className="text-xs text-stone-400">· 142 verified buyers</span>
         </div>
 
-        {/* Pricing */}
+        {/* Pricing without percentage badge */}
         <div className="flex items-baseline gap-3 mt-5 pb-5 border-b border-stone-200/80">
           <span className="font-display text-3xl sm:text-4xl font-extrabold text-stone-900">
             {formattedPrice}
@@ -75,11 +75,6 @@ export function ProductInfo({ product, addToCart }) {
           {originalPrice && (
             <span className="text-base text-stone-400 line-through font-medium">
               {originalPrice}
-            </span>
-          )}
-          {product.discount > 0 && (
-            <span className="bg-[#6e1423] text-white text-xs font-bold px-2.5 py-1 rounded-full tracking-wider">
-              SAVE {product.discount}%
             </span>
           )}
         </div>
