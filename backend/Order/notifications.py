@@ -4,7 +4,6 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 from rabbitmq.producer import rabbitProducer
-from User.database import userRepository
 from Order.models import Order as OrderModel
 
 logger = logging.getLogger(__name__)
@@ -30,6 +29,8 @@ async def enqueue_order_confirmation_notification(
 
     if effective_uid:
         try:
+            # Lazy import to prevent circular import between User and Order
+            from User.database import userRepository
             user_obj = await userRepository.get_by_id(effective_uid)
         except Exception as e:
             logger.warning("[OrderNotification] Could not fetch user %s: %s", effective_uid, e)
