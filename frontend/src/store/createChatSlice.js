@@ -75,16 +75,16 @@ export const createChatSlice = (set, get) => ({
           ? fromText[0]
           : null;
 
+      const aiMsg = {
+        id: "ai_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
+        sender: "ai",
+        text: data.message,
+        suggested_products: normalizeProducts(data.suggested_products),
+        payment_link,
+      };
+
       set((state) => ({
-        aiMessages: [
-          ...state.aiMessages,
-          {
-            sender: "ai",
-            text: data.message,
-            suggested_products: normalizeProducts(data.suggested_products),
-            payment_link,
-          },
-        ],
+        aiMessages: [...state.aiMessages, aiMsg],
         aiMessagesLastUpdated: Date.now(),
         isAgentOpen: true,
         isAiTyping: false,
@@ -166,8 +166,17 @@ export const createChatSlice = (set, get) => ({
   sendAiMessage: async (text) => {
     if (!text || !text.trim()) return;
 
-    const userMessage = { sender: "user", text };
+    const userMessageId = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
+    const streamMessageId = "ai_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
+
+    const userMessage = {
+      id: userMessageId,
+      sender: "user",
+      text: text.trim(),
+    };
+
     const streamingAiMessage = {
+      id: streamMessageId,
       sender: "ai",
       text: "",
       isStreaming: true,
@@ -182,11 +191,37 @@ export const createChatSlice = (set, get) => ({
       isAiTyping: true,
     }));
 
+    const updateStreamingMessage = (updater) => {
+      set((state) => {
+        const msgs = [...state.aiMessages];
+        let idx = msgs.findIndex((m) => m.id === streamMessageId);
+        if (idx === -1) {
+          idx = msgs.slice().reverse().findIndex((m) => m.sender === "ai");
+          if (idx !== -1) {
+            idx = msgs.length - 1 - idx;
+          }
+        }
+        if (idx !== -1) {
+          msgs[idx] = updater(msgs[idx]);
+        } else {
+          msgs.push(updater({
+            id: streamMessageId,
+            sender: "ai",
+            text: "",
+            isStreaming: true,
+            suggested_products: [],
+          }));
+        }
+        return { aiMessages: msgs };
+      });
+    };
+
     const userId = get().user?.id || get().guestId;
     const threadId = get().thread_id || get().threadId;
     const cart = get().cart || [];
 
     let accumulatedText = "";
+    let completed = false;
 
     try {
       await agentService.streamUserMessage(
@@ -194,61 +229,62 @@ export const createChatSlice = (set, get) => ({
         {
           onToken: (token) => {
             accumulatedText += token;
-            set((state) => {
-              const msgs = [...state.aiMessages];
-              const lastIdx = msgs.length - 1;
-              const last = msgs[lastIdx];
-              if (last && last.sender === "ai") {
-                msgs[lastIdx] = {
-                  ...last,
-                  text: accumulatedText,
-                  isStreaming: true,
-                  streamingStatus: null,
-                };
-              }
-              return { aiMessages: msgs, isAiTyping: false };
-            });
+            updateStreamingMessage((prev) => ({
+              ...prev,
+              text: accumulatedText,
+              isStreaming: true,
+              streamingStatus: null,
+            }));
+            set({ isAiTyping: false });
           },
-          onNodeUpdate: (nodeName) => {
+          onNodeUpdate: (nodeName, fullData) => {
             const statusMap = {
-              director: "Analyzing look and style...",
+              director: "Analyzing look & style...",
+              recommendation: "Curating personalized recommendations...",
               general: "Finding atelier recommendations...",
-              catalog: "Checking inventory...",
+              catalog: "Checking inventory & sizes...",
+              tools: "Checking catalog availability...",
               negotiation: "Calculating VIP discount...",
               cart: "Updating shopping bag...",
               post_process: "Finalizing recommendations...",
             };
-            const label = statusMap[nodeName] || "Stylist is thinking...";
-            set((state) => {
-              const msgs = [...state.aiMessages];
-              const lastIdx = msgs.length - 1;
-              const last = msgs[lastIdx];
-              if (last && last.sender === "ai" && !last.text) {
-                msgs[lastIdx] = {
-                  ...last,
-                  streamingStatus: label,
-                };
+
+            let label = statusMap[nodeName] || "Stylist is thinking...";
+
+            if (nodeName === "director" && fullData?.intent) {
+              const intentMap = {
+                product_search: "Exploring atelier collections...",
+                recommendation: "Matching outfits to your personal style...",
+                bargain: "Reviewing discount options...",
+                negotiation: "Calculating VIP discount...",
+                cart_operation: "Managing your shopping bag...",
+                add_to_cart: "Adding items to your bag...",
+                checkout: "Preparing secure checkout...",
+              };
+              if (intentMap[fullData.intent]) {
+                label = intentMap[fullData.intent];
               }
-              return { aiMessages: msgs };
+            }
+
+            updateStreamingMessage((prev) => {
+              if (!prev.text) {
+                return { ...prev, streamingStatus: label };
+              }
+              return prev;
             });
           },
           onComplete: (payload) => {
-            set((state) => {
-              const msgs = [...state.aiMessages];
-              const lastIdx = msgs.length - 1;
-              const last = msgs[lastIdx];
-              if (last && last.sender === "ai") {
-                msgs[lastIdx] = {
-                  ...last,
-                  text: payload.message || accumulatedText || "Sorry, I couldn't process that. Please try again.",
-                  isStreaming: false,
-                  streamingStatus: null,
-                  suggested_products: normalizeProducts(payload.suggested_products),
-                  payment_link: payload.payment_link || null,
-                };
-              }
-              return { aiMessages: msgs, isAiTyping: false };
-            });
+            completed = true;
+            updateStreamingMessage((prev) => ({
+              ...prev,
+              text: payload.message || accumulatedText || "Sorry, I couldn't process that. Please try again.",
+              isStreaming: false,
+              streamingStatus: null,
+              suggested_products: normalizeProducts(payload.suggested_products),
+              payment_link: payload.payment_link || null,
+            }));
+
+            set({ isAiTyping: false });
 
             if (payload.combo_offer) set({ comboOffer: payload.combo_offer });
             if (payload.cart && Array.isArray(payload.cart)) {
@@ -277,6 +313,17 @@ export const createChatSlice = (set, get) => ({
           },
         }
       );
+
+      // In case stream ended normally without an explicit chat_reply event
+      if (!completed && accumulatedText.trim()) {
+        updateStreamingMessage((prev) => ({
+          ...prev,
+          text: accumulatedText,
+          isStreaming: false,
+          streamingStatus: null,
+        }));
+        set({ isAiTyping: false });
+      }
     } catch (streamErr) {
       console.warn("[AgentWidget] Stream error, falling back to standard JSON endpoint:", streamErr);
       try {
@@ -286,28 +333,19 @@ export const createChatSlice = (set, get) => ({
           text,
           cart,
         });
-        set((state) => {
-          const msgs = [...state.aiMessages];
-          if (msgs.length > 0 && msgs[msgs.length - 1].sender === "ai") {
-            msgs.pop();
-          }
-          return { aiMessages: msgs };
-        });
+        set((state) => ({
+          aiMessages: state.aiMessages.filter((m) => m.id !== streamMessageId),
+        }));
         get()._handleChatResponse(responseData);
       } catch (err) {
         console.error("[AgentWidget] Both stream and fallback failed:", err);
-        set((state) => {
-          const msgs = [...state.aiMessages];
-          if (msgs.length > 0 && msgs[msgs.length - 1].sender === "ai") {
-            msgs[msgs.length - 1] = {
-              sender: "ai",
-              text: "I'm having a brief connection delay. Please feel free to ask again in a moment.",
-              isStreaming: false,
-              streamingStatus: null,
-            };
-          }
-          return { aiMessages: msgs, isAiTyping: false };
-        });
+        updateStreamingMessage((prev) => ({
+          ...prev,
+          text: "I'm having a brief connection delay. Please feel free to ask again in a moment.",
+          isStreaming: false,
+          streamingStatus: null,
+        }));
+        set({ isAiTyping: false });
       }
     }
   },

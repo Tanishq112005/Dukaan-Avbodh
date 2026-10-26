@@ -64,12 +64,27 @@ export const agentService = {
     { onToken, onNodeUpdate, onComplete, onError } = {}
   ) {
     try {
+      const headers = {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      };
+
+      try {
+        const stored = localStorage.getItem("dukaan-store");
+        if (stored) {
+          const parsedStored = JSON.parse(stored);
+          const token = parsedStored?.state?.token;
+          if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+          }
+        }
+      } catch {
+        // Ignore localStorage retrieval issues
+      }
+
       const response = await fetch(`${API_BASE_URL}/chat/message/stream`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "text/event-stream",
-        },
+        headers,
         body: JSON.stringify({
           user_id: Number(userId),
           thread_id: String(threadId),
@@ -130,6 +145,15 @@ export const agentService = {
             ) {
               if (onComplete) {
                 onComplete(parsed);
+              }
+            }
+            // 4. Server-reported error payload
+            else if (parsed.error) {
+              if (onComplete) {
+                onComplete({
+                  type: "chat_reply",
+                  message: typeof parsed.error === "string" ? parsed.error : "An error occurred.",
+                });
               }
             }
           } catch {

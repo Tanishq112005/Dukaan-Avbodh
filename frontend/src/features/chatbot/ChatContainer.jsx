@@ -13,34 +13,55 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
 export function AgentWidget() {
   const [input, setInput] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const { aiMessages, aiMessagesLastUpdated, isAiTyping, sendAiMessage, isAiConnected, comboOffer, connectAgent, disconnectAgent, isAgentOpen, setIsAgentOpen, openPaymentLink, pollPaymentStatus, startNewChat } = useStore();
+  const {
+    aiMessages,
+    isAiTyping,
+    sendAiMessage,
+    isAiConnected,
+    comboOffer,
+    connectAgent,
+    disconnectAgent,
+    isAgentOpen,
+    setIsAgentOpen,
+    openPaymentLink,
+    pollPaymentStatus,
+    startNewChat,
+  } = useStore();
 
   useEffect(() => {
     connectAgent();
 
-    // Clean up any stale/interrupted streaming placeholders restored from localStorage
-    useStore.setState((state) => ({
-      aiMessages: (state.aiMessages || [])
-        .filter((m) => !(m.isStreaming && !m.text))
-        .map((m) => (m.isStreaming ? { ...m, isStreaming: false, streamingStatus: null } : m)),
-      isAiTyping: false,
-    }));
-
-    if (aiMessagesLastUpdated && (Date.now() - aiMessagesLastUpdated > 24 * 60 * 60 * 1000)) {
-      useStore.setState({ aiMessages: [], aiMessagesLastUpdated: Date.now(), comboOffer: null });
-    } else if (!aiMessagesLastUpdated) {
-      useStore.setState({ aiMessagesLastUpdated: Date.now() });
+    // Clean up any stale or interrupted streaming placeholders restored from localStorage on initial mount
+    const state = useStore.getState();
+    const lastUpdated = state.aiMessagesLastUpdated;
+    if (lastUpdated && (Date.now() - lastUpdated > 24 * 60 * 60 * 1000)) {
+      useStore.setState({
+        aiMessages: [],
+        aiMessagesLastUpdated: Date.now(),
+        comboOffer: null,
+        isAiTyping: false,
+      });
+    } else {
+      useStore.setState((s) => ({
+        aiMessages: (s.aiMessages || [])
+          .filter((m) => !(m.isStreaming && !m.text))
+          .map((m) => (m.isStreaming ? { ...m, isStreaming: false, streamingStatus: null } : m)),
+        isAiTyping: false,
+        aiMessagesLastUpdated: lastUpdated || Date.now(),
+      }));
     }
+
     return () => disconnectAgent();
-  }, [connectAgent, disconnectAgent, aiMessagesLastUpdated]);
+  }, [connectAgent, disconnectAgent]);
 
   const chatContainerRef = useRef(null);
 
   useEffect(() => {
     if (chatContainerRef.current) {
+      const isStreaming = aiMessages.some((m) => m.isStreaming);
       chatContainerRef.current.scrollTo({
         top: chatContainerRef.current.scrollHeight,
-        behavior: 'smooth'
+        behavior: isStreaming ? 'auto' : 'smooth',
       });
     }
   }, [aiMessages, isAgentOpen, isAiTyping]);
@@ -71,7 +92,10 @@ export function AgentWidget() {
 
   const handleSend = (e) => {
     e.preventDefault();
-    if (input.trim()) { sendAiMessage(input); setInput(''); }
+    if (input.trim()) {
+      sendAiMessage(input);
+      setInput('');
+    }
   };
 
   const handleProductClick = () => {
@@ -89,7 +113,13 @@ export function AgentWidget() {
             ? "flex-1 w-full h-full bg-[#FBF8F3]"
             : "bg-white mb-4 w-[92vw] sm:w-[420px] border border-stone-200/80 rounded-[28px] shadow-[0_24px_80px_-24px_rgba(20,16,12,0.45)] h-[72vh]"
         )}>
-          <ChatHeader isAiConnected={isAiConnected} setIsAgentOpen={(v) => { setIsAgentOpen(v); setIsFullScreen(false); }} isFullScreen={isFullScreen} setIsFullScreen={setIsFullScreen} startNewChat={startNewChat} />
+          <ChatHeader
+            isAiConnected={isAiConnected}
+            setIsAgentOpen={(v) => { setIsAgentOpen(v); setIsFullScreen(false); }}
+            isFullScreen={isFullScreen}
+            setIsFullScreen={setIsFullScreen}
+            startNewChat={startNewChat}
+          />
           <div className={cn("flex-1 overflow-hidden flex flex-col", isFullScreen ? "max-w-4xl mx-auto w-full" : "")}>
             <ChatMessages
               aiMessages={aiMessages}
@@ -103,7 +133,13 @@ export function AgentWidget() {
             />
           </div>
           <div className={cn(isFullScreen ? "bg-[#FBF8F3]" : "")}>
-            <ChatInput input={input} setInput={setInput} handleSend={handleSend} isAiConnected={isAiConnected} isFullScreen={isFullScreen} />
+            <ChatInput
+              input={input}
+              setInput={setInput}
+              handleSend={handleSend}
+              isAiConnected={isAiConnected}
+              isFullScreen={isFullScreen}
+            />
           </div>
         </div>
       )}

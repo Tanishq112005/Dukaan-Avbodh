@@ -18,21 +18,26 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
         {msg.sender === 'user' ? <User size={13} /> : <Bot size={13} className="text-[#C45C26]"/>}
       </div>
       <div className={cn(
-        "px-3.5 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm leading-relaxed",
+        "px-3.5 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm leading-relaxed transition-all",
         msg.sender === 'user'
           ? "bg-stone-900 text-white rounded-tr-sm"
           : "bg-white border border-stone-100 text-stone-800 rounded-tl-sm"
       )}>
         {msg.streamingStatus && !msg.text ? (
-          <div className="flex items-center gap-2 text-xs text-stone-500 py-1">
-            <Loader2 size={13} className="animate-spin text-[#C45C26]" />
-            <span>{msg.streamingStatus}</span>
+          <div className="flex items-center gap-2.5 text-xs text-stone-600 py-1.5 transition-all duration-300">
+            <div className="relative flex items-center justify-center w-4 h-4 flex-shrink-0">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-[#C45C26]/25 animate-ping" />
+              <Loader2 size={13} className="animate-spin text-[#C45C26] relative z-10" />
+            </div>
+            <span className="font-medium tracking-wide text-stone-700 animate-pulse">
+              {msg.streamingStatus}
+            </span>
           </div>
         ) : (
           <div className="whitespace-pre-wrap">
             {renderMessage(msg.text, msg.payment_link)}
             {msg.isStreaming && (
-              <span className="inline-block w-1.5 h-3.5 ml-1 bg-[#C45C26] animate-pulse align-middle" />
+              <span className="inline-block w-1.5 h-3.5 ml-1 bg-[#C45C26] animate-pulse align-middle rounded-sm" />
             )}
           </div>
         )}
@@ -88,6 +93,11 @@ export function ChatMessages({ aiMessages, isAiTyping, comboOffer, chatContainer
     ))
   ), [aiMessages, renderMessage, onPayClick, onProductClick]);
 
+  const hasStreamingMessage = useMemo(
+    () => aiMessages.some((m) => m.isStreaming),
+    [aiMessages]
+  );
+
   return (
     <div ref={chatContainerRef} className={cn("flex-1 overflow-y-auto custom-scrollbar space-y-6 bg-[#FBF8F3]", isFullScreen ? "px-8 md:px-16 py-8" : "p-4")}>
       {aiMessages.length === 0 ? (
@@ -102,14 +112,17 @@ export function ChatMessages({ aiMessages, isAiTyping, comboOffer, chatContainer
       ) : (
         renderedMessages
       )}
-      {isAiTyping && (
+      {isAiTyping && !hasStreamingMessage && (
         <div className="flex gap-2">
           <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1 bg-[#C45C26]/10">
             <Bot size={13} className="text-[#C45C26]"/>
           </div>
           <div className="px-3.5 py-3 rounded-2xl max-w-[80%] text-sm shadow-sm bg-white border border-stone-100 text-stone-800 rounded-tl-sm flex items-center gap-2">
-            <Loader2 size={14} className="animate-spin text-[#C45C26]" />
-            <span className="text-stone-400">Stylist is thinking...</span>
+            <div className="relative flex items-center justify-center w-4 h-4 flex-shrink-0">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-[#C45C26]/25 animate-ping" />
+              <Loader2 size={13} className="animate-spin text-[#C45C26] relative z-10" />
+            </div>
+            <span className="text-stone-500 font-medium text-xs animate-pulse">Stylist is thinking...</span>
           </div>
         </div>
       )}
