@@ -1,17 +1,35 @@
 import { Link } from "react-router-dom";
 import { Star } from "lucide-react";
 
-export function ProductCard({ id, name, price, rating, discount, image_url, index, eager = false, size = "normal" }) {
-  const imgUrl = image_url || `https://picsum.photos/seed/${id}/600/750`;
+export function ProductCard({
+  id,
+  product_id,
+  name,
+  price,
+  rating,
+  discount,
+  image_url,
+  image,
+  index,
+  eager = false,
+  size = "normal",
+  onProductClick,
+}) {
+  const finalId = id || product_id;
+  const imgUrl = image_url || image || (finalId ? `https://picsum.photos/seed/${finalId}/600/750` : "https://picsum.photos/seed/dukaan/600/750");
 
   if (size === "small") {
     return (
-      <Link to={`/product/${id}`} className="flex-shrink-0 w-32 border border-hairline overflow-hidden block hover:border-ink/40 transition-colors bg-paper group">
+      <Link
+        to={finalId ? `/product/${finalId}` : "#"}
+        onClick={() => onProductClick?.(finalId)}
+        className="flex-shrink-0 w-32 border border-hairline overflow-hidden block hover:border-ink/40 transition-all bg-paper group cursor-pointer shadow-sm hover:shadow-md"
+      >
         <div className="relative h-28 bg-stone-surface overflow-hidden">
           <img
             src={imgUrl}
-            alt={name}
-            className="product-card-img w-full h-full object-cover"
+            alt={name || "Product"}
+            className="product-card-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
             decoding="async"
             width="128"
@@ -19,15 +37,19 @@ export function ProductCard({ id, name, price, rating, discount, image_url, inde
           />
         </div>
         <div className="p-2">
-          <p className="text-xs font-medium text-ink truncate" title={name}>{name}</p>
-          <p className="text-[11px] font-bold text-ink mt-0.5">₹{price}</p>
+          <p className="text-xs font-medium text-ink truncate" title={name}>{name || "View Item"}</p>
+          <p className="text-[11px] font-bold text-ink mt-0.5">₹{price !== undefined && price !== null ? price : 0}</p>
         </div>
       </Link>
     );
   }
 
   return (
-    <Link to={`/product/${id}`} className="group cursor-pointer block">
+    <Link
+      to={finalId ? `/product/${finalId}` : "#"}
+      onClick={() => onProductClick?.(finalId)}
+      className="group cursor-pointer block"
+    >
       <div className="img-frame aspect-[4/5] border border-hairline mb-4 relative">
         {typeof index === "number" && (
           <span className="absolute top-3 left-3 z-10 text-[11px] font-medium text-ink/50 bg-paper/90 px-1.5 py-0.5">

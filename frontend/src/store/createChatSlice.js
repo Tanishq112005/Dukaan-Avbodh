@@ -8,6 +8,24 @@ const generateUUID = () => {
   return "thread_" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 };
 
+const normalizeProducts = (items) => {
+  if (!Array.isArray(items)) return [];
+  return items.map((item) => {
+    if (!item) return item;
+    const p = item.product && typeof item.product === "object"
+      ? { ...item.product, id: item.product.id || item.product_id }
+      : item;
+    const prodId = p.id || p.product_id;
+    return {
+      ...p,
+      id: prodId,
+      name: p.name || "Product",
+      price: p.price !== undefined && p.price !== null ? p.price : 0,
+      image_url: p.image_url || p.image || null,
+    };
+  });
+};
+
 export const createChatSlice = (set, get) => ({
   aiMessages: [],
   aiMessagesLastUpdated: null,
@@ -63,7 +81,7 @@ export const createChatSlice = (set, get) => ({
           {
             sender: "ai",
             text: data.message,
-            suggested_products: data.suggested_products || [],
+            suggested_products: normalizeProducts(data.suggested_products),
             payment_link,
           },
         ],
@@ -225,7 +243,7 @@ export const createChatSlice = (set, get) => ({
                   text: payload.message || accumulatedText || "Sorry, I couldn't process that. Please try again.",
                   isStreaming: false,
                   streamingStatus: null,
-                  suggested_products: payload.suggested_products || [],
+                  suggested_products: normalizeProducts(payload.suggested_products),
                   payment_link: payload.payment_link || null,
                 };
               }

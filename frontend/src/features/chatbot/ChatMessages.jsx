@@ -8,7 +8,7 @@ import { ComboBanner } from "./ComboBanner";
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 // Extracted + memoized: only re-renders if ITS OWN props change
-const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage, onPayClick }) {
+const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage, onPayClick, onProductClick }) {
   return (
     <div className={cn("flex gap-2", msg.sender === 'user' ? "flex-row-reverse" : "")}>
       <div className={cn(
@@ -47,9 +47,26 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
         )}
         {msg.suggested_products && msg.suggested_products.length > 0 && (
           <div className="mt-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {msg.suggested_products.map(p => (
-              <ProductCard key={p.id} size="small" {...p} image_url={p.image_url || p.image} />
-            ))}
+            {msg.suggested_products.map((rawProduct, idx) => {
+              const p = rawProduct?.product ? { ...rawProduct.product, id: rawProduct.product.id || rawProduct.product_id } : rawProduct;
+              const prodId = p?.id || p?.product_id;
+              const prodName = p?.name || "Product";
+              const prodPrice = p?.price !== undefined && p?.price !== null ? p.price : 0;
+              const prodImage = p?.image_url || p?.image;
+
+              return (
+                <ProductCard
+                  key={prodId ? `prod-${prodId}` : `item-${idx}`}
+                  size="small"
+                  {...p}
+                  id={prodId}
+                  name={prodName}
+                  price={prodPrice}
+                  image_url={prodImage}
+                  onProductClick={onProductClick}
+                />
+              );
+            })}
           </div>
         )}
       </div>
@@ -57,18 +74,19 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
   );
 });
 
-export function ChatMessages({ aiMessages, isAiTyping, comboOffer, chatContainerRef, renderMessage, onPayClick, isFullScreen }) {
+export function ChatMessages({ aiMessages, isAiTyping, comboOffer, chatContainerRef, renderMessage, onPayClick, onProductClick, isFullScreen }) {
   // Memoize the rendered list so it only recomputes when aiMessages actually changes
   const renderedMessages = useMemo(() => (
     aiMessages.map((msg, idx) => (
       <ChatMessageItem
-        key={msg.id ?? idx}
+        key={msg.id ?? `msg-${idx}`}
         msg={msg}
         renderMessage={renderMessage}
         onPayClick={onPayClick}
+        onProductClick={onProductClick}
       />
     ))
-  ), [aiMessages, renderMessage, onPayClick]);
+  ), [aiMessages, renderMessage, onPayClick, onProductClick]);
 
   return (
     <div ref={chatContainerRef} className={cn("flex-1 overflow-y-auto custom-scrollbar space-y-6 bg-[#FBF8F3]", isFullScreen ? "px-8 md:px-16 py-8" : "p-4")}>
