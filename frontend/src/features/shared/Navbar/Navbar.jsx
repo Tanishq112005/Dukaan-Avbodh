@@ -137,11 +137,6 @@ export function Navbar() {
                 <Link to="/products" className="text-xs font-bold uppercase tracking-wider text-stone-600 hover:text-stone-900 transition-colors">
                   Shop Catalog
                 </Link>
-                {user && (
-                  <Link to="/orders" className="text-xs font-bold uppercase tracking-wider text-stone-600 hover:text-stone-900 transition-colors">
-                    Orders
-                  </Link>
-                )}
                 {user?.role === "merchant" && (
                   <Link to="/merchant" className="text-xs font-bold uppercase tracking-wider text-[#6e1423] hover:text-stone-900 transition-colors">
                     Merchant Studio
