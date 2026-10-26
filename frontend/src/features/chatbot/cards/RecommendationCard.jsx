@@ -1,47 +1,11 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Sparkles, ShoppingBag, Check, ArrowRight } from "lucide-react";
-import { useStore } from "../../../store/useStore";
+import React from "react";
+import { Link } from "react-router-dom";
+import { Sparkles, ArrowRight } from "lucide-react";
 
 export function RecommendationCard({ data, onProductClick }) {
   const products = data?.products || [];
-  const addToCart = useStore((state) => state.addToCart);
-  const navigate = useNavigate();
-  const [addedIds, setAddedIds] = useState({});
 
   if (!products || products.length === 0) return null;
-
-  const handleQuickAdd = (e, product) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const finalId = product.id || product.product_id;
-    addToCart(
-      {
-        id: finalId,
-        name: product.name || "Product",
-        price: product.price || 0,
-        image_url: product.image_url || product.image,
-        brand: product.brand || "DUKAAN",
-        type: product.type || "apparel",
-      },
-      1,
-      "M",
-      product.color || "Default"
-    );
-
-    setAddedIds((prev) => ({ ...prev, [finalId]: true }));
-    setTimeout(() => {
-      setAddedIds((prev) => ({ ...prev, [finalId]: false }));
-    }, 1800);
-  };
-
-  const handleProductNavigate = (p) => {
-    const finalId = p.id || p.product_id;
-    if (finalId) {
-      navigate(`/product/${finalId}`);
-      if (onProductClick) onProductClick(p);
-    }
-  };
 
   return (
     <div className="w-full mt-3 bg-stone-50/80 border border-stone-200/90 rounded-2xl p-3.5 shadow-xs">
@@ -58,7 +22,6 @@ export function RecommendationCard({ data, onProductClick }) {
       <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide snap-x">
         {products.map((p, idx) => {
           const finalId = p.id || p.product_id;
-          const isAdded = !!addedIds[finalId];
           const imgUrl =
             p.image_url ||
             p.image ||
@@ -68,17 +31,15 @@ export function RecommendationCard({ data, onProductClick }) {
           const formattedPrice = `₹${Number(p.price || 0).toLocaleString("en-IN")}`;
 
           return (
-            <div
+            <Link
               key={finalId ? `rec-card-${finalId}` : `item-${idx}`}
-              className="group flex-shrink-0 w-36 sm:w-40 bg-white border border-stone-200/80 rounded-xl overflow-hidden hover:border-[#C45C26]/50 hover:shadow-md transition-all duration-200 snap-start flex flex-col justify-between"
+              to={`/product/${finalId}`}
+              onClick={() => onProductClick?.(p)}
+              className="group flex-shrink-0 w-36 sm:w-40 bg-white border border-stone-200/80 rounded-xl overflow-hidden hover:border-[#C45C26]/60 hover:shadow-md transition-all duration-200 snap-start flex flex-col justify-between cursor-pointer"
+              title={`View ${p.name}`}
             >
               {/* Image thumbnail linking to product detail page */}
-              <Link
-                to={`/product/${finalId}`}
-                onClick={() => onProductClick?.(p)}
-                className="relative aspect-[4/5] bg-stone-100 overflow-hidden block cursor-pointer"
-                title={`View ${p.name}`}
-              >
+              <div className="relative aspect-[4/5] bg-stone-100 overflow-hidden block">
                 <img
                   src={imgUrl}
                   alt={p.name}
@@ -90,53 +51,26 @@ export function RecommendationCard({ data, onProductClick }) {
                     {p.brand}
                   </span>
                 )}
-              </Link>
+              </div>
 
-              {/* Product Info */}
+              {/* Product Info: Only Product Name and Selling Price */}
               <div className="p-2.5 flex-1 flex flex-col justify-between">
                 <div>
-                  <Link
-                    to={`/product/${finalId}`}
-                    onClick={() => onProductClick?.(p)}
-                    className="block font-semibold text-xs text-stone-900 line-clamp-1 group-hover:text-[#C45C26] transition-colors cursor-pointer"
-                    title={p.name}
-                  >
+                  <h4 className="font-semibold text-xs text-stone-900 line-clamp-1 group-hover:text-[#C45C26] transition-colors leading-tight">
                     {p.name || "Curated Apparel"}
-                  </Link>
-                  <div className="flex items-baseline gap-1.5 mt-1">
-                    <span className="font-bold text-xs text-stone-900">{formattedPrice}</span>
-                    {p.discount > 0 && (
-                      <span className="text-[10px] text-emerald-700 font-semibold">
-                        {p.discount}% OFF
-                      </span>
-                    )}
+                  </h4>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <span className="font-bold text-xs sm:text-sm text-stone-900">
+                      {formattedPrice}
+                    </span>
+                    <span className="text-[10px] font-semibold text-stone-400 group-hover:text-[#C45C26] transition-colors flex items-center gap-0.5">
+                      <span>View</span>
+                      <ArrowRight size={10} />
+                    </span>
                   </div>
                 </div>
-
-                {/* Quick Add CTA */}
-                <button
-                  type="button"
-                  onClick={(e) => handleQuickAdd(e, p)}
-                  className={`mt-2 w-full py-1.5 px-2 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                    isAdded
-                      ? "bg-emerald-600 text-white"
-                      : "bg-stone-900 hover:bg-[#6e1423] text-white"
-                  }`}
-                >
-                  {isAdded ? (
-                    <>
-                      <Check size={12} />
-                      <span>Added!</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingBag size={12} />
-                      <span>Add to Bag</span>
-                    </>
-                  )}
-                </button>
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>
