@@ -28,6 +28,9 @@ class AgentState(TypedDict, total=False):
     pending_payment_link: Optional[str]
     pending_payment_link_id: Optional[str]
 
+    # UI Cards for Frontend Generative UI
+    cards: Optional[List[dict]]
+
     # Memory & Summarization
     conversation_summary: Optional[str]
     important_facts: Optional[Any]

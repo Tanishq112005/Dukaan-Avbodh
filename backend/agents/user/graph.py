@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import uuid
 import asyncio
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import ToolMessage
@@ -100,10 +101,135 @@ def _extract_state_updates_from_tool_result(tool_name: str, parsed: dict) -> dic
     return updates
 
 
+def _build_cards_from_tool(tool_name: str, parsed: dict, updates: dict) -> list:
+    """Builds frontend Generative UI card descriptors from executed tool results."""
+    cards = []
+    suffix = uuid.uuid4().hex[:6]
+
+    # 1. Product Recommendations Card
+    suggested = updates.get("suggested_products") or parsed.get("products") or parsed.get("suggested_products")
+    if suggested and isinstance(suggested, list) and len(suggested) > 0:
+        normalized_prods = []
+        for p in suggested:
+            if isinstance(p, dict) and "product" in p and isinstance(p["product"], dict):
+                info = dict(p["product"])
+                if "id" not in info and "product_id" in p:
+                    info["id"] = p["product_id"]
+                normalized_prods.append(info)
+            elif isinstance(p, dict):
+                normalized_prods.append(p)
+        if normalized_prods:
+            cards.append({
+                "id": f"card_rec_{suffix}",
+                "type": "recommendation",
+                "data": {
+                    "title": "Curated Recommendations",
+                    "products": normalized_prods,
+                    "count": len(normalized_prods),
+                },
+            })
+
+    # 2. Price Bargaining & Negotiation Card
+    if (
+        "current_discount_percent" in updates
+        or "combo_offer" in updates
+        or "counter_offer_discount_percent" in parsed
+        or "next_discount_percent" in parsed
+        or "counter_offer_price" in parsed
+    ):
+        discount_val = (
+            updates.get("current_discount_percent")
+            or parsed.get("counter_offer_discount_percent")
+            or parsed.get("next_discount_percent")
+            or 0.0
+        )
+        offer_price = parsed.get("counter_offer_price") or parsed.get("discounted_price") or updates.get("cart_total")
+        original_price = parsed.get("subtotal") or parsed.get("original_subtotal") or updates.get("cart_subtotal")
+        savings = parsed.get("savings")
+        if not savings and original_price and offer_price and original_price > offer_price:
+            savings = round(float(original_price) - float(offer_price), 2)
+
+        cards.append({
+            "id": f"card_neg_{suffix}",
+            "type": "negotiation",
+            "data": {
+                "title": "VIP Price Offer",
+                "discount_percent": float(discount_val),
+                "original_price": original_price,
+                "offer_price": offer_price,
+                "savings": savings,
+                "combo_offer": updates.get("combo_offer") or parsed.get("combo_offer"),
+                "status": "active",
+            },
+        })
+
+    # 3. Cart Update Card
+    if tool_name in ("add_to_cart", "update_cart_quantity", "remove_from_cart", "clear_cart") and parsed.get("success"):
+        action = (
+            "cleared" if tool_name == "clear_cart"
+            else "added" if "add" in tool_name
+            else "removed" if ("remove" in tool_name or (tool_name == "update_cart_quantity" and parsed.get("quantity") == 0))
+            else "updated"
+        )
+        item_data = parsed.get("item") or parsed.get("added_item")
+        if not item_data and "name" in parsed:
+            item_data = {
+                "name": parsed.get("name"),
+                "price": parsed.get("price"),
+                "size": parsed.get("size"),
+                "qty": parsed.get("quantity", 1),
+            }
+        cards.append({
+            "id": f"card_cart_{suffix}",
+            "type": "cart_update",
+            "data": {
+                "title": "Shopping Bag Updated",
+                "action": action,
+                "item": item_data,
+                "cart_total": updates.get("cart_total"),
+                "cart_subtotal": updates.get("cart_subtotal"),
+                "cart_count": updates.get("cart_count"),
+                "cart": updates.get("cart"),
+            },
+        })
+
+    # 4. Instant Payment Card
+    if "pending_payment_link" in updates and updates["pending_payment_link"]:
+        cards.append({
+            "id": f"card_pay_{suffix}",
+            "type": "payment",
+            "data": {
+                "title": "Instant Secure Checkout",
+                "payment_link": updates["pending_payment_link"],
+                "payment_link_id": updates.get("pending_payment_link_id"),
+                "amount": parsed.get("amount") or updates.get("cart_total"),
+                "currency": "INR",
+                "status": "ready",
+            },
+        })
+
+    # 5. Order Confirmed Card
+    if updates.get("payment_confirmed") or (tool_name == "check_payment_status" and parsed.get("paid")):
+        cards.append({
+            "id": f"card_ord_{suffix}",
+            "type": "order_confirmed",
+            "data": {
+                "title": "Order Placed Successfully",
+                "paid": True,
+                "order_id": parsed.get("order_id") or parsed.get("payment_id") or "CONFIRMED",
+                "amount": parsed.get("amount"),
+                "delivery_estimate": "3-5 Business Days",
+                "status": "confirmed",
+            },
+        })
+
+    return cards
+
+
 # --- Post Processing & Routing Functions ---
 
 def post_process_node(state: AgentState):
-    """Formats final response and strips reasoning thought tags."""
+    """Formats final response, cleans thought tags, and synthesizes cards for the client."""
     messages = state.get("messages", [])
     if not messages:
         return {}
@@ -144,7 +270,64 @@ def post_process_node(state: AgentState):
     if final_text:
         final_text = clean_ai_output(final_text)
 
-    return {"final_response": final_text}
+    # Assemble cards, ensuring state products or offers have corresponding UI cards
+    cards = list(state.get("cards") or [])
+    card_types = {c.get("type") for c in cards}
+
+    # Fallback Recommendation Card
+    suggested = state.get("suggested_products")
+    if "recommendation" not in card_types and suggested and isinstance(suggested, list) and len(suggested) > 0:
+        normalized_prods = []
+        for p in suggested:
+            if isinstance(p, dict) and "product" in p and isinstance(p["product"], dict):
+                info = dict(p["product"])
+                if "id" not in info and "product_id" in p:
+                    info["id"] = p["product_id"]
+                normalized_prods.append(info)
+            elif isinstance(p, dict):
+                normalized_prods.append(p)
+        if normalized_prods:
+            cards.append({
+                "id": f"rec_{uuid.uuid4().hex[:6]}",
+                "type": "recommendation",
+                "data": {
+                    "title": "Curated Recommendations",
+                    "products": normalized_prods,
+                    "count": len(normalized_prods),
+                },
+            })
+
+    # Fallback Payment Card
+    if "payment" not in card_types and state.get("pending_payment_link"):
+        cards.append({
+            "id": f"pay_{uuid.uuid4().hex[:6]}",
+            "type": "payment",
+            "data": {
+                "title": "Instant Secure Checkout",
+                "payment_link": state.get("pending_payment_link"),
+                "payment_link_id": state.get("pending_payment_link_id"),
+                "amount": state.get("cart_total"),
+                "currency": "INR",
+                "status": "ready",
+            },
+        })
+
+    # Fallback Negotiation Card
+    if "negotiation" not in card_types and (state.get("combo_offer") or (state.get("current_discount_percent") or 0.0) > 0):
+        cards.append({
+            "id": f"neg_{uuid.uuid4().hex[:6]}",
+            "type": "negotiation",
+            "data": {
+                "title": "VIP Price Negotiation",
+                "discount_percent": state.get("current_discount_percent", 0.0),
+                "original_price": state.get("cart_subtotal"),
+                "offer_price": state.get("cart_total"),
+                "combo_offer": state.get("combo_offer"),
+                "status": "active",
+            },
+        })
+
+    return {"final_response": final_text, "cards": cards}
 
 
 def route_agent(state: AgentState):
@@ -200,7 +383,7 @@ def create_tools_node(tools_dict=None):
     """
     Creates a dual sync/async tools execution node for the user agent graph.
     Resolves tools and executes tool calls concurrently in parallel via asyncio.gather.
-    Propagates structured output back to AgentState.
+    Propagates structured output and Generative UI cards back to AgentState.
     """
     resolved_tools = resolve_all_tools(tools_dict)
 
@@ -271,6 +454,7 @@ def create_tools_node(tools_dict=None):
 
         tool_messages = []
         updates = {}
+        cards = list(state.get("cards") or [])
         cart_modified = False
         cart_user_id = state.get("user_id", 0)
 
@@ -279,6 +463,9 @@ def create_tools_node(tools_dict=None):
             if isinstance(parsed, dict):
                 state_updates = _extract_state_updates_from_tool_result(tool_name, parsed)
                 updates.update(state_updates)
+                new_cards = _build_cards_from_tool(tool_name, parsed, state_updates)
+                if new_cards:
+                    cards.extend(new_cards)
 
                 if tool_name in ("add_to_cart", "update_cart_quantity", "remove_from_cart") and parsed.get("success"):
                     cart_modified = True
@@ -298,6 +485,8 @@ def create_tools_node(tools_dict=None):
             except Exception:
                 pass
 
+        if cards:
+            updates["cards"] = cards
         updates["messages"] = tool_messages
         return updates
 
@@ -313,6 +502,7 @@ def create_tools_node(tools_dict=None):
 
         tool_messages = []
         updates = {}
+        cards = list(state.get("cards") or [])
 
         async def _execute_single_tool(tool_call):
             tool_name = tool_call.get("name")
@@ -364,6 +554,9 @@ def create_tools_node(tools_dict=None):
             if isinstance(parsed, dict):
                 state_updates = _extract_state_updates_from_tool_result(tool_name, parsed)
                 updates.update(state_updates)
+                new_cards = _build_cards_from_tool(tool_name, parsed, state_updates)
+                if new_cards:
+                    cards.extend(new_cards)
 
                 if tool_name in ("add_to_cart", "update_cart_quantity", "remove_from_cart") and parsed.get("success"):
                     cart_modified = True
@@ -384,6 +577,8 @@ def create_tools_node(tools_dict=None):
             except Exception:
                 pass
 
+        if cards:
+            updates["cards"] = cards
         updates["messages"] = tool_messages
         return updates
 

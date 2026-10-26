@@ -24,7 +24,7 @@ class AgentController:
     Controller for the User AI Chat Agent.
     Orchestrates user-cart synchronization, in-memory LangGraph execution,
     real-time Server-Sent Events (SSE) token streaming with online thought filtering,
-    and non-blocking asynchronous state queueing.
+    Generative UI card dispatching, and non-blocking asynchronous state queueing.
     """
 
     def __init__(self, service=None, audit_repo=None, cart_repo=None):
@@ -90,8 +90,8 @@ class AgentController:
         human_msg: HumanMessage,
     ) -> dict:
         """
-        Extracts final AI reply, normalizes products, dispatches state to the
-        background queue asynchronously without blocking the user response.
+        Extracts final AI reply, normalizes products, packages UI cards,
+        and dispatches state to the background queue asynchronously without blocking the user response.
         """
         ai_reply = state.get("final_response")
         if not ai_reply:
@@ -120,6 +120,7 @@ class AgentController:
         payment_link = state.get("pending_payment_link")
         payment_link_id = state.get("pending_payment_link_id")
         current_discount = state.get("current_discount_percent", 0.0)
+        cards = list(state.get("cards") or [])
 
         # Asynchronously dispatch state to task queue for background summarization and Mongo persistence
         try:
@@ -154,6 +155,7 @@ class AgentController:
         return {
             "type": "chat_reply",
             "message": ai_reply,
+            "cards": cards,
             "combo_offer": combo_offer,
             "suggested_products": suggested_products,
             "cart": updated_cart,
@@ -193,6 +195,7 @@ class AgentController:
             return {
                 "type": "chat_reply",
                 "message": "Sorry, something went wrong. Please try again!",
+                "cards": [],
             }
 
     async def stream_message(self, req: ChatRequest) -> AsyncGenerator[str, None]:
@@ -200,7 +203,7 @@ class AgentController:
         Streams LangGraph execution tokens in REAL TIME as they are produced by the LLM.
         Applies StreamingThoughtFilter to strip internal <think>, <thought>, and <reasoning> tags
         so zero internal model monologue leaks into the UI.
-        Emits graph node updates, intermediate tool state, real-time tokens, and final structured payload.
+        Emits graph node updates, intermediate tool state, real-time tokens, Generative UI cards, and final payload.
         """
         try:
             await self.sync_cart_and_user(req.user_id, req.cart)
@@ -249,7 +252,7 @@ class AgentController:
                     if node_name:
                         yield f"data: {json.dumps({'type': 'node_update', 'node': node_name})}\n\n"
 
-                # 3. Intermediate tool outputs and final chain updates
+                # 3. Intermediate tool outputs, cards, and final chain updates
                 elif kind == "on_chain_end":
                     node_name = event.get("metadata", {}).get("langgraph_node")
                     output = event.get("data", {}).get("output")
@@ -264,10 +267,16 @@ class AgentController:
                                 "cart_total",
                                 "cart",
                                 "combo_offer",
+                                "cards",
                             ):
                                 if key in output:
                                     tools_payload[key] = output[key]
                             yield f"data: {json.dumps(tools_payload)}\n\n"
+
+                            # Stream any interactive UI cards produced by the tools immediately
+                            if "cards" in output and isinstance(output["cards"], list):
+                                for card in output["cards"]:
+                                    yield f"data: {json.dumps({'type': 'card', 'card': card})}\n\n"
 
             # Flush any remaining clean buffer from thought filter
             flushed = thought_filter.flush()
@@ -303,6 +312,7 @@ class AgentController:
             error_payload = {
                 "type": "chat_reply",
                 "message": "Sorry, something went wrong while processing your request.",
+                "cards": [],
                 "error": str(e),
             }
             yield f"data: {json.dumps(error_payload)}\n\n"
@@ -323,7 +333,7 @@ class AgentController:
             except Exception as e:
                 logger.warning("combo_declined langgraph update failed: %s", e)
 
-            return {"type": "combo_cleared", "combo_offer": None}
+            return {"type": "combo_cleared", "combo_offer": None, "cards": []}
 
         # Event 2: Payment Completed
         if req.event == "payment_completed":
@@ -343,10 +353,25 @@ class AgentController:
 
                 ai_reply = result.get("final_response")
                 updated_cart = result.get("cart") or await self.cart_repo.get_items(req.user_id)
+                cards = list(result.get("cards") or [])
+
+                if result.get("payment_confirmed"):
+                    cards.append({
+                        "id": f"card_ord_{result.get('pending_payment_link_id', 'confirmed')}",
+                        "type": "order_confirmed",
+                        "data": {
+                            "title": "Order Placed Successfully",
+                            "paid": True,
+                            "order_id": result.get("pending_payment_link_id") or "CONFIRMED",
+                            "delivery_estimate": "3-5 Business Days",
+                            "status": "confirmed",
+                        },
+                    })
 
                 return {
                     "type": "chat_reply",
                     "message": ai_reply or "Checking your payment now...",
+                    "cards": cards,
                     "combo_offer": result.get("combo_offer", None),
                     "suggested_products": result.get("suggested_products", []),
                     "cart": updated_cart,
@@ -354,7 +379,7 @@ class AgentController:
                 }
             except Exception as e:
                 logger.exception("payment_completed event failed: %s", e)
-                return {"success": False, "error": "Could not verify payment yet."}
+                return {"success": False, "error": "Could not verify payment yet.", "cards": []}
 
         # Event 3: Proactive Suggestion Triggers
         if req.event in ["idle_timeout", "viewed_multiple_products", "viewed_checkout", "activity_threshold_reached"]:
@@ -396,6 +421,7 @@ class AgentController:
                     return {
                         "type": "proactive_suggestion",
                         "message": ai_reply,
+                        "cards": result.get("cards", []),
                         "combo_offer": result.get("combo_offer", None),
                         "suggested_products": result.get("suggested_products", []),
                         "cart": updated_cart,
@@ -423,4 +449,3 @@ agent_controller = agentController
 
 userController = agentController
 UserController = AgentController
-
