@@ -227,8 +227,11 @@ export const createChatSlice = (set, get) => ({
 
   openPaymentLink: (url) => {
     if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
-    get().watchPayment(url, get().pendingPayment?.id);
+    try {
+      localStorage.setItem("dukaan_pending_payment_url", url);
+    } catch {}
+    // Navigate in same page / tab
+    window.location.href = url;
   },
 
   sendAiMessage: async (text) => {

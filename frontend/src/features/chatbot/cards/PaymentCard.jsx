@@ -1,5 +1,5 @@
 import React from "react";
-import { ShieldCheck, ExternalLink, CheckCircle, CreditCard, Lock, ShoppingBag } from "lucide-react";
+import { ShieldCheck, ArrowRight, CheckCircle, CreditCard, Lock, ShoppingBag } from "lucide-react";
 import { useStore } from "../../../store/useStore";
 
 export function PaymentCard({ data, onPayClick }) {
@@ -116,7 +116,7 @@ export function PaymentCard({ data, onPayClick }) {
           className="w-full py-3 px-4 rounded-xl bg-[#C45C26] hover:bg-[#a3481b] text-white text-xs font-bold tracking-wider uppercase flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg cursor-pointer"
         >
           <span>Pay Now Securely</span>
-          <ExternalLink size={13} />
+          <ArrowRight size={13} />
         </button>
       )}
 

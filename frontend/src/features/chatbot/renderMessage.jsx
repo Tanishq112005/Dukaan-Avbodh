@@ -5,11 +5,15 @@ const URL_SPLIT = /(\*\*.*?\*\*|\[.*?\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<>"
 const PAYMENT_PATTERN = /razorpay|rzp\.io|rzp_/i;
 
 function Linkish({ href, children, className }) {
+  const isPayment = PAYMENT_PATTERN.test(href);
+  const isInternal = href.startsWith('/') || href.startsWith('#');
+  const target = isPayment || isInternal ? "_self" : "_blank";
+
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
+      target={target}
+      rel={target === "_blank" ? "noopener noreferrer" : undefined}
       className={className || "text-[#C45C26] hover:text-[#a3481b] underline underline-offset-2 font-semibold break-all"}
     >
       {children}

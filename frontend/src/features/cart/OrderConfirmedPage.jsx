@@ -5,24 +5,26 @@ import { Button } from "../../components/ui/button";
 import { useStore } from "../../store/useStore";
 
 export function OrderConfirmedPage() {
-  const { user, pollPaymentStatus, notifyPaymentComplete, setIsAgentOpen } = useStore();
+  const { user, pollPaymentStatus, notifyPaymentComplete, setIsAgentOpen, clearCart } = useStore();
   const [params] = useSearchParams();
   const location = useLocation();
 
   const checkoutState = location.state || {};
   const orderIds = checkoutState.orderIds;
   const totalPaid = checkoutState.total;
-  const paymentId = checkoutState.paymentId;
+  const paymentId = checkoutState.paymentId || params.get("razorpay_payment_id");
+  const linkId = params.get("razorpay_payment_link_id");
+  const isPaidFromLink = params.get("razorpay_payment_link_status") === "paid" || Boolean(params.get("razorpay_payment_id"));
 
   useEffect(() => {
-    const status = params.get("razorpay_payment_link_status");
-    if (status === "paid") {
-      setIsAgentOpen(true);
+    if (isPaidFromLink) {
+      clearCart();
       notifyPaymentComplete();
+      pollPaymentStatus();
     } else {
       pollPaymentStatus();
     }
-  }, [params, pollPaymentStatus, notifyPaymentComplete, setIsAgentOpen]);
+  }, [isPaidFromLink, clearCart, notifyPaymentComplete, pollPaymentStatus]);
 
   return (
     <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 py-12">
@@ -39,14 +41,18 @@ export function OrderConfirmedPage() {
         Thank you{user?.name ? `, ${user.name}` : ""}. Your order has been securely confirmed.
       </p>
 
-      {totalPaid !== undefined && (
-        <div className="my-4 py-3 px-6 bg-stone-50 border border-stone-200 rounded-2xl inline-flex items-center gap-4 text-sm text-stone-700">
+      {(totalPaid !== undefined || paymentId) && (
+        <div className="my-4 py-3 px-6 bg-stone-50 border border-stone-200 rounded-2xl inline-flex flex-wrap items-center justify-center gap-4 text-sm text-stone-700">
           {orderIds && orderIds.length > 0 && (
             <span>Order #{orderIds.join(", #")}</span>
           )}
-          <span className="font-bold text-stone-900">Total: ₹{Number(totalPaid).toFixed(0)}</span>
+          {totalPaid !== undefined && (
+            <span className="font-bold text-stone-900">Total: ₹{Number(totalPaid).toFixed(0)}</span>
+          )}
           {paymentId && (
-            <span className="text-xs text-stone-400 font-mono">Ref: {paymentId}</span>
+            <span className="text-xs text-stone-600 font-mono bg-white px-2.5 py-1 rounded-md border border-stone-200">
+              Payment ID: <strong className="text-stone-900">{paymentId}</strong>
+            </span>
           )}
         </div>
       )}
