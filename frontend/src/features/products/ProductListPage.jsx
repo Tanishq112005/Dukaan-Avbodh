@@ -123,7 +123,7 @@ export function ProductListPage() {
         {/* Product Catalog Content Area */}
         <div className="flex-1 min-w-0 w-full">
           {/* Sticky Header & Controls Bar - Pinned right below the navbar */}
-          <div className="sticky top-[96px] sm:top-[102px] z-20 bg-[#FBF8F3]/95 backdrop-blur-md pt-2 pb-4 mb-6 border-b border-stone-200/80 transition-all">
+          <div className="sticky top-[64px] sm:top-[68px] z-20 bg-[#FBF8F3]/95 backdrop-blur-md pt-2 pb-4 mb-6 border-b border-stone-200/80 transition-all">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
                 <p className="text-[11px] tracking-widest uppercase text-[#C45C26] font-bold mb-1">

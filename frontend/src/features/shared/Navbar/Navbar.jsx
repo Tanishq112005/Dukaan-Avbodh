@@ -111,28 +111,8 @@ export function Navbar() {
     }
   };
 
-  const tickerItems = [
-    "Free Express Shipping on Orders ₹999+",
-    "Live AI Personal Stylist & Price Negotiation",
-    "Autumn / Winter '26 Collection Live",
-    "14-Day Seamless Doorstep Exchange",
-    "100% Authentic Certified Luxury Apparel",
-  ];
-
   return (
     <header className="sticky top-0 z-40 bg-[#FBF8F3]/95 backdrop-blur-md">
-      {/* Top Banner Marquee */}
-      <div className="bg-stone-950 text-stone-300 text-[10px] sm:text-[11px] font-medium tracking-wider uppercase overflow-hidden border-b border-stone-800">
-        <div className="flex whitespace-nowrap animate-marquee py-2">
-          {[...tickerItems, ...tickerItems].map((item, i) => (
-            <span key={i} className="mx-6 sm:mx-8 flex items-center gap-3">
-              <span>{item}</span>
-              <span className="w-1 h-1 rounded-full bg-[#C45C26]" />
-            </span>
-          ))}
-        </div>
-      </div>
-
       {/* Main Navbar */}
       <nav className="border-b border-stone-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
