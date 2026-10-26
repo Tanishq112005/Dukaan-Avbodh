@@ -8,11 +8,13 @@ import { ProductDetailPage } from "./features/products/ProductDetailPage";
 import { CartPage } from "./features/cart/CartPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { SignupPage } from "./features/auth/SignupPage";
+import { ForgotPasswordPage } from "./features/auth/ForgotPasswordPage";
 import { MerchantDashboard } from "./features/merchant/MerchantDashboard";
 import { OrderConfirmedPage } from "./features/cart/OrderConfirmedPage";
 import { OrdersPage } from "./features/orders/OrdersPage";
 import { useStore } from "./store/useStore.js";
 import { Analytics } from "@vercel/analytics/react";
+
 function AppContent() {
   const token = useStore((state) => state.token);
 
@@ -25,6 +27,7 @@ function AppContent() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/products" element={<ProductListPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />

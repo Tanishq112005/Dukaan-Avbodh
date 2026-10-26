@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useStore } from "../../store/useStore";
 import { Input } from "../../components/ui/input";
 import { AuthForm } from "./AuthForm";
@@ -94,9 +94,17 @@ export function LoginPage() {
       </div>
 
       <div>
-        <label className="block text-[11px] font-bold uppercase tracking-wider text-stone-500 mb-1.5">
-          Password
-        </label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-stone-500">
+            Password
+          </label>
+          <Link
+            to="/forgot-password"
+            className="text-[11px] text-stone-500 hover:text-stone-900 transition-colors cursor-pointer font-medium"
+          >
+            Forgot Password?
+          </Link>
+        </div>
         <PasswordInput
           value={password}
           onChange={(e) => setPassword(e.target.value)}
