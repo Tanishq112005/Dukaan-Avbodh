@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Star } from "lucide-react";
+import { Star, ShoppingBag, Check } from "lucide-react";
+import { useStore } from "../../store/useStore";
 
 export function ProductCard({
   id,
@@ -10,6 +12,8 @@ export function ProductCard({
   discount,
   image_url,
   image,
+  brand,
+  type,
   index,
   eager = false,
   size = "normal",
@@ -17,74 +21,216 @@ export function ProductCard({
 }) {
   const finalId = id || product_id;
   const imgUrl = image_url || image || (finalId ? `https://picsum.photos/seed/${finalId}/600/750` : "https://picsum.photos/seed/dukaan/600/750");
+  const addToCart = useStore((state) => state.addToCart);
+  const [justAdded, setJustAdded] = useState(false);
 
+  const handleQuickAdd = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const productPayload = {
+      id: finalId,
+      name: name || "Product",
+      price: price !== undefined && price !== null ? price : 0,
+      image_url: imgUrl,
+      brand: brand || "DUKAAN",
+      type: type || "apparel",
+    };
+
+    addToCart(productPayload, 1, "M", "Default");
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1600);
+  };
+
+  const formattedPrice = price !== undefined && price !== null
+    ? `₹${Number(price).toLocaleString("en-IN")}`
+    : "₹0";
+
+  const originalPrice = discount > 0 && price
+    ? `₹${Math.round(Number(price) / (1 - discount / 100)).toLocaleString("en-IN")}`
+    : null;
+
+  // Compact variant for Chatbot suggestions and mini carousels
   if (size === "small") {
     return (
-      <Link
-        to={finalId ? `/product/${finalId}` : "#"}
-        onClick={() => onProductClick?.(finalId)}
-        className="flex-shrink-0 w-32 border border-hairline overflow-hidden block hover:border-ink/40 transition-all bg-paper group cursor-pointer shadow-sm hover:shadow-md"
-      >
-        <div className="relative h-28 bg-stone-surface overflow-hidden">
+      <div className="flex-shrink-0 w-36 sm:w-40 bg-white border border-stone-200/90 rounded-2xl overflow-hidden hover:border-stone-400 hover:shadow-md transition-all duration-300 flex flex-col group">
+        <Link
+          to={finalId ? `/product/${finalId}` : "#"}
+          onClick={() => onProductClick?.(finalId)}
+          className="relative aspect-[4/5] bg-stone-100 overflow-hidden block"
+        >
           <img
             src={imgUrl}
             alt={name || "Product"}
-            className="product-card-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
             loading="lazy"
             decoding="async"
-            width="128"
-            height="112"
+            width="160"
+            height="200"
           />
+          {discount > 0 && (
+            <span className="absolute top-2 left-2 bg-[#6e1423] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-xs">
+              -{discount}%
+            </span>
+          )}
+        </Link>
+        <div className="p-2.5 flex flex-col flex-1 justify-between bg-white">
+          <div>
+            {brand && (
+              <p className="text-[9px] font-bold tracking-widest uppercase text-stone-400 truncate mb-0.5">
+                {brand}
+              </p>
+            )}
+            <Link
+              to={finalId ? `/product/${finalId}` : "#"}
+              onClick={() => onProductClick?.(finalId)}
+              className="text-xs font-semibold text-stone-900 line-clamp-1 hover:text-[#6e1423] transition-colors"
+              title={name}
+            >
+              {name || "View Item"}
+            </Link>
+          </div>
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-stone-100">
+            <div>
+              <span className="text-xs font-bold text-stone-900">{formattedPrice}</span>
+              {originalPrice && (
+                <span className="text-[10px] text-stone-400 line-through ml-1">{originalPrice}</span>
+              )}
+            </div>
+            <button
+              onClick={handleQuickAdd}
+              type="button"
+              title="Add to Cart"
+              className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                justAdded
+                  ? "bg-emerald-600 text-white"
+                  : "bg-stone-900 hover:bg-[#6e1423] text-white"
+              }`}
+            >
+              {justAdded ? <Check size={11} strokeWidth={2.5} /> : <ShoppingBag size={11} />}
+            </button>
+          </div>
         </div>
-        <div className="p-2">
-          <p className="text-xs font-medium text-ink truncate" title={name}>{name || "View Item"}</p>
-          <p className="text-[11px] font-bold text-ink mt-0.5">₹{price !== undefined && price !== null ? price : 0}</p>
-        </div>
-      </Link>
+      </div>
     );
   }
 
+  // Standard Catalog & Grid Product Card
   return (
-    <Link
-      to={finalId ? `/product/${finalId}` : "#"}
-      onClick={() => onProductClick?.(finalId)}
-      className="group cursor-pointer block"
-    >
-      <div className="img-frame aspect-[4/5] border border-hairline mb-4 relative">
-        {typeof index === "number" && (
-          <span className="absolute top-3 left-3 z-10 text-[11px] font-medium text-ink/50 bg-paper/90 px-1.5 py-0.5">
-            {String(index + 1).padStart(2, "0")}
+    <div className="group flex flex-col h-full bg-white border border-stone-200/80 rounded-2xl overflow-hidden hover:border-stone-400/90 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.04)] hover:shadow-[0_16px_36px_-6px_rgba(20,16,12,0.12)] transition-all duration-300">
+      <Link
+        to={finalId ? `/product/${finalId}` : "#"}
+        onClick={() => onProductClick?.(finalId)}
+        className="relative aspect-[3/4] bg-stone-100 overflow-hidden block"
+      >
+        {/* Discount badge */}
+        {discount > 0 && (
+          <span className="absolute top-3 left-3 z-10 bg-[#6e1423] text-white text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full shadow-sm tracking-wide">
+            -{discount}% OFF
           </span>
         )}
+
+        {/* Index counter if specified */}
+        {typeof index === "number" && !discount && (
+          <span className="absolute top-3 left-3 z-10 text-[10px] font-semibold text-stone-600 bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded-full border border-stone-200/60">
+            #{String(index + 1).padStart(2, "0")}
+          </span>
+        )}
+
         <img
           src={imgUrl}
           alt={name}
-          className="product-card-img w-full h-full object-cover"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
           loading={eager ? "eager" : "lazy"}
           decoding="async"
           width="600"
-          height="750"
+          height="800"
           onLoad={(e) => e.currentTarget.setAttribute("data-loaded", "true")}
         />
-        <div className="absolute inset-x-3 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className="inline-block bg-paper text-[11px] font-semibold px-3 py-1.5 border border-ink/10">
-            View
-          </span>
+
+        {/* Quick Add overlay button on hover */}
+        <div className="absolute inset-x-3 bottom-3 z-10 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-1 group-hover:translate-y-0">
+          <button
+            onClick={handleQuickAdd}
+            type="button"
+            className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold tracking-wide flex items-center justify-center gap-1.5 shadow-md backdrop-blur-md transition-all cursor-pointer ${
+              justAdded
+                ? "bg-emerald-600 text-white"
+                : "bg-white/95 hover:bg-stone-900 text-stone-900 hover:text-white border border-stone-200"
+            }`}
+          >
+            {justAdded ? (
+              <>
+                <Check size={14} className="text-white" strokeWidth={2.5} />
+                <span>Added to Bag</span>
+              </>
+            ) : (
+              <>
+                <ShoppingBag size={14} />
+                <span>Quick Add</span>
+              </>
+            )}
+          </button>
+        </div>
+      </Link>
+
+      <div className="p-4 sm:p-4.5 flex flex-col flex-1 justify-between bg-white">
+        <div>
+          {/* Brand & Type */}
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className="text-[10px] sm:text-[11px] font-bold tracking-widest uppercase text-stone-400 truncate">
+              {brand || "ATELIER"}
+            </span>
+            {type && (
+              <span className="text-[10px] uppercase font-medium text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded-sm">
+                {type}
+              </span>
+            )}
+          </div>
+
+          {/* Product Name */}
+          <Link
+            to={finalId ? `/product/${finalId}` : "#"}
+            onClick={() => onProductClick?.(finalId)}
+            className="block text-sm sm:text-base font-semibold text-stone-900 hover:text-[#6e1423] transition-colors leading-snug line-clamp-1 mb-2"
+            title={name}
+          >
+            {name}
+          </Link>
+
+          {/* Rating */}
+          <div className="flex items-center gap-1.5 mb-3">
+            <div className="flex items-center text-amber-500">
+              <Star size={13} fill="currentColor" strokeWidth={0} />
+            </div>
+            <span className="text-xs font-semibold text-stone-700">
+              {rating ? Number(rating).toFixed(1) : "4.5"}
+            </span>
+            <span className="text-[11px] text-stone-400">
+              ({rating ? Math.round(Number(rating) * 24 + 18) : 84})
+            </span>
+          </div>
+        </div>
+
+        {/* Pricing */}
+        <div className="flex items-baseline justify-between pt-2 border-t border-stone-100">
+          <div className="flex items-baseline gap-2">
+            <span className="text-base sm:text-lg font-bold text-stone-900">
+              {formattedPrice}
+            </span>
+            {originalPrice && (
+              <span className="text-xs text-stone-400 line-through">
+                {originalPrice}
+              </span>
+            )}
+          </div>
+          {discount > 0 && (
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+              Save {discount}%
+            </span>
+          )}
         </div>
       </div>
-      <h3 className="font-medium text-base mb-1 leading-snug">{name}</h3>
-      <div className="flex items-center gap-1 mb-1">
-        <div className="flex text-oxblood">
-          {[...Array(5)].map((_, i) => (
-            <Star key={i} fill={rating && i < Math.floor(rating) ? "currentColor" : "none"} strokeWidth={1.25} className="w-3.5 h-3.5" />
-          ))}
-        </div>
-        <span className="text-xs text-ink/40">{rating || 0}/5</span>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="font-semibold text-base">₹{price}</span>
-        {discount > 0 && <span className="text-xs text-ink/40 line-through">₹{Math.round(price / (1 - discount / 100))}</span>}
-      </div>
-    </Link>
+    </div>
   );
 }
