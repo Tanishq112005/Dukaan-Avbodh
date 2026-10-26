@@ -439,3 +439,5 @@ class UserController:
 
 userController = UserController()
 user_controller = userController
+AgentController = UserController
+agentController = userController

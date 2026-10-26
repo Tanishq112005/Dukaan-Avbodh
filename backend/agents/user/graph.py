@@ -89,6 +89,14 @@ def _extract_state_updates_from_tool_result(tool_name: str, parsed: dict) -> dic
     elif "payment_link_id" in parsed:
         updates["pending_payment_link_id"] = parsed.get("payment_link_id")
 
+    if tool_name == "check_payment_status" and parsed.get("paid"):
+        updates["payment_confirmed"] = True
+        updates["cart"] = []
+        updates["cart_items"] = []
+        updates["cart_total"] = 0.0
+        updates["cart_subtotal"] = 0.0
+        updates["cart_count"] = 0
+
     return updates
 
 
@@ -173,6 +181,7 @@ def resolve_all_tools(tools_dict=None) -> dict:
         ("Cart.tools", "get_cart_langchain_tools"),
         ("Negotiation.tools", "get_negotiation_langchain_tools"),
         ("Recommedation.tools", "get_recommendation_langchain_tools"),
+        ("Payment.tools", "get_payment_langchain_tools"),
     ]:
         try:
             mod = __import__(module_name, fromlist=[getter_name])
