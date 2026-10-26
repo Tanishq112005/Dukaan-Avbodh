@@ -512,6 +512,25 @@ class AgentController:
         yield f"data: {json.dumps(res)}\n\n"
         yield "data: [DONE]\n\n"
 
+    async def sync_auth_state(self, thread_id: str, user_id: int, token: Optional[str] = None):
+        """
+        Syncs newly authenticated customer session with active LangGraph conversation thread and Redis cache.
+        """
+        try:
+            from config.redis import redisClient
+            r_client = redisClient.get_redis_client()
+            cache_key = f"agent_state:{thread_id}"
+            raw = r_client.get(cache_key)
+            state_data = json.loads(raw) if raw else {}
+            state_data["user_id"] = user_id
+            state_data["is_authenticated"] = True
+            if token:
+                state_data["auth_token"] = token
+            r_client.set(cache_key, json.dumps(state_data), ex=86400)
+            logger.info("Synced authenticated user %s with agent thread %s", user_id, thread_id)
+        except Exception as e:
+            logger.warning("Could not sync agent auth state for thread %s: %s", thread_id, e)
+
 
 agentController = AgentController()
 agent_controller = agentController

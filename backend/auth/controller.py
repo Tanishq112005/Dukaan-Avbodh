@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional, Dict, Any
 from fastapi import HTTPException, status
@@ -54,12 +55,27 @@ class AuthController:
             userProfile.role.value
         )
 
+        if payload.thread_id:
+            try:
+                from agents.user.controller import agentController
+                asyncio.create_task(
+                    agentController.sync_auth_state(
+                        thread_id=payload.thread_id,
+                        user_id=userProfile.id,
+                        token=token
+                    )
+                )
+            except Exception as e:
+                logger.warning("Could not sync agent state on signup: %s", e)
+
         return JSONResponse(
             status_code=201,
             content={
                 "access_token": token,
                 "user_id": userProfile.id,
-                "role": userProfile.role.value
+                "role": userProfile.role.value,
+                "name": userProfile.name,
+                "email": userProfile.email,
             }
         )
 
@@ -86,6 +102,19 @@ class AuthController:
             user.id,
             user.role.value
         )
+
+        if payload.thread_id:
+            try:
+                from agents.user.controller import agentController
+                asyncio.create_task(
+                    agentController.sync_auth_state(
+                        thread_id=payload.thread_id,
+                        user_id=user.id,
+                        token=token
+                    )
+                )
+            except Exception as e:
+                logger.warning("Could not sync agent state on login: %s", e)
 
         return {
             "access_token": token,

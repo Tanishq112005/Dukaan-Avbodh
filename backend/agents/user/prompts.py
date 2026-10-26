@@ -158,20 +158,45 @@ def get_user_agent_prompt(
     user_id: Optional[int] = None,
     gender: Optional[str] = None,
     current_discount: float = 0.0,
+    customer_profile: Optional[dict] = None,
+    is_authenticated: Optional[bool] = None,
 ) -> str:
     """
     Returns the unified system prompt enriched with real-time customer session context.
     """
     prompt = USER_AGENT_SYSTEM_PROMPT
     context_lines = []
-    if user_id and user_id > 0:
+
+    # Determine whether the user is an authenticated customer
+    auth_ok = False
+    if is_authenticated is not None:
+        auth_ok = bool(is_authenticated and user_id and user_id > 0)
+    elif user_id and user_id > 0:
+        if customer_profile and isinstance(customer_profile, dict):
+            email = str(customer_profile.get("email") or "").strip().lower()
+            auth_ok = not (email.endswith("@dukaan.local") or email.startswith("guest_"))
+        else:
+            auth_ok = True
+
+    if auth_ok:
         context_lines.append(
             f"- Active Customer ID (user_id in state): {user_id} (LOGGED IN & AUTHENTICATED - Cart operations allowed)"
         )
+        if customer_profile and isinstance(customer_profile, dict):
+            c_name = customer_profile.get("name")
+            c_email = customer_profile.get("email")
+            c_addr = customer_profile.get("address")
+            if c_name:
+                context_lines.append(f"- Customer Name: {c_name}")
+            if c_email and not str(c_email).endswith("@dukaan.local"):
+                context_lines.append(f"- Customer Email: {c_email}")
+            if c_addr and str(c_addr).strip():
+                context_lines.append(f"- Saved Shipping Address: {c_addr}")
     else:
         context_lines.append(
             "- Active Customer ID (user_id in state): None / 0 (GUEST / NOT LOGGED IN - Unauthenticated. MUST ask customer to log in or sign up before adding to cart)"
         )
+
     if gender:
         context_lines.append(f"- Preferred Gender: {gender}")
     if current_discount > 0.0:
