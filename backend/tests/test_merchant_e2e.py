@@ -2,28 +2,23 @@ import asyncio
 import os
 import sys
 
-if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
 # Ensure backend directory is in sys.path
 backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from Merchant.models import (
-    Campaign,
-    CampaignProductLink,
-    CampaingType,
-    CampaignType,
-    CAMPAIGN_WEIGHTS,
     MerchantDiscountPolicy,
     DiscountPolicy,
 )
 from Merchant.schemas import (
     MerchantDashboardAnalyticsResponse,
-    CreateCampaignRequest,
     PricingBoundsUpdateRequest,
     UpdateOrderStatusRequest,
+    MerchantChatRequest,
 )
 from Merchant.utils import (
     resolve_time_range,
@@ -39,13 +34,13 @@ from Merchant.tools import (
     merchant_get_top_selling_products,
     merchant_get_inventory_health_and_reorder_alerts,
     merchant_lookup_order_details,
-    merchant_manage_campaign,
     merchant_update_product_pricing_and_margin,
     merchant_get_customer_negotiation_insights,
     merchant_publish_catalog_item,
     get_merchant_langchain_tools,
     MERCHANT_ONLY_ERROR,
 )
+from Merchant.database import merchantChatRepo
 from Merchant.controller import merchantController
 from Merchant.routes import router as merchant_router
 from fastapi import HTTPException
@@ -53,25 +48,13 @@ from fastapi import HTTPException
 
 async def run_merchant_e2e_tests():
     print("=" * 70)
-    print("STARTING DUKAAN MERCHANT DOMAIN COMPREHENSIVE E2E TEST SUITE")
+    print("STARTING DUKAAN UNIFIED MERCHANT DOMAIN COMPREHENSIVE E2E TEST SUITE")
     print("=" * 70)
 
     # --------------------------------------------------------------------------
-    # 1. Models and Schemas Validation
+    # 1. Models and Schemas Validation (Clean, Non-Campaign)
     # --------------------------------------------------------------------------
     print("\n[SECTION 1] Validating Models & Schemas...")
-    camp = Campaign(
-        agenda="Summer Clearance",
-        discount_percentage=15.0,
-        priority=3,
-        type=CampaingType.HIGH_PRIORITY,
-        total_products=5,
-    )
-    assert camp.agenda == "Summer Clearance"
-    assert camp.type == CampaingType.HIGH_PRIORITY
-    assert CAMPAIGN_WEIGHTS[camp.type] == 3
-    print("  -> Campaign model initialized with High Priority (weight=3)")
-
     policy = MerchantDiscountPolicy(
         max_discount_percentage=30.0,
         min_margin_percentage=20.0,
@@ -79,15 +62,19 @@ async def run_merchant_e2e_tests():
     assert policy.max_discount_percentage == 30.0
     print("  -> MerchantDiscountPolicy model validated")
 
-    req = CreateCampaignRequest(
-        agenda="Festive Flash",
-        discount_percentage=20.0,
-        priority=2,
-        type=CampaingType.MEDIUM_PRIORITY,
-        product_ids=[1, 2, 3],
+    disc_policy = DiscountPolicy(
+        product_id=1,
+        max_discount_percent=25.0,
     )
-    assert len(req.product_ids) == 3
-    print("  -> CreateCampaignRequest schema validated")
+    assert disc_policy.max_discount_percent == 25.0
+    print("  -> DiscountPolicy model validated")
+
+    req = PricingBoundsUpdateRequest(
+        max_discount_percentage=22.0,
+        min_margin_percentage=18.0,
+    )
+    assert req.max_discount_percentage == 22.0
+    print("  -> PricingBoundsUpdateRequest schema validated")
 
     # --------------------------------------------------------------------------
     # 2. Utility Helper Functions
@@ -130,7 +117,7 @@ async def run_merchant_e2e_tests():
         print("  -> assert_merchant_access strictly rejected non-merchant with HTTP 403")
 
     # --------------------------------------------------------------------------
-    # 3. Strict Merchant-Only Tool Authorization
+    # 3. Strict Merchant-Only Tool Authorization (All 7 Native Tools)
     # --------------------------------------------------------------------------
     print("\n[SECTION 3] Validating Merchant AI Tools Authorization (Strictly Merchant-Only)...")
     roles_to_block = ["customer", "guest", "anonymous", "", None]
@@ -151,37 +138,33 @@ async def run_merchant_e2e_tests():
         assert res4["status"] == "error"
         assert res4["error"] == MERCHANT_ONLY_ERROR
 
-        res5 = await merchant_manage_campaign(action="list", caller_role=bad_role)
+        res5 = await merchant_update_product_pricing_and_margin(product_id=1, new_price=999, caller_role=bad_role)
         assert res5["status"] == "error"
         assert res5["error"] == MERCHANT_ONLY_ERROR
 
-        res6 = await merchant_update_product_pricing_and_margin(product_id=1, new_price=999, caller_role=bad_role)
+        res6 = await merchant_get_customer_negotiation_insights(caller_role=bad_role)
         assert res6["status"] == "error"
         assert res6["error"] == MERCHANT_ONLY_ERROR
 
-        res7 = await merchant_get_customer_negotiation_insights(caller_role=bad_role)
+        res7 = await merchant_publish_catalog_item(
+            name="Test Tee", price=599, stock=10, product_type="t-shirt", caller_role=bad_role
+        )
         assert res7["status"] == "error"
         assert res7["error"] == MERCHANT_ONLY_ERROR
 
-        res8 = await merchant_publish_catalog_item(
-            name="Test Tee", price=599, stock=10, product_type="t-shirt", caller_role=bad_role
-        )
-        assert res8["status"] == "error"
-        assert res8["error"] == MERCHANT_ONLY_ERROR
+    print("  -> 100% of all 7 tools strictly blocked non-merchant callers with FORBIDDEN status!")
 
-    print("  -> 100% of all 8 tools strictly blocked non-merchant callers with FORBIDDEN status!")
-
-    # Verify LangChain tools export
     langchain_tools = get_merchant_langchain_tools()
-    assert len(langchain_tools) == 8
-    print(f"  -> All {len(langchain_tools)} LangChain structured tools verified.")
+    assert len(langchain_tools) == 7
+    print(f"  -> All {len(langchain_tools)} native LangChain structured tools verified.")
 
     # --------------------------------------------------------------------------
-    # 4. Controller & Repository Business Logic
+    # 4. Controller, Repository Analytics & Dedicated MongoDB Chat Storage
     # --------------------------------------------------------------------------
     print("\n[SECTION 4] Validating Controller & Repository Analytics...")
     from config.database import db_connection
     await db_connection.init_db()
+
     analytics_data = await merchantController.get_dashboard_analytics("all")
     assert "metrics" in analytics_data
     assert "top_selling_products" in analytics_data
@@ -195,18 +178,55 @@ async def run_merchant_e2e_tests():
     print(f"  -> Top Selling Products: {len(analytics_data['top_selling_products'])} products ranked")
     print(f"  -> Categories: {[c['name'] for c in analytics_data['revenue_by_category']]}")
 
-    # Test orders retrieval
     orders = await merchantController.get_all_orders(limit=10)
     print(f"  -> Orders retrieved: {len(orders)} order groups loaded")
 
-    # Test inventory alerts
     alerts = await merchantController.get_inventory_alerts(threshold=15)
     print(f"  -> Inventory alerts: {len(alerts)} items flagged for low/out-of-stock")
 
-    # Test pricing bounds
     bounds = await merchantController.get_pricing_bounds()
     assert "max_discount_percentage" in bounds
     print(f"  -> Pricing negotiation bounds: Max Discount = {bounds['max_discount_percentage']}%, Min Margin = {bounds['min_margin_percentage']}%")
+
+    # Test Dedicated MongoDB Merchant Chats Table
+    print("\n[SECTION 4b] Testing Dedicated MongoDB 'merchant_chats' Collection...")
+    test_merchant_id = 9999
+    test_thread = f"merchant_test_{test_merchant_id}"
+
+    # 1. Add merchant message
+    await merchantChatRepo.add_message(
+        merchant_id=test_merchant_id,
+        thread_id=test_thread,
+        role="merchant",
+        content="What is my total store profit?",
+    )
+
+    # 2. Add assistant message & update state snapshot
+    test_state_snapshot = {
+        "current_intent": "analytics_inquiry",
+        "last_tool_called": "merchant_get_store_analytics",
+        "analytics_context": {"total_profit": 14433.92},
+    }
+    await merchantChatRepo.add_message(
+        merchant_id=test_merchant_id,
+        thread_id=test_thread,
+        role="assistant",
+        content="Your net store profit is INR 14,433.92 with a 30.5% margin.",
+    )
+    await merchantChatRepo.update_thread_state(
+        merchant_id=test_merchant_id,
+        thread_id=test_thread,
+        state_snapshot=test_state_snapshot,
+    )
+
+    # 3. Retrieve thread from merchant_chats table
+    fetched_threads = await merchantController.get_merchant_chat_threads(merchant_id=test_merchant_id, limit=5)
+    assert len(fetched_threads) >= 1, "Expected thread stored in MongoDB 'merchant_chats'"
+    saved_th = fetched_threads[0]
+    assert saved_th["thread_id"] == test_thread
+    assert len(saved_th.get("messages", [])) >= 2
+    assert saved_th.get("state", {}).get("current_intent") == "analytics_inquiry"
+    print(f"  -> Successfully verified dedicated MongoDB 'merchant_chats' storage with {len(saved_th['messages'])} messages and audited state snapshot!")
 
     # --------------------------------------------------------------------------
     # 5. Route Endpoints Verification
@@ -220,15 +240,16 @@ async def run_merchant_e2e_tests():
 
     assert "/merchant/analytics" in registered_routes
     assert "/merchant/orders" in registered_routes
+    assert "/merchant/orders/{order_id}" in registered_routes
     assert "/merchant/inventory-alerts" in registered_routes
     assert "/merchant/audit-logs" in registered_routes
     assert "/merchant/chat-threads" in registered_routes
-    assert "/merchant/campaigns" in registered_routes
+    assert "/merchant/merchant-chats" in registered_routes
     assert "/merchant/pricing-bounds" in registered_routes
     assert "/merchant/chat" in registered_routes
 
     print("\n" + "=" * 70)
-    print("ALL DUKAAN MERCHANT DOMAIN E2E TESTS PASSED WITH 100% SUCCESS!")
+    print("ALL DUKAAN UNIFIED MERCHANT DOMAIN E2E TESTS PASSED WITH 100% SUCCESS!")
     print("=" * 70 + "\n")
 
 

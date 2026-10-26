@@ -4,19 +4,14 @@ from collections import defaultdict
 from typing import Optional, List, Dict, Any
 
 from sqlmodel import select, func
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload
 
 from config.database import db_connection
+from config.mogodbconfig import nosql_client
 from Order.models import Order
 from Product.models import Product
 from User.models import User
-from Merchant.models import (
-    Campaign,
-    CampaignProductLink,
-    CampaingType,
-    CAMPAIGN_WEIGHTS,
-    MerchantDiscountPolicy,
-)
+from Merchant.models import MerchantDiscountPolicy, DiscountPolicy
 from Merchant.utils import (
     resolve_time_range,
     calculate_profit_margin,
@@ -27,14 +22,125 @@ from Merchant.utils import (
 logger = logging.getLogger(__name__)
 
 
+# ==============================================================================
+# Dedicated MongoDB Storage for Merchant Chats
+# ==============================================================================
+
+class MerchantChatRepository:
+    """
+    Dedicated MongoDB repository for storing and auditing Merchant AI Assistant
+    conversations, agent state snapshots, and tool executions.
+    Stored in MongoDB collection 'merchant_chats'.
+    """
+
+    def __init__(self, collection=None):
+        self.collection = (
+            collection
+            if collection is not None
+            else nosql_client.get_collection("dukaan_audit", "merchant_chats")
+        )
+
+    async def get_or_create_thread(self, merchant_id: int, thread_id: str) -> Dict[str, Any]:
+        """Fetches or creates a persistent merchant chat thread in MongoDB."""
+        try:
+            thread = await self.collection.find_one({"merchant_id": merchant_id, "thread_id": thread_id})
+            if not thread:
+                now = datetime.utcnow()
+                doc = {
+                    "merchant_id": merchant_id,
+                    "thread_id": thread_id,
+                    "messages": [],
+                    "state": {},
+                    "created_at": now,
+                    "updated_at": now,
+                }
+                res = await self.collection.insert_one(doc)
+                doc["_id"] = res.inserted_id
+                return serialize_mongo_doc(doc)
+            return serialize_mongo_doc(thread)
+        except Exception as e:
+            logger.warning("[MERCHANT CHAT MONGO] Could not get/create thread: %s", e)
+            return {"merchant_id": merchant_id, "thread_id": thread_id, "messages": [], "state": {}}
+
+    async def add_message(
+        self,
+        merchant_id: int,
+        thread_id: str,
+        role: str,
+        content: str,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
+    ) -> None:
+        """Appends a message (merchant or assistant) to the merchant chat thread."""
+        try:
+            msg = {
+                "role": role,
+                "content": content,
+                "tool_calls": tool_calls or [],
+                "timestamp": datetime.utcnow(),
+            }
+            await self.collection.update_one(
+                {"merchant_id": merchant_id, "thread_id": thread_id},
+                {
+                    "$push": {"messages": msg},
+                    "$set": {"updated_at": datetime.utcnow()},
+                },
+                upsert=True,
+            )
+        except Exception as e:
+            logger.warning("[MERCHANT CHAT MONGO] Could not append message: %s", e)
+
+    async def update_thread_state(
+        self,
+        merchant_id: int,
+        thread_id: str,
+        state_snapshot: Dict[str, Any],
+    ) -> None:
+        """Saves a verifiable snapshot of the agent state into the MongoDB thread."""
+        try:
+            clean_state = serialize_mongo_doc(state_snapshot)
+            await self.collection.update_one(
+                {"merchant_id": merchant_id, "thread_id": thread_id},
+                {
+                    "$set": {
+                        "state": clean_state,
+                        "updated_at": datetime.utcnow(),
+                    }
+                },
+                upsert=True,
+            )
+        except Exception as e:
+            logger.warning("[MERCHANT CHAT MONGO] Could not update thread state: %s", e)
+
+    async def get_merchant_threads(
+        self,
+        merchant_id: Optional[int] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Retrieves merchant chat history and state audit records."""
+        try:
+            query = {"merchant_id": merchant_id} if merchant_id else {}
+            cursor = self.collection.find(query).sort("updated_at", -1).limit(limit)
+            threads = await cursor.to_list(length=limit)
+            return [serialize_mongo_doc(t) for t in threads]
+        except Exception as e:
+            logger.warning("[MERCHANT CHAT MONGO] Could not fetch threads: %s", e)
+            return []
+
+
+merchantChatRepo = MerchantChatRepository()
+
+
+# ==============================================================================
+# Merchant Domain Repository
+# ==============================================================================
+
 class MerchantRepository:
     """
     Data access repository for all Dukaan Merchant domain operations:
     - Real-time sales, profit, and customer analytics
     - Inventory alerts and catalog health
     - Auditing and chat transcript retrieval
-    - Promotional campaign and pricing policy management
-    - Order tracking and fulfillment status
+    - Pricing policy bounds and order fulfillment tracking
     """
 
     # --------------------------------------------------------------------------
@@ -309,7 +415,7 @@ class MerchantRepository:
 
     @staticmethod
     async def _get_mongo_negotiation_funnel() -> Dict[str, Any]:
-        """Aggregates negotiation metrics directly from MongoDB chat threads."""
+        """Aggregates negotiation metrics directly from MongoDB customer chat threads."""
         try:
             from Chat.database import chat_audit_repo
             threads = await chat_audit_repo.collection.find().limit(200).to_list(length=200)
@@ -513,7 +619,7 @@ class MerchantRepository:
             return []
 
     async def get_chat_threads(self, limit: int = 100) -> List[Dict[str, Any]]:
-        """Retrieves user conversation threads and negotiation logs from MongoDB."""
+        """Retrieves customer bargaining sessions from MongoDB dukaan_audit.chat_threads."""
         try:
             from Chat.database import chat_audit_repo
             cursor = chat_audit_repo.collection.find().sort("updated_at", -1).limit(limit)
@@ -524,154 +630,7 @@ class MerchantRepository:
             return []
 
     # --------------------------------------------------------------------------
-    # 5. Campaign Management
-    # --------------------------------------------------------------------------
-    async def create_campaign(
-        self,
-        agenda: str,
-        discount_percentage: float,
-        priority: int,
-        type: CampaingType,
-        product_ids: List[int],
-    ) -> Campaign:
-        """Creates a campaign, links products, and updates importance scores."""
-        async with db_connection.get_session() as session:
-            campaign = Campaign(
-                agenda=agenda,
-                discount_percentage=discount_percentage,
-                priority=priority,
-                type=type,
-                total_products=len(product_ids),
-                total_items_sold=0,
-            )
-            session.add(campaign)
-            await session.commit()
-            await session.refresh(campaign)
-
-            weight = CAMPAIGN_WEIGHTS.get(type, 1)
-
-            for pid in product_ids:
-                link = CampaignProductLink(campaign_id=campaign.id, product_id=pid)
-                session.add(link)
-
-                prod_stmt = select(Product).where(Product.id == pid)
-                prod = (await session.execute(prod_stmt)).scalars().first()
-                if prod:
-                    curr_score = getattr(prod, "importance_score", 0) or 0
-                    setattr(prod, "importance_score", curr_score + weight)
-                    session.add(prod)
-
-            await session.commit()
-            await session.refresh(campaign)
-            return campaign
-
-    async def get_all_campaigns(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
-        """Fetches all campaigns with linked product summaries and stock units."""
-        async with db_connection.get_session() as session:
-            stmt = select(Campaign).offset(skip).limit(limit).order_by(Campaign.id.desc())
-            res = await session.execute(stmt)
-            campaigns = res.scalars().all()
-
-            results = []
-            for c in campaigns:
-                stock_units = await self.get_campaign_stock_units(c.id)
-                links_stmt = select(CampaignProductLink.product_id).where(CampaignProductLink.campaign_id == c.id)
-                linked_pids = (await session.execute(links_stmt)).scalars().all()
-
-                prods_list = []
-                if linked_pids:
-                    p_stmt = select(Product).where(Product.id.in_(linked_pids))
-                    prods = (await session.execute(p_stmt)).scalars().all()
-                    prods_list = [
-                        {"id": p.id, "name": p.name, "price": float(p.price), "stock": p.stock}
-                        for p in prods
-                    ]
-
-                results.append({
-                    "id": c.id,
-                    "agenda": c.agenda,
-                    "discount_percentage": float(c.discount_percentage),
-                    "priority": c.priority,
-                    "type": c.type,
-                    "total_items_sold": c.total_items_sold,
-                    "total_products": len(linked_pids),
-                    "total_stock_units": stock_units,
-                    "products": prods_list,
-                })
-
-            return results
-
-    async def get_campaign_by_id(self, campaign_id: int) -> Optional[Dict[str, Any]]:
-        """Fetches a single campaign by ID."""
-        async with db_connection.get_session() as session:
-            stmt = select(Campaign).where(Campaign.id == campaign_id)
-            c = (await session.execute(stmt)).scalars().first()
-            if not c:
-                return None
-
-            stock_units = await self.get_campaign_stock_units(c.id)
-            links_stmt = select(CampaignProductLink.product_id).where(CampaignProductLink.campaign_id == c.id)
-            linked_pids = (await session.execute(links_stmt)).scalars().all()
-
-            prods_list = []
-            if linked_pids:
-                p_stmt = select(Product).where(Product.id.in_(linked_pids))
-                prods = (await session.execute(p_stmt)).scalars().all()
-                prods_list = [
-                    {"id": p.id, "name": p.name, "price": float(p.price), "stock": p.stock}
-                    for p in prods
-                ]
-
-            return {
-                "id": c.id,
-                "agenda": c.agenda,
-                "discount_percentage": float(c.discount_percentage),
-                "priority": c.priority,
-                "type": c.type,
-                "total_items_sold": c.total_items_sold,
-                "total_products": len(linked_pids),
-                "total_stock_units": stock_units,
-                "products": prods_list,
-            }
-
-    async def get_campaign_stock_units(self, campaign_id: int) -> int:
-        """Sums the physical stock across all products in a campaign."""
-        async with db_connection.get_session() as session:
-            stmt = (
-                select(func.sum(Product.stock))
-                .join(CampaignProductLink, CampaignProductLink.product_id == Product.id)
-                .where(CampaignProductLink.campaign_id == campaign_id)
-            )
-            result = (await session.execute(stmt)).scalar()
-            return int(result or 0)
-
-    async def delete_campaign(self, campaign_id: int) -> bool:
-        """Deletes a campaign and reverses product importance weights."""
-        async with db_connection.get_session() as session:
-            c = (await session.execute(select(Campaign).where(Campaign.id == campaign_id))).scalars().first()
-            if not c:
-                return False
-
-            weight = CAMPAIGN_WEIGHTS.get(c.type, 1)
-
-            # Find linked products
-            links_stmt = select(CampaignProductLink).where(CampaignProductLink.campaign_id == campaign_id)
-            links = (await session.execute(links_stmt)).scalars().all()
-
-            for link in links:
-                prod = (await session.execute(select(Product).where(Product.id == link.product_id))).scalars().first()
-                if prod:
-                    curr_score = getattr(prod, "importance_score", 0) or 0
-                    setattr(prod, "importance_score", max(0, curr_score - weight))
-                    session.add(prod)
-                await session.delete(link)
-
-            await session.delete(c)
-            await session.commit()
-            return True
-
-    # --------------------------------------------------------------------------
-    # 6. Pricing & Negotiation Bounds Policy
+    # 5. Pricing & Negotiation Bounds Policy
     # --------------------------------------------------------------------------
     async def get_or_create_discount_policy(self, merchant_id: int = 1) -> MerchantDiscountPolicy:
         """Fetches or initializes the store dynamic pricing policy bounds."""

@@ -3,12 +3,8 @@ from typing import Optional, List, Dict, Any
 from fastapi import HTTPException, status
 from langchain_core.messages import HumanMessage
 
-from Merchant.database import merchantRepository
-from Merchant.schemas import (
-    CreateCampaignRequest,
-    UpdateCampaignRequest,
-    PricingBoundsUpdateRequest,
-)
+from Merchant.database import merchantRepository, merchantChatRepo
+from Merchant.schemas import PricingBoundsUpdateRequest
 from Merchant.utils import assert_merchant_access
 from services.audit_logger import audit_logger
 
@@ -21,12 +17,13 @@ class MerchantController:
     - Executive business intelligence and analytics
     - Inventory reordering and stock alerts
     - Customer orders and fulfillment status
-    - Promotional campaigns and pricing policy bounds
-    - Conversational merchant assistant
+    - Dynamic pricing policy bounds
+    - Conversational merchant assistant with dedicated MongoDB chat storage
     """
 
-    def __init__(self, repository=merchantRepository):
+    def __init__(self, repository=merchantRepository, chat_repo=merchantChatRepo):
         self.repo = repository
+        self.chat_repo = chat_repo
 
     # --------------------------------------------------------------------------
     # 1. Dashboard Analytics
@@ -115,7 +112,7 @@ class MerchantController:
             return []
 
     # --------------------------------------------------------------------------
-    # 4. Audit Logs & Chat Transcripts
+    # 4. Audit Logs & Customer Chat Transcripts (MongoDB)
     # --------------------------------------------------------------------------
     async def get_audit_logs(self, limit: int = 200) -> Dict[str, Any]:
         """Fetches system and monetary audit trail from MongoDB."""
@@ -128,82 +125,15 @@ class MerchantController:
         return {"threads": threads}
 
     # --------------------------------------------------------------------------
-    # 5. Campaign Management
+    # 5. Dedicated Merchant Chat Transcripts (MongoDB 'merchant_chats')
     # --------------------------------------------------------------------------
-    async def create_campaign(
+    async def get_merchant_chat_threads(
         self,
-        payload: CreateCampaignRequest,
-        current_user: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Creates a new marketing campaign and adjusts catalog importance scores."""
-        try:
-            campaign = await self.repo.create_campaign(
-                agenda=payload.agenda,
-                discount_percentage=payload.discount_percentage,
-                priority=payload.priority,
-                type=payload.type,
-                product_ids=payload.product_ids,
-            )
-
-            merchant_id = current_user.get("user_id") if current_user else 1
-            await audit_logger.log_event(
-                event_type="campaign_created",
-                user_id=merchant_id,
-                details={
-                    "campaign_id": campaign.id,
-                    "agenda": campaign.agenda,
-                    "discount_percentage": campaign.discount_percentage,
-                    "linked_products": len(payload.product_ids),
-                },
-            )
-
-            return {
-                "success": True,
-                "message": f"Campaign '{campaign.agenda}' created successfully.",
-                "campaign": campaign.model_dump() if hasattr(campaign, "model_dump") else campaign,
-            }
-        except Exception as e:
-            logger.exception("[MERCHANT CONTROLLER] Campaign creation failed: %s", e)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create campaign: {str(e)}",
-            )
-
-    async def get_campaigns(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
-        """Lists active promotional campaigns with linked products and stock counts."""
-        return await self.repo.get_all_campaigns(skip=skip, limit=limit)
-
-    async def get_campaign_detail(self, campaign_id: int) -> Dict[str, Any]:
-        """Retrieves details of a specific campaign."""
-        camp = await self.repo.get_campaign_by_id(campaign_id)
-        if not camp:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Campaign with ID {campaign_id} not found.",
-            )
-        return camp
-
-    async def delete_campaign(
-        self,
-        campaign_id: int,
-        current_user: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Deletes a promotional campaign and resets product weights."""
-        success = await self.repo.delete_campaign(campaign_id)
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Campaign with ID {campaign_id} not found to delete.",
-            )
-
-        merchant_id = current_user.get("user_id") if current_user else 1
-        await audit_logger.log_event(
-            event_type="campaign_deleted",
-            user_id=merchant_id,
-            details={"campaign_id": campaign_id},
-        )
-
-        return {"success": True, "message": f"Campaign #{campaign_id} deleted successfully."}
+        merchant_id: Optional[int] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Retrieves conversational sessions stored in the dedicated merchant_chats MongoDB collection."""
+        return await self.chat_repo.get_merchant_threads(merchant_id=merchant_id, limit=limit)
 
     # --------------------------------------------------------------------------
     # 6. Dynamic Pricing Bounds Policy
@@ -253,7 +183,7 @@ class MerchantController:
         }
 
     # --------------------------------------------------------------------------
-    # 7. Merchant AI Assistant
+    # 7. Merchant AI Assistant with Dedicated MongoDB Chat Persistence
     # --------------------------------------------------------------------------
     async def chat(
         self,
@@ -262,34 +192,83 @@ class MerchantController:
         current_user: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
-        Executes query through the specialized LangGraph Merchant Agent.
+        Executes query through the unified LangGraph Merchant Agent and persists
+        every conversation turn and state snapshot into MongoDB 'merchant_chats'.
         """
+        merchant_id = current_user.get("user_id", 1) if current_user else 1
+        thread = thread_id or f"merchant_{merchant_id}"
+
+        # 1. Log incoming user message into MongoDB merchant_chats collection
+        await self.chat_repo.add_message(
+            merchant_id=merchant_id,
+            thread_id=thread,
+            role="merchant",
+            content=text,
+        )
+
         try:
             from agents.merchant import agent_service as merchant_agent_service
 
             agent = merchant_agent_service.get_merchant_agent()
-            user_id = current_user.get("user_id") if current_user else 1
-            thread = thread_id or f"merchant_{user_id}"
             config = {"configurable": {"thread_id": thread}}
 
             initial_state = {
                 "messages": [HumanMessage(content=text)],
-                "user_id": user_id,
+                "merchant_id": merchant_id,
+                "user_id": merchant_id,
                 "thread_id": thread,
             }
 
             result = await agent.ainvoke(initial_state, config=config)
             ai_reply = result.get("final_response", "Request processed.")
 
+            # 2. Extract state snapshot for verification
+            state_snapshot = {
+                "current_intent": result.get("current_intent"),
+                "last_tool_called": result.get("last_tool_called"),
+                "last_tool_args": result.get("last_tool_args"),
+                "last_tool_result": result.get("last_tool_result"),
+                "analytics_context": result.get("analytics_context"),
+                "updated_at": str(result.get("updated_at", "")),
+            }
+
+            # 3. Save assistant reply and state snapshot to MongoDB merchant_chats
+            await self.chat_repo.add_message(
+                merchant_id=merchant_id,
+                thread_id=thread,
+                role="assistant",
+                content=ai_reply,
+            )
+            await self.chat_repo.update_thread_state(
+                merchant_id=merchant_id,
+                thread_id=thread,
+                state_snapshot=state_snapshot,
+            )
+
             return {
                 "type": "merchant_chat_reply",
                 "message": ai_reply,
+                "thread_id": thread,
+                "state": state_snapshot,
             }
+
         except Exception as e:
             logger.exception("[MERCHANT CONTROLLER] AI agent interaction failed: %s", e)
+            fallback_reply = (
+                "I encountered an issue processing your store request. "
+                "Please verify backend services are healthy."
+            )
+            await self.chat_repo.add_message(
+                merchant_id=merchant_id,
+                thread_id=thread,
+                role="assistant",
+                content=fallback_reply,
+            )
             return {
                 "type": "merchant_chat_reply",
-                "message": "I am experiencing difficulty accessing store data right now. Please ensure background services are running.",
+                "message": fallback_reply,
+                "thread_id": thread,
+                "state": {"error": str(e)},
             }
 
 

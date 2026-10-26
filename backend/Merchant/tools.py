@@ -1,29 +1,11 @@
-import os
-import sys
 import logging
 from typing import Optional, Dict, Any, List
 from langchain_core.tools import StructuredTool
-
-# Ensure backend/mcp directory is discoverable for importing FastMCP merchant server
-mcp_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "mcp"))
-if mcp_path not in sys.path:
-    sys.path.insert(0, mcp_path)
-
-try:
-    from mcp_server_merchant.server import mcp
-except Exception:
-    class DummyMCP:
-        def tool(self, *args, **kwargs):
-            return lambda fn: fn
-        def resource(self, *args, **kwargs):
-            return lambda fn: fn
-    mcp = DummyMCP()
 
 from Merchant.database import merchantRepository
 from Product.controller import productController
 from Product.schemas import AddProductRequest
 from Product.models import ProductType, Product
-from Merchant.models import CampaingType
 from sqlmodel import select
 from config.database import db_connection
 
@@ -44,36 +26,9 @@ def _check_merchant_authorization(caller_role: Optional[str]) -> bool:
 
 
 # ==============================================================================
-# FastMCP Merchant Resources
+# Native Merchant Function Tools (Strictly Merchant-Only)
 # ==============================================================================
 
-@mcp.resource("merchant://kpi-definitions")
-async def get_merchant_kpi_definitions() -> Dict[str, Any]:
-    """Provides key performance indicator formulas and targets for merchant store analytics."""
-    return {
-        "gross_revenue": "Sum of total order payments received.",
-        "net_profit": "Gross revenue minus total cost of goods sold (COGS).",
-        "profit_margin_target": "Recommended healthy store margin is 20% to 35%.",
-        "stock_alert_threshold": "Low stock warning triggers when units <= 10.",
-    }
-
-
-@mcp.resource("merchant://negotiation-policy")
-async def get_merchant_negotiation_policy() -> Dict[str, Any]:
-    """Provides storewide guidelines for AI automated discounts in customer chat."""
-    policy = await merchantRepository.get_or_create_discount_policy()
-    return {
-        "max_discount_allowed_percent": policy.max_discount_percentage,
-        "min_profit_margin_percent": policy.min_margin_percentage,
-        "auto_accept_threshold_percent": policy.auto_accept_threshold,
-    }
-
-
-# ==============================================================================
-# Merchant Tools (Strictly Merchant-Only)
-# ==============================================================================
-
-@mcp.tool()
 async def merchant_get_store_analytics(
     time_range: str = "all",
     caller_role: str = "merchant",
@@ -116,7 +71,6 @@ async def merchant_get_store_analytics(
         return {"status": "error", "error": f"Failed to retrieve analytics: {str(e)}"}
 
 
-@mcp.tool()
 async def merchant_get_top_selling_products(
     limit: int = 10,
     sort_by: str = "units_sold",
@@ -160,7 +114,6 @@ async def merchant_get_top_selling_products(
         return {"status": "error", "error": f"Failed to fetch top selling products: {str(e)}"}
 
 
-@mcp.tool()
 async def merchant_get_inventory_health_and_reorder_alerts(
     stock_threshold: int = 10,
     caller_role: str = "merchant",
@@ -197,7 +150,6 @@ async def merchant_get_inventory_health_and_reorder_alerts(
         return {"status": "error", "error": f"Failed to check inventory: {str(e)}"}
 
 
-@mcp.tool()
 async def merchant_lookup_order_details(
     order_identifier: str,
     caller_role: str = "merchant",
@@ -241,90 +193,6 @@ async def merchant_lookup_order_details(
         return {"status": "error", "error": f"Failed to lookup order: {str(e)}"}
 
 
-@mcp.tool()
-async def merchant_manage_campaign(
-    action: str,
-    agenda: str = "",
-    discount_percentage: float = 0.0,
-    priority: int = 1,
-    campaign_type: str = "low_priority",
-    product_ids: Optional[List[int]] = None,
-    campaign_id: Optional[int] = None,
-    caller_role: str = "merchant",
-) -> Dict[str, Any]:
-    """
-    Creates, inspects, or deletes marketing campaigns to boost product visibility and drive sales.
-
-    Parameters:
-    - action (str, Required): 'create', 'list', 'get', or 'delete'.
-    - agenda (str, Optional): Campaign promotion theme/title (e.g., 'Diwali Flash Sale').
-    - discount_percentage (float, Optional): Percentage discount linked to the campaign.
-    - priority (int, Optional): Numerical priority (1 to 5).
-    - campaign_type (str, Optional): 'high_priority', 'medium_priority', or 'low_priority'.
-    - product_ids (List[int], Optional): Product IDs to include in the campaign.
-    - campaign_id (int, Optional): Target campaign ID for 'get' or 'delete'.
-    - caller_role (str, Required): Must strictly be 'merchant'.
-    """
-    if not _check_merchant_authorization(caller_role):
-        return {"status": "error", "error": MERCHANT_ONLY_ERROR}
-
-    try:
-        act = action.strip().lower()
-
-        if act == "create":
-            if not agenda:
-                return {"status": "error", "error": "An agenda title is required to create a campaign."}
-
-            type_enum = CampaingType.LOW_PRIORITY
-            if campaign_type in [t.value for t in CampaingType]:
-                type_enum = CampaingType(campaign_type)
-
-            camp = await merchantRepository.create_campaign(
-                agenda=agenda,
-                discount_percentage=discount_percentage,
-                priority=priority,
-                type=type_enum,
-                product_ids=product_ids or [],
-            )
-            return {
-                "status": "success",
-                "message": f"Campaign '{camp.agenda}' created with {len(product_ids or [])} linked products.",
-                "campaign_id": camp.id,
-            }
-
-        elif act == "list":
-            campaigns = await merchantRepository.get_all_campaigns()
-            return {
-                "status": "success",
-                "count": len(campaigns),
-                "campaigns": campaigns,
-            }
-
-        elif act == "get":
-            if not campaign_id:
-                return {"status": "error", "error": "campaign_id is required for 'get' action."}
-            camp = await merchantRepository.get_campaign_by_id(campaign_id)
-            if not camp:
-                return {"status": "not_found", "message": f"Campaign #{campaign_id} not found."}
-            return {"status": "success", "campaign": camp}
-
-        elif act == "delete":
-            if not campaign_id:
-                return {"status": "error", "error": "campaign_id is required for 'delete' action."}
-            ok = await merchantRepository.delete_campaign(campaign_id)
-            if not ok:
-                return {"status": "not_found", "message": f"Campaign #{campaign_id} not found to delete."}
-            return {"status": "success", "message": f"Campaign #{campaign_id} deleted successfully."}
-
-        else:
-            return {"status": "error", "error": f"Unknown campaign action '{action}'. Use create, list, get, or delete."}
-
-    except Exception as e:
-        logger.exception("[MERCHANT TOOL ERROR] merchant_manage_campaign: %s", e)
-        return {"status": "error", "error": f"Campaign operation failed: {str(e)}"}
-
-
-@mcp.tool()
 async def merchant_update_product_pricing_and_margin(
     product_id: int,
     new_price: float,
@@ -373,14 +241,13 @@ async def merchant_update_product_pricing_and_margin(
                 "new_price": float(product.price),
                 "cost_price": float(product.cost_price or 0.0),
                 "min_profit_margin_percent": float(product.min_profit_margin_percent or 20.0),
-                "message": f"Pricing for '{product.name}' updated successfully to ₹{product.price:.2f}.",
+                "message": f"Pricing for '{product.name}' updated successfully to INR {product.price:.2f}.",
             }
     except Exception as e:
         logger.exception("[MERCHANT TOOL ERROR] merchant_update_product_pricing: %s", e)
         return {"status": "error", "error": f"Failed to update pricing: {str(e)}"}
 
 
-@mcp.tool()
 async def merchant_get_customer_negotiation_insights(
     caller_role: str = "merchant",
 ) -> Dict[str, Any]:
@@ -406,7 +273,6 @@ async def merchant_get_customer_negotiation_insights(
         return {"status": "error", "error": f"Failed to fetch negotiation insights: {str(e)}"}
 
 
-@mcp.tool()
 async def merchant_publish_catalog_item(
     name: str,
     price: float,
@@ -476,8 +342,9 @@ async def merchant_publish_catalog_item(
 
 def get_merchant_langchain_tools() -> List[StructuredTool]:
     """
-    Returns all merchant administration and analytics tools wrapped as native
-    LangChain StructuredTools, ready to bind directly to the Merchant Agent.
+    Returns all 7 merchant administration and analytics tools wrapped as native
+    LangChain StructuredTools, ready to bind directly to the Merchant Agent
+    with ZERO external MCP server dependency.
     """
     return [
         StructuredTool.from_function(
@@ -499,11 +366,6 @@ def get_merchant_langchain_tools() -> List[StructuredTool]:
             coroutine=merchant_lookup_order_details,
             name="merchant_lookup_order_details",
             description=merchant_lookup_order_details.__doc__,
-        ),
-        StructuredTool.from_function(
-            coroutine=merchant_manage_campaign,
-            name="merchant_manage_campaign",
-            description=merchant_manage_campaign.__doc__,
         ),
         StructuredTool.from_function(
             coroutine=merchant_update_product_pricing_and_margin,

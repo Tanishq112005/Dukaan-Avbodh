@@ -1,50 +1,13 @@
-from enum import Enum
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional
 from datetime import datetime
-from sqlmodel import SQLModel, Field, Relationship
-
-if TYPE_CHECKING:
-    from Product.models import Product
-
-
-class CampaingType(str, Enum):
-    HIGH_PRIORITY = "high_priority"
-    MEDIUM_PRIORITY = "medium_priority"
-    LOW_PRIORITY = "low_priority"
-
-
-# Alias for spelling correction while preserving backward compatibility
-CampaignType = CampaingType
-
-
-CAMPAIGN_WEIGHTS = {
-    CampaingType.LOW_PRIORITY: 1,
-    CampaingType.MEDIUM_PRIORITY: 2,
-    CampaingType.HIGH_PRIORITY: 3,
-}
-
-
-class CampaignProductLink(SQLModel, table=True):
-    campaign_id: Optional[int] = Field(
-        default=None, foreign_key="campaign.id", primary_key=True
-    )
-    product_id: Optional[int] = Field(
-        default=None, foreign_key="product.id", primary_key=True
-    )
-
-
-class Campaign(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    agenda: str = ""
-    discount_percentage: float = 0.0
-    priority: int = 0
-    type: CampaingType = CampaingType.LOW_PRIORITY
-    total_items_sold: int = Field(default=0)
-    total_products: int = Field(default=0)
-    created_at: datetime = Field(default_factory=datetime.now)
+from sqlmodel import SQLModel, Field
 
 
 class MerchantDiscountPolicy(SQLModel, table=True):
+    """
+    Storewide pricing and margin negotiation floor policy for Dukaan merchants.
+    Defines the boundaries within which AI buyer agents are permitted to negotiate discounts.
+    """
     id: Optional[int] = Field(default=None, primary_key=True)
     merchant_id: Optional[int] = Field(default=1, index=True)
     max_discount_percentage: float = Field(default=25.0)
@@ -54,6 +17,9 @@ class MerchantDiscountPolicy(SQLModel, table=True):
 
 
 class DiscountPolicy(SQLModel, table=True):
+    """
+    Per-product discount policy boundaries.
+    """
     id: Optional[int] = Field(default=None, primary_key=True)
     product_id: int = Field(foreign_key="product.id")
     base_discount_percent: float = 0.0
@@ -61,4 +27,3 @@ class DiscountPolicy(SQLModel, table=True):
     agent_step_percent: float = 2.0
     min_loyalty_score: float = 0.0
     min_qty_for_discount: int = 1
-

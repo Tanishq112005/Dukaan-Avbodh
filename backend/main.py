@@ -37,7 +37,7 @@ from routes.payment_routes import router as payment_router
 from Payment.routes import router as direct_payment_router
 from routes.a2a_routes import router as a2a_router
 from routes.merchant_routes import router as merchant_router
-from Merchant.models import Campaign, CampaignProductLink, MerchantDiscountPolicy
+from Merchant.models import MerchantDiscountPolicy, DiscountPolicy
 
 app = FastAPI(title="Dukaan")
 

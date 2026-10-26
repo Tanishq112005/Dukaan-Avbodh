@@ -6,7 +6,6 @@ from middleware.merchant_middleware import require_role
 from User.models import UserRole
 from Merchant.controller import merchantController
 from Merchant.schemas import (
-    CreateCampaignRequest,
     UpdateOrderStatusRequest,
     PricingBoundsUpdateRequest,
     MerchantChatRequest,
@@ -106,50 +105,23 @@ async def get_all_chat_threads(
     limit: int = Query(100, ge=1, le=200),
     current_user: dict = Depends(require_role(UserRole.MERCHANT)),
 ):
-    """Fetches user conversational shopping sessions and AI negotiation history."""
+    """Fetches customer conversational shopping sessions and AI negotiation history."""
     return await merchantController.get_chat_transcripts(limit=limit)
 
 
 # ==============================================================================
-# 5. Marketing Campaigns Management
+# 5. Dedicated Merchant Chat Transcripts (MongoDB 'merchant_chats')
 # ==============================================================================
 
-@router.get("/campaigns")
-async def list_campaigns(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=200),
+@router.get("/merchant-chats")
+async def get_merchant_chat_threads(
+    limit: int = Query(50, ge=1, le=100),
     current_user: dict = Depends(require_role(UserRole.MERCHANT)),
 ):
-    """Lists all active promotional campaigns and linked product details."""
-    campaigns = await merchantController.get_campaigns(skip=skip, limit=limit)
-    return {"campaigns": campaigns}
-
-
-@router.post("/campaigns", status_code=status.HTTP_201_CREATED)
-async def create_campaign(
-    payload: CreateCampaignRequest,
-    current_user: dict = Depends(require_role(UserRole.MERCHANT)),
-):
-    """Creates a new marketing campaign and adjusts catalog product importance scores."""
-    return await merchantController.create_campaign(payload=payload, current_user=current_user)
-
-
-@router.get("/campaigns/{campaign_id}")
-async def get_campaign(
-    campaign_id: int,
-    current_user: dict = Depends(require_role(UserRole.MERCHANT)),
-):
-    """Fetches details of a specific promotional campaign."""
-    return await merchantController.get_campaign_detail(campaign_id)
-
-
-@router.delete("/campaigns/{campaign_id}")
-async def delete_campaign(
-    campaign_id: int,
-    current_user: dict = Depends(require_role(UserRole.MERCHANT)),
-):
-    """Deletes a promotional campaign and resets associated product importance scores."""
-    return await merchantController.delete_campaign(campaign_id=campaign_id, current_user=current_user)
+    """Retrieves conversation sessions and state snapshots stored in MongoDB 'merchant_chats'."""
+    merchant_id = current_user.get("user_id")
+    threads = await merchantController.get_merchant_chat_threads(merchant_id=merchant_id, limit=limit)
+    return {"threads": threads}
 
 
 # ==============================================================================
@@ -182,7 +154,7 @@ async def chat_with_merchant_agent(
     req: MerchantChatRequest,
     current_user: dict = Depends(require_role(UserRole.MERCHANT)),
 ):
-    """Processes analytical and catalog management queries through the Merchant AI Agent."""
+    """Processes analytical and catalog management queries through the unified Merchant AI Agent."""
     res = await merchantController.chat(
         text=req.text,
         thread_id=req.thread_id,

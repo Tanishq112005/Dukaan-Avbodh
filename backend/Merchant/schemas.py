@@ -2,7 +2,6 @@ from enum import Enum
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
-from Merchant.models import CampaingType
 
 
 class AnalyticsTimeRange(str, Enum):
@@ -149,42 +148,6 @@ class ChatThreadsResponse(BaseModel):
 
 
 # ==============================================================================
-# Campaign Management Schemas
-# ==============================================================================
-
-class CreateCampaignRequest(BaseModel):
-    agenda: str = Field(..., description="Campaign promotion title or agenda")
-    discount_percentage: float = Field(default=0.0, ge=0.0, le=100.0, description="Promotional discount %")
-    priority: int = Field(default=1, ge=1, le=5, description="Numerical campaign priority level")
-    type: CampaingType = Field(default=CampaingType.LOW_PRIORITY, description="Campaign type: high_priority, medium_priority, low_priority")
-    product_ids: List[int] = Field(default_factory=list, description="IDs of products linked to this campaign")
-
-
-class UpdateCampaignRequest(BaseModel):
-    agenda: Optional[str] = None
-    discount_percentage: Optional[float] = Field(default=None, ge=0.0, le=100.0)
-    priority: Optional[int] = Field(default=None, ge=1, le=5)
-    type: Optional[CampaingType] = None
-    product_ids: Optional[List[int]] = None
-
-
-class CampaignResponseItem(BaseModel):
-    id: int
-    agenda: str
-    discount_percentage: float
-    priority: int
-    type: CampaingType
-    total_items_sold: int = 0
-    total_products: int = 0
-    total_stock_units: Optional[int] = 0
-    products: List[Dict[str, Any]] = Field(default_factory=list)
-
-
-class CampaignsListResponse(BaseModel):
-    campaigns: List[CampaignResponseItem] = Field(default_factory=list)
-
-
-# ==============================================================================
 # Merchant Chat & Pricing Bounds Schemas
 # ==============================================================================
 
@@ -196,6 +159,8 @@ class MerchantChatRequest(BaseModel):
 class MerchantChatResponse(BaseModel):
     type: str = "merchant_chat_reply"
     message: str
+    thread_id: Optional[str] = None
+    state: Optional[Dict[str, Any]] = None
 
 
 class PricingBoundsUpdateRequest(BaseModel):
