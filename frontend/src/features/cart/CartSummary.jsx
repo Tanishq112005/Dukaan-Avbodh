@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, ShieldCheck, Sparkles, MessageCircle, Tag } from "lucide-react";
+import { ChevronRight, ShieldCheck, AlertCircle } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { useStore } from "../../store/useStore";
@@ -8,15 +8,16 @@ import { orderService } from "../../services/orderService";
 import { userEventService, EVENT_TYPES } from "../../services/userEventService";
 
 export function CartSummary() {
-  const { cart: cartItems, token, clearCart, aiDiscount, setAiDiscount, setIsAgentOpen, sendAiMessage } = useStore();
+  const { cart: cartItems, token, clearCart, aiDiscount, setAiDiscount, user } = useStore();
   const navigate = useNavigate();
   const [promoCode, setPromoCode] = useState("");
   const [promoMsg, setPromoMsg] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
   const subtotal = cartItems.reduce((acc, item) => acc + (item.price || 0) * (item.qty || 1), 0);
   const discountAmount = subtotal * ((aiDiscount || 0) / 100);
-  const delivery = subtotal >= 999 || subtotal === 0 ? 0 : 99;
+  const delivery = subtotal > 0 ? 15 : 0;
   const total = Math.max(0, subtotal - discountAmount + delivery);
 
   const handleApplyPromo = (e) => {
@@ -26,21 +27,22 @@ export function CartSummary() {
     if (code === "DUKAAN10") {
       setAiDiscount(10);
       setPromoMsg("10% promotional discount applied!");
+      setErrorMessage("");
     } else if (code === "DUKAAN20") {
       setAiDiscount(20);
       setPromoMsg("20% promotional discount applied!");
+      setErrorMessage("");
     } else {
-      setPromoMsg("Invalid code. Tap below to negotiate directly with our AI Stylist!");
+      setPromoMsg("Invalid promo code. Chat with our AI Stylist to negotiate your best deal!");
     }
-  };
-
-  const handleNegotiateWithStylist = () => {
-    setIsAgentOpen(true);
-    sendAiMessage(`I have ${cartItems.length} items in my cart totaling ₹${subtotal.toFixed(0)}. Can you offer me a VIP combo discount?`);
   };
 
   const loadRazorpayScript = () => {
     return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
       const script = document.createElement("script");
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.onload = () => resolve(true);
@@ -50,6 +52,7 @@ export function CartSummary() {
   };
 
   const handleCheckout = async () => {
+    setErrorMessage("");
     if (!token) {
       alert("Please login first to complete your checkout.");
       navigate("/login");
@@ -64,168 +67,152 @@ export function CartSummary() {
     setIsProcessing(true);
 
     try {
-      const amountPaise = Math.max(100, Math.round(total * 100));
+      // 1. Concurrency-Locked Checkout: reserves inventory and creates payment order atomically
+      const checkoutData = await orderService.checkoutWithLock({
+        discount_percentage: aiDiscount || 0,
+        customer_name: user?.name,
+        customer_email: user?.email,
+      });
+
       const isOnline = await loadRazorpayScript();
 
-      if (isOnline && window.Razorpay) {
-        try {
-          const order = await orderService.createPaymentOrder({
-            amount: amountPaise,
-            currency: "INR",
-            receipt: `receipt_cart_${Date.now()}`,
-          });
+      if (isOnline && window.Razorpay && checkoutData.gateway_order_id) {
+        const options = {
+          key: checkoutData.client_key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_TWV2ichCwzRcvo",
+          amount: checkoutData.amount_paise,
+          currency: checkoutData.currency || "INR",
+          name: "Dukaan Luxury Shopping",
+          description: `Order Checkout (#${checkoutData.order_ids?.[0] || ""})`,
+          order_id: checkoutData.gateway_order_id,
+          handler: async function (response) {
+            try {
+              // 2. Cryptographic signature verification and order confirmation
+              await orderService.verifyPayment({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                order_ids: checkoutData.order_ids,
+              });
 
-          const options = {
-            key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_TWV2ichCwzRcvo",
-            amount: order.amount,
-            currency: order.currency,
-            name: "Dukaan Luxury Shopping",
-            description: "Atelier Order Checkout",
-            order_id: order.id,
-            handler: async function (response) {
-              try {
-                await orderService.verifyPayment({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                });
-
-                await orderService.createOrder();
-                userEventService.trackEvent(EVENT_TYPES.PURCHASED, cartItems[0]?.id || 0);
-
-                await clearCart();
-                navigate("/order-confirmed");
-              } catch (verifyErr) {
-                console.error("Payment verification issue:", verifyErr);
-                await orderService.createOrder();
-                await clearCart();
-                navigate("/order-confirmed");
-              }
+              userEventService.trackEvent(EVENT_TYPES.PURCHASED, cartItems[0]?.id || 0);
+              await clearCart();
+              navigate("/order-confirmed", {
+                state: {
+                  orderIds: checkoutData.order_ids,
+                  total: checkoutData.total_amount,
+                  paymentId: response.razorpay_payment_id,
+                },
+              });
+            } catch (verifyErr) {
+              console.error("[Checkout] Payment verification failed:", verifyErr);
+              setErrorMessage("Payment verification issue on server. Please check your orders page.");
+            }
+          },
+          prefill: {
+            name: user?.name || "Valued Dukaan Customer",
+            email: user?.email || "client@dukaan.store",
+            contact: "9999999999",
+          },
+          theme: { color: "#1c1917" },
+          modal: {
+            ondismiss: function () {
+              setIsProcessing(false);
             },
-            prefill: {
-              name: "Valued Dukaan Customer",
-              email: "client@dukaan.store",
-              contact: "9999999999",
-            },
-            theme: { color: "#1c1917" },
-          };
+          },
+        };
 
-          const rzp = new window.Razorpay(options);
-          rzp.on("payment.failed", function (failRes) {
-            alert("Payment failed: " + (failRes.error?.description || "Unknown error"));
-            setIsProcessing(false);
-          });
-          rzp.open();
+        const rzp = new window.Razorpay(options);
+        rzp.on("payment.failed", function (failRes) {
+          console.warn("[Checkout] Payment failed:", failRes);
+          setErrorMessage("Payment failed: " + (failRes.error?.description || "Transaction cancelled"));
           setIsProcessing(false);
-          return;
-        } catch (payInitErr) {
-          console.warn("[Checkout] Payment gateway initialization failed, falling back to direct order:", payInitErr);
-        }
+        });
+        rzp.open();
+        return;
       }
 
-      await orderService.createOrder();
+      // If Razorpay SDK could not load (e.g. offline dev), finalize order directly
       userEventService.trackEvent(EVENT_TYPES.PURCHASED, cartItems[0]?.id || 0);
       await clearCart();
-      navigate("/order-confirmed");
+      navigate("/order-confirmed", {
+        state: {
+          orderIds: checkoutData.order_ids,
+          total: checkoutData.total_amount,
+        },
+      });
     } catch (err) {
       console.error("[Checkout] Order placement failed:", err);
-      alert(err.message || "Failed to place order. Please try again.");
+      const detail = err.response?.data?.detail || err.message || "Failed to place order. Please try again.";
+      setErrorMessage(detail);
     } finally {
       setIsProcessing(false);
     }
   };
 
   return (
-    <div className="md:w-1/3 border border-stone-200/80 bg-white rounded-3xl p-6 sm:p-7 h-fit shadow-xs space-y-6">
-      <div className="flex items-center justify-between pb-4 border-b border-stone-100">
-        <h2 className="text-base font-bold tracking-wider uppercase text-stone-900">Summary</h2>
-        <span className="text-xs text-stone-400 font-medium">Standard INR</span>
-      </div>
+    <div className="md:w-1/3 border border-stone-200 bg-white rounded-[24px] p-6 h-fit shadow-sm">
+      <h2 className="text-xl font-bold mb-6 text-stone-900">Order Summary</h2>
+      
+      {errorMessage && (
+        <div className="mb-4 p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-600" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
-      <div className="space-y-3.5 text-stone-600 text-xs sm:text-sm">
+      <div className="space-y-4 text-stone-600 mb-6 text-sm">
         <div className="flex justify-between">
           <span>Subtotal</span>
-          <span className="font-semibold text-stone-900">₹{subtotal.toLocaleString("en-IN")}</span>
+          <span className="font-semibold text-stone-900">₹{subtotal.toFixed(0)}</span>
         </div>
-
         {aiDiscount > 0 && (
-          <div className="flex justify-between items-center text-emerald-800 bg-emerald-50 px-3 py-2 rounded-xl">
-            <span className="flex items-center gap-1.5 font-semibold text-xs">
-              <Sparkles size={13} className="text-[#C45C26]" />
-              <span>AI Stylist VIP Deal (-{aiDiscount.toFixed(0)}%)</span>
-            </span>
-            <span className="font-bold text-xs">-₹{discountAmount.toLocaleString("en-IN")}</span>
+          <div className="flex justify-between text-emerald-700">
+            <span>Special AI Discount (-{aiDiscount.toFixed(1)}%)</span>
+            <span className="font-semibold">-₹{discountAmount.toFixed(0)}</span>
           </div>
         )}
-
-        <div className="flex justify-between items-center">
-          <span>Express Delivery</span>
+        <div className="flex justify-between">
+          <span>Delivery Fee</span>
           <span className="font-semibold text-stone-900">
-            {delivery === 0 ? (
-              <span className="text-emerald-700 font-bold uppercase text-xs">Free Delivery</span>
-            ) : (
-              `₹${delivery}`
-            )}
+            {subtotal > 0 ? `₹${delivery}` : "₹0"}
           </span>
         </div>
-        {subtotal < 999 && subtotal > 0 && (
-          <p className="text-[11px] text-[#C45C26]">
-            Add ₹{(999 - subtotal).toLocaleString("en-IN")} more to qualify for Free Express Shipping.
-          </p>
-        )}
       </div>
 
-      <div className="pt-4 border-t border-stone-100">
-        <div className="flex justify-between items-baseline mb-5">
-          <span className="font-display text-lg font-bold text-stone-900">Total</span>
-          <span className="font-display text-2xl font-extrabold text-stone-900">
-            ₹{total.toLocaleString("en-IN")}
-          </span>
-        </div>
+      <hr className="my-4 border-stone-200" />
 
-        {/* Promo code form */}
-        <form onSubmit={handleApplyPromo} className="flex gap-2 mb-3">
-          <div className="relative flex-1">
-            <Tag size={14} className="absolute left-3 top-3 text-stone-400" />
-            <Input
-              placeholder="Promo code (e.g. DUKAAN10)"
-              value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value)}
-              className="bg-stone-50 border-stone-200 rounded-xl text-xs pl-8.5 h-10.5"
-            />
-          </div>
-          <Button type="submit" variant="outline" className="rounded-xl px-4 text-xs font-semibold h-10.5 cursor-pointer">
-            Apply
-          </Button>
-        </form>
-        {promoMsg && (
-          <p className="text-xs mb-3 text-stone-600 font-medium">{promoMsg}</p>
-        )}
+      <div className="flex justify-between text-xl font-bold mb-6 text-stone-900">
+        <span>Total</span>
+        <span>₹{total.toFixed(0)}</span>
+      </div>
 
-        {/* AI Negotiation CTA in cart */}
-        <button
-          onClick={handleNegotiateWithStylist}
-          type="button"
-          className="w-full py-2.5 px-3 mb-4 rounded-xl border border-dashed border-[#C45C26]/40 hover:border-[#C45C26] bg-[#C45C26]/5 text-stone-800 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-        >
-          <MessageCircle size={13} className="text-[#C45C26]" />
-          <span>Negotiate custom cart price with AI Stylist</span>
-        </button>
-
-        {/* Checkout Button */}
-        <Button
-          className="w-full rounded-2xl py-6.5 text-xs sm:text-sm font-bold tracking-wider uppercase bg-stone-900 hover:bg-[#6e1423] text-white flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer disabled:opacity-50"
-          onClick={handleCheckout}
-          disabled={isProcessing || cartItems.length === 0}
-        >
-          <span>{isProcessing ? "Processing..." : "Proceed to Checkout"}</span>
-          <ChevronRight size={16} />
+      <form onSubmit={handleApplyPromo} className="flex gap-2 mb-2">
+        <Input
+          placeholder="Promo code (e.g. DUKAAN10)"
+          value={promoCode}
+          onChange={(e) => setPromoCode(e.target.value)}
+          className="bg-[#EFE8DE] border-none rounded-full text-xs"
+        />
+        <Button type="submit" variant="outline" className="rounded-full px-5 text-xs">
+          Apply
         </Button>
+      </form>
+      {promoMsg && (
+        <p className="text-xs mb-4 text-stone-600 italic">{promoMsg}</p>
+      )}
 
-        <div className="flex items-center justify-center gap-1.5 mt-4 text-[11px] text-stone-400">
-          <ShieldCheck size={14} className="text-emerald-700" />
-          <span>256-Bit SSL Encrypted Razorpay Checkout</span>
-        </div>
+      <Button
+        className="w-full rounded-full py-6 text-base bg-stone-900 hover:bg-stone-800 text-white flex items-center justify-center gap-2"
+        onClick={handleCheckout}
+        disabled={isProcessing || cartItems.length === 0}
+      >
+        <span>{isProcessing ? "Processing Checkout..." : "Proceed to Checkout"}</span>
+        <ChevronRight className="w-5 h-5" />
+      </Button>
+
+      <div className="flex items-center justify-center gap-1.5 mt-4 text-xs text-stone-400">
+        <ShieldCheck className="w-4 h-4 text-stone-500" />
+        <span>Secure transaction backed by Dukaan Guarantee</span>
       </div>
     </div>
   );

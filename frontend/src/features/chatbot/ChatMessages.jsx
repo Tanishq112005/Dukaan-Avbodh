@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { MessageCircle, Bot, User, Loader2, ExternalLink } from 'lucide-react';
+import { MessageCircle, Bot, User, Loader2, ExternalLink, CheckCircle } from 'lucide-react';
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { ProductCard } from "../../components/ui/ProductCard";
@@ -41,7 +41,7 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
             )}
           </div>
         )}
-        {msg.payment_link && (
+        {msg.payment_link && !msg.payment_confirmed && (
           <button
             type="button"
             onClick={() => onPayClick?.(msg.payment_link)}
@@ -49,6 +49,12 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
           >
             Pay securely <ExternalLink size={12} />
           </button>
+        )}
+        {msg.payment_confirmed && (
+          <div className="mt-3 inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold px-3 py-1.5 rounded-full">
+            <CheckCircle size={13} className="text-emerald-600" />
+            <span>Payment Confirmed</span>
+          </div>
         )}
         {msg.suggested_products && msg.suggested_products.length > 0 && (
           <div className="mt-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">

@@ -138,6 +138,9 @@ export const createChatSlice = (set, get) => ({
     set({
       pendingPayment: { ...(pending || {}), notified: true },
       paymentWatchTimer: null,
+      aiMessages: (get().aiMessages || []).map((m) =>
+        m.payment_link ? { ...m, payment_confirmed: true } : m
+      ),
     });
     get().sendAiEvent("payment_completed");
   },
