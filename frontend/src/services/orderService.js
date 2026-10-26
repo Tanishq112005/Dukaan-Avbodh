@@ -36,7 +36,38 @@ export const orderService = {
    */
   async getUserOrders() {
     const res = await apiClient.get("/order/get");
-    return res.data.orders || res.data || [];
+    return res.data?.orders || res.data || [];
+  },
+
+  /**
+   * Retrieves single order details by ID.
+   * @param {number|string} orderId
+   * @returns {Promise<Object>}
+   */
+  async getOrderById(orderId) {
+    const res = await apiClient.get(`/order/${orderId}`);
+    return res.data?.order || res.data;
+  },
+
+  /**
+   * Tracks live fulfillment and shipment status for an order or user's latest order.
+   * @param {number|string} [orderId]
+   * @returns {Promise<Object>}
+   */
+  async trackOrder(orderId) {
+    const url = orderId ? `/order/track/${orderId}` : "/order/track";
+    const res = await apiClient.get(url);
+    return res.data;
+  },
+
+  /**
+   * Cancels an order and releases the reserved stock back to inventory.
+   * @param {number} orderId
+   * @returns {Promise<Object>}
+   */
+  async cancelOrder(orderId) {
+    const res = await apiClient.post(`/order/cancel/${orderId}`);
+    return res.data;
   },
 
   /**
@@ -79,16 +110,6 @@ export const orderService = {
    */
   async checkPaymentStatus(userId) {
     const res = await apiClient.get(`/api/payment/status/${userId}`);
-    return res.data;
-  },
-
-  /**
-   * Cancels an order and releases the reserved stock back to inventory.
-   * @param {number} orderId
-   * @returns {Promise<Object>}
-   */
-  async cancelOrder(orderId) {
-    const res = await apiClient.post(`/order/cancel/${orderId}`);
     return res.data;
   },
 };
