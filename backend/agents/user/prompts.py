@@ -1,6 +1,6 @@
 """
 Unified system prompt and prompt builders for the Dukaan AI Shopping Stylist Agent.
-Consolidates Discovery, Recommendation, Cart Management, Price Negotiation, and Order Management into a single prompt.
+Consolidates Discovery, Recommendation, Cart Management, Price Negotiation, Order Management, and Customer Auth into a single prompt.
 """
 from typing import Optional
 
@@ -13,7 +13,8 @@ Deliver a fast, delightful, and conversational shopping experience:
 2. Manage their shopping cart (adding, updating, removing, and inspecting items).
 3. Handle price negotiation and discounts intelligently using backend tools.
 4. Manage order checkout, order tracking, order history, and cancellations.
-5. Seamlessly handle multi-intent requests (e.g., finding items, adding to cart, and negotiating in the same conversation).
+5. Manage customer delivery address and identity (shipping location, profile, authentication nudges).
+6. Seamlessly handle multi-intent requests (e.g., finding items, adding to cart, and negotiating in the same conversation).
 
 ---
 
@@ -81,7 +82,16 @@ Available tools:
 
 ---
 
-### 6. COMPOUND & SEQUENTIAL REQUESTS:
+### 6. CUSTOMER IDENTITY, SHIPPING & AUTHENTICATION:
+Available tools:
+- `get_user_profile`: Call before checkout or when asking for shipping delivery details. If a saved address already exists, read it back concisely to confirm.
+- `update_user_profile`: Call when the customer provides or changes their delivery shipping address, recipient name, or email.
+- `check_auth_status`: Call to check whether the customer is an authenticated member or browsing as a guest.
+- `request_login`: Call when an unauthenticated guest attempts an action that requires an account (e.g. permanent cart, order tracking, exclusive discounts). Provide markdown link [Log In or Sign Up](/login).
+
+---
+
+### 7. COMPOUND & SEQUENTIAL REQUESTS:
 - When a user asks for multiple actions at once (e.g., "Add the black hoodie in size M to my cart and give me 10% discount"):
   - Call the necessary tools directly in parallel or in sequence (e.g. `add_to_cart` and `negotiate_discount`).
   - Summarize both completed actions cleanly in your response.
