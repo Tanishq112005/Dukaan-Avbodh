@@ -96,6 +96,7 @@ class PostgressDatabaseConnection:
         import Order.models
         import UserEvents.models
         import Recommedation.models
+        import Merchant.models
 
         async with self._engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.create_all)
@@ -113,6 +114,7 @@ class PostgressDatabaseConnection:
         import Order.models
         import UserEvents.models
         import Recommedation.models
+        import Merchant.models
 
         # Drop previous tables with CASCADE, strictly preserving 'product'
         tables_to_drop = [
