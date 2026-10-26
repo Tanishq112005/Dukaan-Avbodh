@@ -18,6 +18,7 @@ from Chat.database import chat_audit_repo
 from Auth.jwt import AuthHandler
 from Auth.controller import is_real_user
 from utils.text_cleaning import clean_ai_output, StreamingThoughtFilter
+from agents.user.graph import deduplicate_cards
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +205,7 @@ class AgentController:
 
         ai_reply = clean_ai_output(ai_reply) if ai_reply else "Sorry, system error."
         combo_offer = state.get("combo_offer", None)
-        cards = list(state.get("cards") or [])
+        cards = deduplicate_cards(list(state.get("cards") or []))
 
         # Strictly scope suggested_products: only return if a recommendation card was produced in THIS turn
         has_rec = any(c.get("type") == "recommendation" for c in cards)
@@ -439,7 +440,7 @@ class AgentController:
 
                             # Stream any interactive UI cards produced by the tools immediately
                             if "cards" in output and isinstance(output["cards"], list):
-                                for card in output["cards"]:
+                                for card in deduplicate_cards(output["cards"]):
                                     yield f"data: {json.dumps({'type': 'card', 'card': card})}\n\n"
 
             # Flush any remaining clean buffer from thought filter
@@ -554,7 +555,7 @@ class AgentController:
 
                 ai_reply = result.get("final_response")
                 updated_cart = result.get("cart") or await self.cart_repo.get_items(eff_user_id)
-                cards = list(result.get("cards") or [])
+                cards = deduplicate_cards(list(result.get("cards") or []))
 
                 if result.get("payment_confirmed"):
                     cards.append({
@@ -572,7 +573,7 @@ class AgentController:
                 return {
                     "type": "chat_reply",
                     "message": ai_reply or "Checking your payment now...",
-                    "cards": cards,
+                    "cards": deduplicate_cards(cards),
                     "combo_offer": result.get("combo_offer", None),
                     "suggested_products": [],
                     "cart": updated_cart,
@@ -622,7 +623,7 @@ class AgentController:
                 ai_reply = result.get("final_response")
                 if ai_reply:
                     updated_cart = result.get("cart") or await self.cart_repo.get_items(eff_user_id)
-                    cards = list(result.get("cards") or [])
+                    cards = deduplicate_cards(list(result.get("cards") or []))
                     has_rec = any(c.get("type") == "recommendation" for c in cards)
                     suggested = result.get("suggested_products", []) if has_rec else []
                     return {

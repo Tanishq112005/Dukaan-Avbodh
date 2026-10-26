@@ -189,6 +189,39 @@ def _extract_state_updates_from_tool_result(tool_name: str, parsed: dict) -> dic
     return updates
 
 
+def deduplicate_cards(raw_cards: List[dict]) -> List[dict]:
+    """
+    Retains only the latest active card per card role/product, preventing duplicate or superseded
+    bargaining offers from accumulating in the message.
+    """
+    if not raw_cards:
+        return []
+
+    card_map = {}
+    for card in raw_cards:
+        if not isinstance(card, dict) or not card.get("type"):
+            continue
+        c_type = card.get("type")
+        c_data = card.get("data") or {}
+        prod_id = c_data.get("product_id") or (c_data.get("product") or {}).get("id")
+
+        if c_type == "negotiation":
+            key = f"negotiation_{prod_id}" if prod_id else "negotiation"
+        elif c_type == "size_advisor":
+            key = f"size_advisor_{prod_id}" if prod_id else "size_advisor"
+        else:
+            key = c_type
+
+        # Later cards supersede earlier intermediate offers
+        card_map[key] = card
+
+    return list(card_map.values())
+
+
+# Backward-compatible alias
+_deduplicate_cards = deduplicate_cards
+
+
 def _build_cards_from_tool(tool_name: str, parsed: dict, updates: dict, state: dict = None) -> list:
     """
     Builds frontend Generative UI card descriptors strictly based on the executed tool:
@@ -451,8 +484,8 @@ def post_process_node(state: AgentState):
     if final_text:
         final_text = clean_ai_output(final_text)
 
-    # Return only the cards generated in this turn
-    cards = list(state.get("cards") or [])
+    # Return only the deduplicated active cards generated in this turn
+    cards = deduplicate_cards(list(state.get("cards") or []))
     return {"final_response": final_text, "cards": cards}
 
 
@@ -701,7 +734,7 @@ def create_tools_node(tools_dict=None):
             except Exception:
                 pass
 
-        updates["cards"] = cards
+        updates["cards"] = deduplicate_cards(cards)
         updates["messages"] = tool_messages
         return updates
 
@@ -795,7 +828,7 @@ def create_tools_node(tools_dict=None):
             except Exception:
                 pass
 
-        updates["cards"] = cards
+        updates["cards"] = deduplicate_cards(cards)
         updates["messages"] = tool_messages
         return updates
 

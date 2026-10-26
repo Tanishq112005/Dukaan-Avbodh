@@ -27,6 +27,28 @@ const normalizeProducts = (items) => {
   });
 };
 
+const deduplicateCards = (rawCards) => {
+  if (!Array.isArray(rawCards) || rawCards.length === 0) return [];
+  const cardMap = new Map();
+
+  for (const card of rawCards) {
+    if (!card || !card.type) continue;
+    const type = card.type;
+    const prodId = card.data?.product_id || card.data?.product?.id || card.data?.id;
+
+    let key = type;
+    if (type === "negotiation") {
+      key = prodId ? `negotiation_${prodId}` : "negotiation";
+    } else if (type === "size_advisor") {
+      key = prodId ? `size_advisor_${prodId}` : "size_advisor";
+    }
+
+    cardMap.set(key, card);
+  }
+
+  return Array.from(cardMap.values());
+};
+
 export const createChatSlice = (set, get) => ({
   aiMessages: [],
   aiMessagesLastUpdated: null,
@@ -114,7 +136,7 @@ export const createChatSlice = (set, get) => ({
         id: "ai_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
         sender: "ai",
         text: cleanedText,
-        cards: Array.isArray(data.cards) ? data.cards : [],
+        cards: deduplicateCards(Array.isArray(data.cards) ? data.cards : []),
         suggested_products: normalizeProducts(data.suggested_products),
         payment_link,
       };
@@ -322,11 +344,26 @@ export const createChatSlice = (set, get) => ({
             updateStreamingMessage((prev) => {
               const currentCards = Array.isArray(prev.cards) ? [...prev.cards] : [];
               for (const c of newCards) {
-                if (c && c.id && !currentCards.some((existing) => existing.id === c.id)) {
+                if (!c) continue;
+                if (c.type === "negotiation") {
+                  const prodId = c.data?.product_id;
+                  const idx = currentCards.findIndex(
+                    (existing) =>
+                      existing.type === "negotiation" &&
+                      (!prodId || !existing.data?.product_id || existing.data?.product_id === prodId)
+                  );
+                  if (idx !== -1) {
+                    currentCards[idx] = c;
+                  } else {
+                    currentCards.push(c);
+                  }
+                } else if (c.id && !currentCards.some((existing) => existing.id === c.id)) {
+                  currentCards.push(c);
+                } else if (!c.id) {
                   currentCards.push(c);
                 }
               }
-              return { ...prev, cards: currentCards };
+              return { ...prev, cards: deduplicateCards(currentCards) };
             });
           },
           onComplete: (payload) => {
@@ -337,7 +374,22 @@ export const createChatSlice = (set, get) => ({
               const existingCards = Array.isArray(prev.cards) ? [...prev.cards] : [];
               if (Array.isArray(payload.cards)) {
                 for (const c of payload.cards) {
-                  if (c && c.id && !existingCards.some((e) => e.id === c.id)) {
+                  if (!c) continue;
+                  if (c.type === "negotiation") {
+                    const prodId = c.data?.product_id;
+                    const idx = existingCards.findIndex(
+                      (e) =>
+                        e.type === "negotiation" &&
+                        (!prodId || !e.data?.product_id || e.data?.product_id === prodId)
+                    );
+                    if (idx !== -1) {
+                      existingCards[idx] = c;
+                    } else {
+                      existingCards.push(c);
+                    }
+                  } else if (c.id && !existingCards.some((e) => e.id === c.id)) {
+                    existingCards.push(c);
+                  } else if (!c.id) {
                     existingCards.push(c);
                   }
                 }
@@ -348,7 +400,7 @@ export const createChatSlice = (set, get) => ({
                 text: finalMessage,
                 isStreaming: false,
                 streamingStatus: null,
-                cards: existingCards,
+                cards: deduplicateCards(existingCards),
                 suggested_products: normalizeProducts(payload.suggested_products),
                 payment_link: payload.payment_link || null,
               };

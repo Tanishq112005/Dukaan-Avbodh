@@ -7,6 +7,36 @@ import { AiCard } from "./cards/CardRegistry";
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+/**
+ * Deduplicates and retains only the single latest/active card per type & product.
+ * Ensures multi-step bargaining rounds or accumulated historical cards render as
+ * ONE active card rather than multiple superseded offers.
+ */
+export function deduplicateCards(rawCards) {
+  if (!Array.isArray(rawCards) || rawCards.length === 0) return [];
+
+  const cardMap = new Map();
+
+  for (const card of rawCards) {
+    if (!card || !card.type) continue;
+    const type = card.type;
+    const prodId = card.data?.product_id || card.data?.product?.id || card.data?.id;
+
+    // For negotiation, retain only the latest counter-offer per product (or single global offer)
+    let key = type;
+    if (type === "negotiation") {
+      key = prodId ? `negotiation_${prodId}` : "negotiation";
+    } else if (type === "size_advisor") {
+      key = prodId ? `size_advisor_${prodId}` : "size_advisor";
+    }
+
+    // Overwrite previous card with the latest card
+    cardMap.set(key, card);
+  }
+
+  return Array.from(cardMap.values());
+}
+
 // Extracted + memoized: only re-renders if ITS OWN props change
 const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage, onPayClick, onProductClick, onAction }) {
   // Normalize and synthesize purpose-built cards for any data in the message
@@ -148,7 +178,8 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
       });
     }
 
-    return list;
+    // Prune superseded and duplicate cards so only the latest active card renders
+    return deduplicateCards(list);
   }, [msg]);
 
   const hasCards = cards.length > 0;
