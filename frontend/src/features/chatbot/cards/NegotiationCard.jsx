@@ -13,9 +13,6 @@ export function NegotiationCard({ data, onAction }) {
   const comboOffer = data?.combo_offer;
 
   const handleAccept = () => {
-    if (discountPercent > 0 && !data.product_id) {
-      setAiDiscount(discountPercent);
-    }
     setIsAccepted(true);
     if (onAction) {
       onAction("accept_offer", { discountPercent, offerPrice, product_id: data.product_id });

@@ -92,17 +92,20 @@ class Cart:
         subtotal = 0.0
         items_discount_amount = 0.0
 
+        from Product.models import get_base_selling_price
+
         for item, product in results:
-            line_subtotal = float(product.price) * item.quantity
+            public_price = get_base_selling_price(product)
+            line_subtotal = public_price * item.quantity
             subtotal += line_subtotal
 
             item_disc = float(item.discount_percentage or 0.0)
             if item.discounted_price is not None and item.discounted_price >= 0:
                 item_unit_price = float(item.discounted_price)
             elif item_disc > 0:
-                item_unit_price = round(float(product.price) * (1.0 - item_disc / 100.0), 2)
+                item_unit_price = round(public_price * (1.0 - item_disc / 100.0), 2)
             else:
-                item_unit_price = float(product.price)
+                item_unit_price = public_price
 
             line_discount = max(0.0, line_subtotal - (item_unit_price * item.quantity))
             items_discount_amount += line_discount
@@ -196,10 +199,13 @@ class Cart:
                         f"Insufficient stock. Available stock: {product.stock}"
                     )
 
+                from Product.models import get_base_selling_price
+                public_price = get_base_selling_price(product)
+
                 # Compute discounted unit price if discount is set
                 final_discount_pct = float(discount_percentage)
                 if final_discount_pct > 0 and discounted_price is None:
-                    final_discounted_price = round(float(product.price) * (1.0 - final_discount_pct / 100.0), 2)
+                    final_discounted_price = round(public_price * (1.0 - final_discount_pct / 100.0), 2)
                 else:
                     final_discounted_price = discounted_price
 
@@ -261,11 +267,14 @@ class Cart:
                 if not product:
                     raise ValueError("Product not found")
 
+                from Product.models import get_base_selling_price
+                public_price = get_base_selling_price(product)
+
                 final_discount_pct = round(float(discount_percentage), 2)
                 if discounted_price is not None:
                     final_discounted_price = round(float(discounted_price), 2)
                 else:
-                    final_discounted_price = round(float(product.price) * (1.0 - final_discount_pct / 100.0), 2)
+                    final_discounted_price = round(public_price * (1.0 - final_discount_pct / 100.0), 2)
 
                 item.discount_percentage = final_discount_pct
                 item.discounted_price = final_discounted_price
@@ -384,17 +393,19 @@ class Cart:
 
             results = (await session.exec(query)).all()
 
+            from Product.models import get_base_selling_price
             items = []
             for item, product in results:
+                public_price = get_base_selling_price(product)
                 disc_pct = float(item.discount_percentage or 0.0)
                 if item.discounted_price is not None and item.discounted_price >= 0:
                     current_price = float(item.discounted_price)
                 elif disc_pct > 0:
-                    current_price = round(float(product.price) * (1.0 - disc_pct / 100.0), 2)
+                    current_price = round(public_price * (1.0 - disc_pct / 100.0), 2)
                 else:
-                    current_price = float(product.price)
+                    current_price = public_price
 
-                line_subtotal = round(float(product.price) * item.quantity, 2)
+                line_subtotal = round(public_price * item.quantity, 2)
                 line_total = round(current_price * item.quantity, 2)
 
                 items.append({
@@ -402,7 +413,7 @@ class Cart:
                     "product_id": product.id,
                     "name": product.name,
                     "price": current_price,
-                    "original_price": float(product.price),
+                    "original_price": public_price,
                     "discount_percentage": disc_pct,
                     "discounted_price": item.discounted_price,
                     "quantity": item.quantity,
@@ -437,13 +448,15 @@ class Cart:
 
             summary_items = []
             for item, product in results:
+                from Product.models import get_base_selling_price
+                public_price = get_base_selling_price(product)
                 disc_pct = float(item.discount_percentage or 0.0)
                 if item.discounted_price is not None and item.discounted_price >= 0:
                     current_price = float(item.discounted_price)
                 elif disc_pct > 0:
-                    current_price = round(float(product.price) * (1.0 - disc_pct / 100.0), 2)
+                    current_price = round(public_price * (1.0 - disc_pct / 100.0), 2)
                 else:
-                    current_price = float(product.price)
+                    current_price = public_price
 
                 summary_items.append({
                     "cart_item_id": item.id,
@@ -452,7 +465,7 @@ class Cart:
                     "quantity": item.quantity,
                     "size": item.size,
                     "price": current_price,
-                    "original_price": float(product.price),
+                    "original_price": public_price,
                     "discount_percentage": disc_pct,
                     "discounted_price": item.discounted_price,
                     "line_total": round(current_price * item.quantity, 2),

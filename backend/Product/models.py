@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional, TYPE_CHECKING
+from typing import Any, List, Optional, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
 if TYPE_CHECKING:
     from Order.models import Order
@@ -40,3 +40,23 @@ class Product(SQLModel, table=True):
     ] = Relationship(
         back_populates="product"
     )
+
+
+def get_base_selling_price(product: Any) -> float:
+    """
+    Computes the standard public listing selling price of a product before discount.
+    If merchant configured a discount (e.g. 15%), product.price in DB represents the
+    discounted baseline (e.g. 1000), so the public selling price is round(1000 / (1 - 0.15)) = 1176.
+    """
+    if product is None:
+        return 0.0
+    if isinstance(product, dict):
+        price = float(product.get("price", 0.0) or 0.0)
+        disc = float(product.get("discount", 0) or 0)
+    else:
+        price = float(getattr(product, "price", 0.0) or 0.0)
+        disc = float(getattr(product, "discount", 0) or 0)
+
+    if 0 < disc < 100 and price > 0:
+        return float(round(price / (1.0 - disc / 100.0)))
+    return float(round(price, 2))

@@ -22,9 +22,8 @@ export function CartSummary() {
     const curr = (item.price || 0) * (item.qty || 1);
     return acc + Math.max(0, orig - curr);
   }, 0);
-  const extraAiDiscount = subtotal * ((aiDiscount || 0) / 100);
   const delivery = subtotal > 0 ? 15 : 0;
-  const total = Math.max(0, subtotal - extraAiDiscount + delivery);
+  const total = Math.max(0, subtotal + delivery);
 
   const handleApplyPromo = (e) => {
     e.preventDefault();
@@ -175,12 +174,6 @@ export function CartSummary() {
           <div className="flex justify-between text-emerald-700">
             <span>Item Discounts</span>
             <span className="font-semibold">-₹{itemsDiscountAmount.toFixed(0)}</span>
-          </div>
-        )}
-        {aiDiscount > 0 && (
-          <div className="flex justify-between text-emerald-700">
-            <span>Special AI Discount (-{aiDiscount.toFixed(1)}%)</span>
-            <span className="font-semibold">-₹{extraAiDiscount.toFixed(0)}</span>
           </div>
         )}
         <div className="flex justify-between">

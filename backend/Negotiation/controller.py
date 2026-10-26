@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from Negotiation.database import NegotiationDatabase, negotiationDatabase
 from Negotiation.utils import (
     calculate_discount_limits,
+    calculate_cart_discount_headroom,
     calculate_next_offer,
     calculate_product_discount_limits,
     calculate_product_next_offer,
@@ -78,11 +79,32 @@ class NegotiationController:
     async def get_next_discount(self, req: NextDiscountRequest) -> NextDiscountResponse:
         """
         Calculate the next counter-offer discount percentage for cart-wide negotiation.
-        Treats customer with loyal concession factor (0.40).
+        Evaluates the current selling price of all cart items after each product's discount,
+        checks required profit percentages to determine the maximum discount possible (upper limit),
+        and applies step-wise diminishing counter-offers.
         """
         try:
-            items = await self._resolve_items(req.user_id, req.items)
-            if not items:
+            if req.user_id:
+                detailed_items = await self.db.get_cart_items_detailed(user_id=req.user_id)
+            elif req.items:
+                detailed_items = [
+                    {
+                        "product_id": it.product_id,
+                        "name": it.name,
+                        "original_price": it.price,
+                        "current_price": it.price * (1.0 - (it.discount_percentage or 0.0) / 100.0) if it.discount_percentage else it.price,
+                        "discount_percentage": it.discount_percentage or 0.0,
+                        "cost_price": it.cost_price,
+                        "min_profit_margin_percent": it.min_profit_margin_percent,
+                        "quantity": it.quantity,
+                        "discount": it.discount or 0,
+                    }
+                    for it in req.items
+                ]
+            else:
+                detailed_items = []
+
+            if not detailed_items:
                 return NextDiscountResponse(
                     accepted=False,
                     current_discount_percent=req.current_discount_percent,
@@ -92,48 +114,50 @@ class NegotiationController:
                     total_original_price=0.0,
                     absolute_max_discount_percent=0.0,
                     customer_tier="loyal",
-                    reason="No items provided and user cart is empty.",
+                    reason="Your shopping cart is empty. Add items to negotiate a discount.",
                 )
 
-            limits = calculate_discount_limits(items)
-            total_selling_price = limits["total_selling_price"]
-            total_cost_price = limits["total_cost_price"]
+            headroom = calculate_cart_discount_headroom(detailed_items)
+            total_original_price = headroom["total_original_price"]
+            total_cost_price = headroom["total_cost_price"]
+            current_effective_pct = headroom["current_effective_discount_pct"]
+            ceiling = headroom["absolute_max_ceiling"]
 
             # If items are already at or below cost, refuse any extra discount
-            if limits["is_loss_leader"] or total_selling_price <= 0:
+            if headroom["is_loss_leader"] or total_original_price <= 0 or ceiling <= 0:
                 return NextDiscountResponse(
                     accepted=False,
-                    current_discount_percent=req.current_discount_percent,
+                    current_discount_percent=current_effective_pct,
                     requested_discount_percent=req.requested_discount_percent,
-                    next_discount_percent=0.0,
-                    counter_offer_price=total_selling_price,
-                    total_original_price=total_selling_price,
-                    absolute_max_discount_percent=0.0,
+                    next_discount_percent=current_effective_pct,
+                    counter_offer_price=headroom["current_cart_total"],
+                    total_original_price=total_original_price,
+                    absolute_max_discount_percent=ceiling,
                     customer_tier="loyal",
-                    reason="Items are at or below cost price. Extra discount cannot be offered.",
+                    reason="Items in your cart are already at the minimum allowed selling price. Extra discount cannot be offered.",
                 )
 
-            max_possible = limits["max_discount_percentage"]
-            ceiling = round(min(max_possible, AGENT_MAX_DISCOUNT_PERCENT), 2)
+            # Baseline is the greater of previously requested/tracked discount or currently applied effective discount
+            baseline_discount = max(req.current_discount_percent, current_effective_pct)
             concession_factor = 0.40
 
             result = calculate_next_offer(
                 requested=req.requested_discount_percent,
-                current=req.current_discount_percent,
+                current=baseline_discount,
                 absolute_max=ceiling,
                 concession_factor=concession_factor,
             )
 
             counter_discount = result["counter"]
-            counter_price = round(total_selling_price * (1.0 - counter_discount / 100.0), 2)
+            counter_price = round(total_original_price * (1.0 - counter_discount / 100.0), 2)
 
             # Hard financial floor check: price must stay strictly above cost
             if counter_price <= total_cost_price:
                 counter_price = round(total_cost_price + 0.01, 2)
                 result["accepted"] = False
-                if total_selling_price > 0:
-                    counter_discount = round(max(0.0, (1.0 - counter_price / total_selling_price) * 100.0), 2)
-                result["reason"] = "Counter discount clipped to protect base cost."
+                if total_original_price > 0:
+                    counter_discount = round(max(0.0, (1.0 - counter_price / total_original_price) * 100.0), 2)
+                result["reason"] = "Counter discount clipped to protect required profit margins."
 
             # Persist per-item discounts across user cart if requested
             if req.apply_to_cart and req.user_id:
@@ -142,16 +166,25 @@ class NegotiationController:
                 except Exception as cart_err:
                     logger.warning("Could not auto-apply discount to cart for user %s: %s", req.user_id, cart_err)
 
+            # Sanitize reasons for customer dialogue
+            raw_reason = result["reason"]
+            if "maximum possible is" in raw_reason:
+                clean_reason = f"Counter-offering {counter_discount}% total discount across your cart items."
+            elif "maximum possible discount of" in raw_reason:
+                clean_reason = f"Your current discount of {baseline_discount}% is the absolute best deal we can offer for these items."
+            else:
+                clean_reason = raw_reason
+
             return NextDiscountResponse(
                 accepted=result["accepted"],
-                current_discount_percent=req.current_discount_percent,
+                current_discount_percent=baseline_discount,
                 requested_discount_percent=req.requested_discount_percent,
                 next_discount_percent=counter_discount,
                 counter_offer_price=counter_price,
-                total_original_price=total_selling_price,
+                total_original_price=total_original_price,
                 absolute_max_discount_percent=ceiling,
                 customer_tier="loyal",
-                reason=result["reason"],
+                reason=clean_reason,
             )
 
         except Exception as e:

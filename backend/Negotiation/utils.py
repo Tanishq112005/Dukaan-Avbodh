@@ -5,14 +5,22 @@ AGENT_MAX_DISCOUNT_PERCENT = 15.0
 
 def _extract_item_fields(item: Any) -> tuple[float, float, float, int]:
     """Helper to extract (cost_price, price, min_profit_margin_percent, quantity) from various item types."""
+    from Product.models import get_base_selling_price
+
     if isinstance(item, dict):
         cost = float(item.get("cost_price", 0.0) or 0.0)
-        price = float(item.get("price", item.get("selling_price", 0.0)) or 0.0)
+        if item.get("original_price") is not None and float(item["original_price"]) > 0:
+            price = float(item["original_price"])
+        else:
+            price = get_base_selling_price(item)
         margin = float(item.get("min_profit_margin_percent", 0.0) or 0.0)
         qty = int(item.get("quantity", 1) or 1)
     else:
         cost = float(getattr(item, "cost_price", 0.0) or 0.0)
-        price = float(getattr(item, "price", getattr(item, "selling_price", 0.0)) or 0.0)
+        if getattr(item, "original_price", None) is not None and float(item.original_price) > 0:
+            price = float(item.original_price)
+        else:
+            price = get_base_selling_price(item)
         margin = float(getattr(item, "min_profit_margin_percent", 0.0) or 0.0)
         qty = int(getattr(item, "quantity", 1) or 1)
 
@@ -222,4 +230,91 @@ def calculate_product_next_offer(
         "original_price": limits["price"],
         "absolute_max_discount_percent": ceiling,
         "reason": result["reason"],
+    }
+
+
+def calculate_cart_discount_headroom(detailed_items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Computes total cart economics taking into account the current selling price of each product
+    after its individual discount, its wholesale cost price, and required minimum profit margins.
+
+    Returns:
+      - total_original_price: Sum of original listing prices across all cart items.
+      - current_cart_total: Sum of current selling prices after each product's discount.
+      - total_cost_price: Sum of wholesale cost prices.
+      - total_minimum_selling_price: Sum of minimum allowable selling prices across all items.
+      - current_effective_discount_pct: Overall discount % already active on the cart.
+      - max_discount_percentage: Maximum allowable overall discount % from original price.
+      - absolute_max_ceiling: Upper limit bounded by AGENT_MAX_DISCOUNT_PERCENT (15%).
+      - is_loss_leader: True if current cart total is at or below cost.
+    """
+    if not detailed_items:
+        return {
+            "total_original_price": 0.0,
+            "current_cart_total": 0.0,
+            "total_cost_price": 0.0,
+            "total_minimum_selling_price": 0.0,
+            "current_effective_discount_pct": 0.0,
+            "max_discount_percentage": 0.0,
+            "absolute_max_ceiling": 0.0,
+            "is_loss_leader": False,
+        }
+
+    total_original_price = 0.0
+    current_cart_total = 0.0
+    total_cost_price = 0.0
+    total_minimum_selling_price = 0.0
+
+    for item in detailed_items:
+        qty = max(1, int(item.get("quantity", 1) or 1))
+        orig_price = float(item.get("original_price") or item.get("price") or 0.0)
+        curr_price = float(item.get("current_price") or item.get("discounted_price") or orig_price)
+        cost = float(item.get("cost_price", 0.0) or 0.0)
+        margin = float(item.get("min_profit_margin_percent", 0.0) or 0.0)
+
+        # Minimum required unit selling price to protect profit margin
+        min_unit_margin = cost + ((cost * margin) / 100.0)
+
+        # Check product-level ceiling if available
+        product = item.get("product")
+        p_disc_ceiling = float(getattr(product, "discount", 0.0) or item.get("discount", 0.0) or 0.0)
+        if p_disc_ceiling > 0:
+            min_unit_ceiling = orig_price * (1.0 - p_disc_ceiling / 100.0)
+            safe_unit_floor = max(min_unit_margin, min_unit_ceiling)
+        else:
+            safe_unit_floor = min_unit_margin
+
+        # Floor must never go below cost
+        safe_unit_floor = max(safe_unit_floor, cost + 0.01)
+        if orig_price > 0:
+            safe_unit_floor = min(safe_unit_floor, orig_price)
+
+        total_original_price += orig_price * qty
+        current_cart_total += curr_price * qty
+        total_cost_price += cost * qty
+        total_minimum_selling_price += safe_unit_floor * qty
+
+    is_loss_leader = current_cart_total <= total_cost_price
+
+    if total_original_price > 0:
+        current_effective_discount_pct = round(
+            max(0.0, (total_original_price - current_cart_total) / total_original_price * 100.0), 2
+        )
+        max_possible_discount_amount = max(0.0, total_original_price - total_minimum_selling_price)
+        max_discount_pct = (max_possible_discount_amount / total_original_price) * 100.0
+    else:
+        current_effective_discount_pct = 0.0
+        max_discount_pct = 0.0
+
+    absolute_max_ceiling = round(min(max(0.0, max_discount_pct), AGENT_MAX_DISCOUNT_PERCENT), 2)
+
+    return {
+        "total_original_price": round(total_original_price, 2),
+        "current_cart_total": round(current_cart_total, 2),
+        "total_cost_price": round(total_cost_price, 2),
+        "total_minimum_selling_price": round(total_minimum_selling_price, 2),
+        "current_effective_discount_pct": current_effective_discount_pct,
+        "max_discount_percentage": round(max_discount_pct, 2),
+        "absolute_max_ceiling": absolute_max_ceiling,
+        "is_loss_leader": is_loss_leader,
     }

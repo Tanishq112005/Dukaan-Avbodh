@@ -42,6 +42,10 @@ def _sanitize_product(product: Product) -> Dict[str, Any]:
         }
     )
 
+    from Product.models import get_base_selling_price
+    # Always set price to the public item listing selling price (e.g. 1176 rather than 1000)
+    data["price"] = get_base_selling_price(product)
+
     if hasattr(product.type, "value"):
         data["type"] = product.type.value
 

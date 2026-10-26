@@ -103,10 +103,15 @@ class NegotiationDatabase:
                 from Negotiation.utils import calculate_product_discount_limits
                 p_limits = calculate_product_discount_limits(product)
                 allowed_ceiling = p_limits["max_discount_percentage"]
-                effective_disc = min(discount_percentage, allowed_ceiling)
 
+                # Upgrade discount towards target, but preserve already negotiated higher per-product discount
+                current_item_disc = float(item.discount_percentage or 0.0)
+                effective_disc = min(allowed_ceiling, max(current_item_disc, float(discount_percentage)))
+
+                from Product.models import get_base_selling_price
+                public_price = get_base_selling_price(product)
                 item.discount_percentage = effective_disc
-                item.discounted_price = round(product.price * (1.0 - effective_disc / 100.0), 2)
+                item.discounted_price = round(public_price * (1.0 - effective_disc / 100.0), 2)
                 session.add(item)
 
             await session.commit()
@@ -174,10 +179,12 @@ class NegotiationDatabase:
                 results = (await session.exec(query)).all()
 
                 detailed_items = []
+                from Product.models import get_base_selling_price
+
                 for item, product in results:
                     qty = item.quantity or 1
                     cost = product.cost_price or 0.0
-                    price = product.price or 0.0
+                    price = get_base_selling_price(product)
                     margin = product.min_profit_margin_percent or 0.0
                     disc_pct = item.discount_percentage or 0.0
                     disc_price = item.discounted_price
