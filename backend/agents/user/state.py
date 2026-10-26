@@ -26,6 +26,7 @@ class AgentState(TypedDict, total=False):
     # Pricing & Bargaining
     current_discount_percent: float
     combo_offer: Optional[Any]
+    negotiated_products: Optional[dict]
 
     # Payments & Checkout
     pending_payment_link: Optional[str]

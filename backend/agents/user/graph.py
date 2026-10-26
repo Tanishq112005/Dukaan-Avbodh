@@ -33,12 +33,14 @@ CART_VIEW_TOOLS = {
 CART_MUTATION_TOOLS = {
     "add_to_cart",
     "update_cart_quantity",
+    "apply_cart_item_discount",
     "remove_from_cart",
     "clear_cart",
 }
 
 NEGOTIATION_TOOLS = {
     "negotiate_discount",
+    "negotiate_product_discount",
     "evaluate_counter_offer",
 }
 
@@ -127,7 +129,9 @@ def _extract_state_updates_from_tool_result(tool_name: str, parsed: dict) -> dic
         updates["combo_offer"] = parsed.get("combo_offer")
 
     if "counter_offer_price" in parsed and parsed.get("counter_offer_price") is not None:
-        updates["cart_total"] = float(parsed["counter_offer_price"])
+        updates["counter_offer_price"] = float(parsed["counter_offer_price"])
+        if not parsed.get("product_id"):
+            updates["cart_total"] = float(parsed["counter_offer_price"])
 
     # 3. Cart & Shopping Bag
     if "items" in parsed:
@@ -281,17 +285,23 @@ def _build_cards_from_tool(tool_name: str, parsed: dict, updates: dict, state: d
         if not savings and original_price and offer_price and original_price > offer_price:
             savings = round(float(original_price) - float(offer_price), 2)
 
+        prod_name = parsed.get("product_name")
+        prod_title = f"Exclusive Deal on {prod_name}" if prod_name else "VIP Price Offer"
+
         cards.append({
             "id": f"neg_{suffix}",
             "type": "negotiation",
             "data": {
-                "title": "VIP Price Offer",
+                "title": prod_title,
+                "product_id": parsed.get("product_id"),
+                "product_name": prod_name,
                 "discount_percent": float(discount_val),
                 "original_price": original_price,
                 "offer_price": offer_price,
                 "savings": savings,
+                "in_cart": parsed.get("in_cart", False),
                 "combo_offer": updates.get("combo_offer") or parsed.get("combo_offer"),
-                "status": "active",
+                "status": "accepted" if parsed.get("accepted") else "active",
             },
         })
 
