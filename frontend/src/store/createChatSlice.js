@@ -307,7 +307,9 @@ export const createChatSlice = (set, get) => ({
               isStreaming: true,
               streamingStatus: cleaned ? null : (prev.streamingStatus || "Stylist is thinking..."),
             }));
-            set({ isAiTyping: false });
+            if (get().isAiTyping) {
+              set({ isAiTyping: false });
+            }
           },
           onNodeUpdate: (nodeName, fullData) => {
             const statusMap = {
@@ -413,7 +415,9 @@ export const createChatSlice = (set, get) => ({
               };
             });
 
-            set({ isAiTyping: false });
+            if (get().isAiTyping) {
+              set({ isAiTyping: false });
+            }
 
             if (payload.combo_offer) set({ comboOffer: payload.combo_offer });
             if (payload.cart && Array.isArray(payload.cart)) {

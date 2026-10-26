@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, ArrowDown } from 'lucide-react';
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { useStore } from '../../store/useStore';
@@ -49,16 +49,71 @@ export function AgentWidget() {
   }, [connectAgent, disconnectAgent]);
 
   const chatContainerRef = useRef(null);
+  const userScrolledUpRef = useRef(false);
+  const rafIdRef = useRef(null);
+  const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
 
+  // Monitor user manual scrolling on the chat container
   useEffect(() => {
+    const el = chatContainerRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      // Calculate distance from bottom
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      // If user scrolls up by more than 70px, pause auto-scroll so they can read freely
+      const scrolledUp = distanceFromBottom > 70;
+      userScrolledUpRef.current = scrolledUp;
+      setIsUserScrolledUp(scrolledUp);
+    };
+
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+    };
+  }, [isAgentOpen]);
+
+  // Handle smooth stream-following without jerky snapping or fighting user scrolling
+  useEffect(() => {
+    const el = chatContainerRef.current;
+    if (!el || userScrolledUpRef.current) return;
+
+    const isStreaming = aiMessages.some((m) => m.isStreaming);
+
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+    }
+
+    rafIdRef.current = requestAnimationFrame(() => {
+      if (!el || userScrolledUpRef.current) return;
+      if (isStreaming) {
+        // Direct scrollTop in rAF follows the stream smoothly without fighting smooth-scroll queues
+        el.scrollTop = el.scrollHeight;
+      } else {
+        el.scrollTo({
+          top: el.scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    });
+
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, [aiMessages, isAgentOpen]);
+
+  const scrollToBottom = () => {
+    userScrolledUpRef.current = false;
+    setIsUserScrolledUp(false);
     if (chatContainerRef.current) {
-      const isStreaming = aiMessages.some((m) => m.isStreaming);
       chatContainerRef.current.scrollTo({
         top: chatContainerRef.current.scrollHeight,
-        behavior: isStreaming ? 'auto' : 'smooth',
+        behavior: 'smooth',
       });
     }
-  }, [aiMessages, isAgentOpen, isAiTyping]);
+  };
 
   useEffect(() => {
     const onFocus = () => pollPaymentStatus();
@@ -89,6 +144,8 @@ export function AgentWidget() {
   const handleSend = (e) => {
     e.preventDefault();
     if (input.trim()) {
+      userScrolledUpRef.current = false;
+      setIsUserScrolledUp(false);
       sendAiMessage(input);
       setInput('');
     }
@@ -96,6 +153,8 @@ export function AgentWidget() {
 
   const handleQuickPrompt = (prompt) => {
     if (prompt) {
+      userScrolledUpRef.current = false;
+      setIsUserScrolledUp(false);
       sendAiMessage(prompt);
     }
   };
@@ -144,7 +203,7 @@ export function AgentWidget() {
               setIsFullScreen={setIsFullScreen}
               startNewChat={startNewChat}
             />
-            <div className={cn("flex-1 overflow-hidden flex flex-col", isFullScreen ? "max-w-4xl mx-auto w-full" : "")}>
+            <div className={cn("flex-1 overflow-hidden flex flex-col relative", isFullScreen ? "max-w-4xl mx-auto w-full" : "")}>
               <ChatMessages
                 aiMessages={aiMessages}
                 isAiTyping={isAiTyping}
@@ -157,6 +216,21 @@ export function AgentWidget() {
                 onAction={handleAction}
                 isFullScreen={isFullScreen}
               />
+
+              {/* Floating Jump to Bottom Button when user is scrolled up */}
+              {isUserScrolledUp && (
+                <button
+                  type="button"
+                  onClick={scrollToBottom}
+                  className="absolute bottom-3 right-1/2 translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-white/95 hover:bg-stone-50 border border-stone-200/90 text-stone-700 text-xs font-semibold shadow-md flex items-center gap-1.5 transition-all duration-200 cursor-pointer animate-in fade-in"
+                >
+                  <ArrowDown size={13} className="text-[#C45C26]" />
+                  <span>Resume chat</span>
+                  {aiMessages.some((m) => m.isStreaming) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#C45C26] animate-pulse" />
+                  )}
+                </button>
+              )}
             </div>
             <div className={cn(isFullScreen ? "bg-[#FBF8F3]" : "")}>
               <ChatInput
