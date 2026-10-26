@@ -10,6 +10,7 @@ from task_queue.event_queue import event_queue
 from Cart.schemas import (
     AddItemRequest,
     UpdateItemRequest,
+    UpdateItemDiscountRequest,
     DeleteItemRequest,
     ApplyDiscountRequest
 )
@@ -30,7 +31,9 @@ class CartController:
                 user_id=user_id,
                 product_id=payload.product_id,
                 quantity=payload.quantity,
-                size=payload.size
+                size=payload.size,
+                discount_percentage=payload.discount_percentage,
+                discounted_price=payload.discounted_price,
             )
 
             try:
@@ -51,7 +54,9 @@ class CartController:
                     "cart_id": item.cart_id,
                     "product_id": item.product_id,
                     "quantity": item.quantity,
-                    "size": item.size
+                    "size": item.size,
+                    "discount_percentage": item.discount_percentage,
+                    "discounted_price": item.discounted_price,
                 }
             }
 
@@ -121,7 +126,9 @@ class CartController:
                     "cart_id": item.cart_id,
                     "product_id": item.product_id,
                     "quantity": item.quantity,
-                    "size": item.size
+                    "size": item.size,
+                    "discount_percentage": item.discount_percentage,
+                    "discounted_price": item.discounted_price,
                 } if item else None
             }
 
@@ -141,6 +148,55 @@ class CartController:
             raise HTTPException(
                 status_code=500,
                 detail="Failed to update cart item"
+            )
+
+    # Update cart item discount (per-product negotiation inside cart)
+    async def update_item_discount(
+        self,
+        user_id: int,
+        payload: UpdateItemDiscountRequest
+    ):
+        try:
+            item = await cart.update_item_discount(
+                user_id=user_id,
+                product_id=payload.product_id,
+                discount_percentage=payload.discount_percentage,
+                discounted_price=payload.discounted_price,
+                size=payload.size
+            )
+
+            if item is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Item not found in cart"
+                )
+
+            summary = await cart.get_summary(user_id=user_id)
+
+            return {
+                "success": True,
+                "message": "Cart item discount updated successfully",
+                "item": {
+                    "id": item.id,
+                    "cart_id": item.cart_id,
+                    "product_id": item.product_id,
+                    "quantity": item.quantity,
+                    "size": item.size,
+                    "discount_percentage": item.discount_percentage,
+                    "discounted_price": item.discounted_price,
+                },
+                "summary": summary
+            }
+
+        except HTTPException:
+            raise
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception:
+            logger.exception("Failed to update cart item discount")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to update cart item discount"
             )
 
     # Remove item from cart

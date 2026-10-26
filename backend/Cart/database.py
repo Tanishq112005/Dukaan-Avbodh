@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from config.database import db_connection
 from sqlmodel import select, delete
@@ -53,15 +53,14 @@ class Cart:
         size: Optional[str] = None
     ) -> Optional[CartItem]:
 
-        return (
-            await session.exec(
-                select(CartItem).where(
-                    CartItem.cart_id == cart_id,
-                    CartItem.product_id == product_id,
-                    CartItem.size == size
-                )
-            )
-        ).first()
+        query = select(CartItem).where(
+            CartItem.cart_id == cart_id,
+            CartItem.product_id == product_id,
+        )
+        if size is not None:
+            query = query.where(CartItem.size == size)
+
+        return (await session.exec(query)).first()
 
     # Calculate totals
     async def _recalculate_totals(
@@ -79,24 +78,40 @@ class Cart:
             )
             results = (await session.exec(query)).all()
 
-        subtotal = sum(
-            item.quantity * product.price
-            for item, product in results
-        )
+        subtotal = 0.0
+        items_discount_amount = 0.0
 
-        discount_percentage = cart.discount_percentage or 0.0
-        discount_amount = subtotal * discount_percentage / 100
-        total_amount = subtotal - discount_amount
+        for item, product in results:
+            line_subtotal = float(product.price) * item.quantity
+            subtotal += line_subtotal
+
+            item_disc = float(item.discount_percentage or 0.0)
+            if item.discounted_price is not None and item.discounted_price >= 0:
+                item_unit_price = float(item.discounted_price)
+            elif item_disc > 0:
+                item_unit_price = round(float(product.price) * (1.0 - item_disc / 100.0), 2)
+            else:
+                item_unit_price = float(product.price)
+
+            line_discount = max(0.0, line_subtotal - (item_unit_price * item.quantity))
+            items_discount_amount += line_discount
+
+        cart_global_discount = float(cart.discount_percentage or 0.0)
+        remaining_after_items = max(0.0, subtotal - items_discount_amount)
+        cart_extra_discount = remaining_after_items * (cart_global_discount / 100.0)
+        total_discount_amount = round(items_discount_amount + cart_extra_discount, 2)
+        total_amount = round(max(0.0, subtotal - total_discount_amount), 2)
+        subtotal = round(subtotal, 2)
 
         cart.updated_at = datetime.now()
 
         return {
             "subtotal": subtotal,
-            "discount_amount": discount_amount,
+            "discount_amount": total_discount_amount,
             "total_amount": total_amount
         }
 
-    # Change the user's cart discount
+    # Change the user's cart global discount
     async def discountChange(
         self,
         user_id: int,
@@ -125,17 +140,22 @@ class Cart:
                 await session.rollback()
                 raise
 
-    # Add an item to the user's cart
+    # Add an item to the user's cart (supports per-product negotiated discount)
     async def add_item(
         self,
         user_id: int,
         product_id: int,
         quantity: int = 1,
-        size: Optional[str] = None
+        size: Optional[str] = None,
+        discount_percentage: float = 0.0,
+        discounted_price: Optional[float] = None,
     ) -> CartItem:
 
         if quantity <= 0:
             raise ValueError("Quantity must be greater than zero")
+
+        if discount_percentage < 0 or discount_percentage > 100:
+            raise ValueError("Discount percentage must be between 0 and 100")
 
         async with self.db.get_session() as session:
             try:
@@ -165,14 +185,27 @@ class Cart:
                         f"Insufficient stock. Available stock: {product.stock}"
                     )
 
+                # Compute discounted unit price if discount is set
+                final_discount_pct = float(discount_percentage)
+                if final_discount_pct > 0 and discounted_price is None:
+                    final_discounted_price = round(float(product.price) * (1.0 - final_discount_pct / 100.0), 2)
+                else:
+                    final_discounted_price = discounted_price
+
                 if item:
                     item.quantity = requested_quantity
+                    # If a new negotiated discount is provided on re-add, update it
+                    if final_discount_pct > 0:
+                        item.discount_percentage = final_discount_pct
+                        item.discounted_price = final_discounted_price
                 else:
                     item = CartItem(
                         cart_id=cart.id,
                         product_id=product_id,
                         quantity=quantity,
-                        size=size
+                        size=size,
+                        discount_percentage=final_discount_pct,
+                        discounted_price=final_discounted_price,
                     )
 
                 session.add(item)
@@ -183,6 +216,55 @@ class Cart:
                 await session.commit()
                 await session.refresh(item)
 
+                return item
+
+            except Exception:
+                await session.rollback()
+                raise
+
+    # Update negotiated discount for a specific product in the cart
+    async def update_item_discount(
+        self,
+        user_id: int,
+        product_id: int,
+        discount_percentage: float,
+        discounted_price: Optional[float] = None,
+        size: Optional[str] = None,
+    ) -> Optional[CartItem]:
+        if discount_percentage < 0 or discount_percentage > 100:
+            raise ValueError("Discount percentage must be between 0 and 100")
+
+        async with self.db.get_session() as session:
+            try:
+                cart = await self._get_cart(user_id, session)
+                item = await self._get_item(session, cart.id, product_id, size)
+
+                if not item:
+                    # Try without size constraint if not found with size
+                    if size is not None:
+                        item = await self._get_item(session, cart.id, product_id, None)
+                    if not item:
+                        return None
+
+                product = await session.get(Product, product_id)
+                if not product:
+                    raise ValueError("Product not found")
+
+                final_discount_pct = round(float(discount_percentage), 2)
+                if discounted_price is not None:
+                    final_discounted_price = round(float(discounted_price), 2)
+                else:
+                    final_discounted_price = round(float(product.price) * (1.0 - final_discount_pct / 100.0), 2)
+
+                item.discount_percentage = final_discount_pct
+                item.discounted_price = final_discounted_price
+                session.add(item)
+
+                await self._recalculate_totals(session, cart)
+                session.add(cart)
+
+                await session.commit()
+                await session.refresh(item)
                 return item
 
             except Exception:
@@ -291,12 +373,27 @@ class Cart:
 
             results = (await session.exec(query)).all()
 
-            return [
-                {
+            items = []
+            for item, product in results:
+                disc_pct = float(item.discount_percentage or 0.0)
+                if item.discounted_price is not None and item.discounted_price >= 0:
+                    current_price = float(item.discounted_price)
+                elif disc_pct > 0:
+                    current_price = round(float(product.price) * (1.0 - disc_pct / 100.0), 2)
+                else:
+                    current_price = float(product.price)
+
+                line_subtotal = round(float(product.price) * item.quantity, 2)
+                line_total = round(current_price * item.quantity, 2)
+
+                items.append({
                     "cart_item_id": item.id,
                     "product_id": product.id,
                     "name": product.name,
-                    "price": product.price,
+                    "price": current_price,
+                    "original_price": float(product.price),
+                    "discount_percentage": disc_pct,
+                    "discounted_price": item.discounted_price,
                     "quantity": item.quantity,
                     "size": item.size,
                     "type": (
@@ -306,10 +403,11 @@ class Cart:
                     ),
                     "gender": product.gender,
                     "image_url": product.image_url,
-                    "line_total": product.price * item.quantity
-                }
-                for item, product in results
-            ]
+                    "line_subtotal": line_subtotal,
+                    "line_total": line_total,
+                })
+
+            return items
 
     # Get the user's cart summary
     async def get_summary(self, user_id: int) -> dict:
@@ -326,21 +424,40 @@ class Cart:
             results = (await session.exec(query)).all()
             totals = await self._recalculate_totals(session, cart, results=results)
 
+            summary_items = []
+            for item, product in results:
+                disc_pct = float(item.discount_percentage or 0.0)
+                if item.discounted_price is not None and item.discounted_price >= 0:
+                    current_price = float(item.discounted_price)
+                elif disc_pct > 0:
+                    current_price = round(float(product.price) * (1.0 - disc_pct / 100.0), 2)
+                else:
+                    current_price = float(product.price)
+
+                summary_items.append({
+                    "cart_item_id": item.id,
+                    "product_id": product.id,
+                    "name": product.name,
+                    "quantity": item.quantity,
+                    "size": item.size,
+                    "price": current_price,
+                    "original_price": float(product.price),
+                    "discount_percentage": disc_pct,
+                    "discounted_price": item.discounted_price,
+                    "line_total": round(current_price * item.quantity, 2),
+                })
+
+            effective_discount_pct = (
+                round((totals["discount_amount"] / totals["subtotal"]) * 100.0, 2)
+                if totals["subtotal"] > 0
+                else 0.0
+            )
+
             return {
                 "cart_id": cart.id,
                 "user_id": user_id,
-                "items": [
-                    {
-                        "cart_item_id": item.id,
-                        "product_id": product.id,
-                        "name": product.name,
-                        "quantity": item.quantity,
-                        "size": item.size,
-                        "price": product.price,
-                        "line_total": product.price * item.quantity
-                    }
-                    for item, product in results
-                ],
+                "items": summary_items,
+                "effective_discount_percentage": effective_discount_pct,
                 **totals
             }
 
@@ -372,11 +489,20 @@ class Cart:
                                 continue
 
                             qty = min(int(item.get("qty") or item.get("quantity") or 1), product.stock)
+                            disc_pct = float(item.get("discount_percentage", 0.0) or 0.0)
+                            disc_price = item.get("discounted_price")
+                            if disc_price is not None:
+                                disc_price = float(disc_price)
+                            elif disc_pct > 0:
+                                disc_price = round(float(product.price) * (1.0 - disc_pct / 100.0), 2)
+
                             new_cart_items.append(CartItem(
                                 cart_id=cart.id,
                                 product_id=pid,
                                 quantity=qty,
-                                size=item.get("size")
+                                size=item.get("size"),
+                                discount_percentage=disc_pct,
+                                discounted_price=disc_price,
                             ))
 
                         if new_cart_items:

@@ -22,6 +22,8 @@ class CartItem(SQLModel, table=True):
     product_id: int = Field(foreign_key="product.id")
     quantity: int = Field(default=1)
     size: Optional[str] = None
+    discount_percentage: float = Field(default=0.0)
+    discounted_price: Optional[float] = Field(default=None)
     added_at: datetime = Field(default_factory=datetime.now)
     
     cart: Optional["Cart"] = Relationship(back_populates="items")

@@ -4,6 +4,7 @@ from Cart.controller import cartController
 from Cart.schemas import (
     AddItemRequest,
     UpdateItemRequest,
+    UpdateItemDiscountRequest,
     DeleteItemRequest,
     ApplyDiscountRequest
 )
@@ -46,6 +47,18 @@ async def update_item(
     current_user: dict = Depends(auth_middleware)
 ):
     return await cartController.update_item(
+        user_id=current_user["user_id"],
+        payload=payload
+    )
+
+
+@router.patch("/item/discount")
+@router.put("/item/discount")
+async def update_item_discount(
+    payload: UpdateItemDiscountRequest,
+    current_user: dict = Depends(auth_middleware)
+):
+    return await cartController.update_item_discount(
         user_id=current_user["user_id"],
         payload=payload
     )
