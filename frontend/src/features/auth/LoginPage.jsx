@@ -113,14 +113,6 @@ export function LoginPage() {
           required
           disabled={loading}
         />
-        <div className="flex justify-end mt-2">
-          <Link
-            to="/forgot-password"
-            className="text-[11px] font-medium text-stone-500 hover:text-stone-900 transition-colors cursor-pointer"
-          >
-            Having trouble signing in? <span className="text-[#C45C26] font-semibold underline">Reset Password</span>
-          </Link>
-        </div>
       </div>
     </AuthForm>
   );

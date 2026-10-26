@@ -85,25 +85,15 @@ export function AuthForm({
             </form>
 
             {/* Bottom Switcher */}
-            <div className="mt-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-stone-500 font-medium">
-              <p>
-                {linkText}{" "}
-                <Link
-                  to={linkTo}
-                  className="text-stone-900 font-bold hover:text-[#6e1423] underline underline-offset-4 transition-colors"
-                >
-                  {linkLabel}
-                </Link>
-              </p>
-              {linkTo === "/signup" && (
-                <Link
-                  to="/forgot-password"
-                  className="text-stone-500 hover:text-[#C45C26] transition-colors hover:underline"
-                >
-                  Forgot your password?
-                </Link>
-              )}
-            </div>
+            <p className="mt-5 text-center sm:text-left text-xs text-stone-500 font-medium">
+              {linkText}{" "}
+              <Link
+                to={linkTo}
+                className="text-stone-900 font-bold hover:text-[#6e1423] underline underline-offset-4 transition-colors"
+              >
+                {linkLabel}
+              </Link>
+            </p>
           </div>
         </div>
 
