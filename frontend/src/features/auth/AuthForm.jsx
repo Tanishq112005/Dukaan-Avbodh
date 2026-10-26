@@ -29,7 +29,7 @@ export function AuthForm({
               <span className="w-1.5 h-1.5 rounded-full bg-[#6e1423]" />
             </div>
 
-            {/* Display Headline like Claude */}
+            {/* Display Headline */}
             <h1 className="font-display text-3xl sm:text-4xl font-extrabold uppercase tracking-tight text-stone-900 leading-tight mb-2">
               {title}
             </h1>
@@ -98,7 +98,7 @@ export function AuthForm({
         </div>
 
         {/* Right Column: Running Clothes & AI Agent Showcase */}
-        <div className="hidden lg:block lg:col-span-6 xl:col-span-7">
+        <div className="lg:col-span-6 xl:col-span-7 hidden lg:block">
           <AuthShowcase />
         </div>
       </div>
