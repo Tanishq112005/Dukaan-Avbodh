@@ -3,9 +3,7 @@ from sqlmodel import select
 from sqlalchemy.orm import selectinload
 
 from config.database import db_connection
-from Cart.database import cart
-from Cart.models import Cart
-from Order.models import Order, PaymentStatus
+from Order.models import Order as OrderModel, PaymentStatus
 from Product.models import Product
 
 
@@ -16,21 +14,21 @@ class OrderRepository:
         self.db = db_connection or default_db
 
     ## Getting all the User Orders
-    async def getUsersAllOrder(self, user_id: int) -> List[Order]:
+    async def getUsersAllOrder(self, user_id: int) -> List[OrderModel]:
         async with self.db.get_session() as session:
             result = await session.exec(
-                select(Order).where(Order.user_id == user_id)
+                select(OrderModel).where(OrderModel.user_id == user_id)
             )
             return result.all()
 
     ## Update Payment Status of the User Order
-    async def updatePaymentStatus(self, order_id: int, status: str) -> Optional[Order]:
+    async def updatePaymentStatus(self, order_id: int, status: str) -> Optional[OrderModel]:
         async with self.db.get_session() as session:
             try:
                 result = await session.exec(
-                    select(Order).where(Order.id == order_id)
+                    select(OrderModel).where(OrderModel.id == order_id)
                 )
-                order: Order = result.first()
+                order: OrderModel = result.first()
 
                 if order is not None:
                     order.payment_status = status
@@ -45,7 +43,8 @@ class OrderRepository:
                 raise e
 
     ## Creating the Order from Cart Items
-    async def createOrder(self, user_id: int) -> Order:
+    async def createOrder(self, user_id: int) -> OrderModel:
+        from Cart.database import cart
         itemsOfCart = await cart.get_items(user_id=user_id)
         if not itemsOfCart:
             raise ValueError("Cart is empty. Cannot create an order.")
@@ -82,7 +81,7 @@ class OrderRepository:
                     item_total = product.price * quantity
                     total_amount += item_total
 
-                    order = Order(
+                    order = OrderModel(
                         product_id=product.id,
                         user_id=user_id,
                         total_amount=item_total,
