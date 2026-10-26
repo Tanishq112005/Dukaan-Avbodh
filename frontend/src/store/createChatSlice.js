@@ -1,5 +1,6 @@
 import { agentService } from "../services/agentService.js";
 import { userEventService, EVENT_TYPES } from "../services/userEventService.js";
+import { cleanAiText } from "../lib/textCleaning.js";
 
 const generateUUID = () => {
   if (typeof window !== "undefined" && window.crypto?.randomUUID) {
@@ -75,10 +76,12 @@ export const createChatSlice = (set, get) => ({
           ? fromText[0]
           : null;
 
+      const cleanedText = cleanAiText(data.message);
+
       const aiMsg = {
         id: "ai_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
         sender: "ai",
-        text: data.message,
+        text: cleanedText,
         suggested_products: normalizeProducts(data.suggested_products),
         payment_link,
       };
@@ -229,11 +232,12 @@ export const createChatSlice = (set, get) => ({
         {
           onToken: (token) => {
             accumulatedText += token;
+            const cleaned = cleanAiText(accumulatedText, true);
             updateStreamingMessage((prev) => ({
               ...prev,
-              text: accumulatedText,
+              text: cleaned,
               isStreaming: true,
-              streamingStatus: null,
+              streamingStatus: cleaned ? null : (prev.streamingStatus || "Stylist is thinking..."),
             }));
             set({ isAiTyping: false });
           },
@@ -275,9 +279,11 @@ export const createChatSlice = (set, get) => ({
           },
           onComplete: (payload) => {
             completed = true;
+            const finalMessage = cleanAiText(payload.message || accumulatedText) || "Sorry, I couldn't process that. Please try again.";
+
             updateStreamingMessage((prev) => ({
               ...prev,
-              text: payload.message || accumulatedText || "Sorry, I couldn't process that. Please try again.",
+              text: finalMessage,
               isStreaming: false,
               streamingStatus: null,
               suggested_products: normalizeProducts(payload.suggested_products),
@@ -316,9 +322,10 @@ export const createChatSlice = (set, get) => ({
 
       // In case stream ended normally without an explicit chat_reply event
       if (!completed && accumulatedText.trim()) {
+        const finalMessage = cleanAiText(accumulatedText);
         updateStreamingMessage((prev) => ({
           ...prev,
-          text: accumulatedText,
+          text: finalMessage,
           isStreaming: false,
           streamingStatus: null,
         }));

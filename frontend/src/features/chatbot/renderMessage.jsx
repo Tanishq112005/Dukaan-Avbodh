@@ -1,11 +1,12 @@
 import React from 'react';
+import { cleanAiText } from '../../lib/textCleaning';
 
 const URL_SPLIT = /(\*\*.*?\*\*|\[.*?\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<>"')\]]+)/g;
 const PAYMENT_PATTERN = /razorpay|rzp\.io|rzp_/i;
 
 function Linkish({ href, children, className }) {
   return (
-     <a
+    <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
@@ -18,19 +19,28 @@ function Linkish({ href, children, className }) {
 
 export const renderMessage = (text, paymentUrl) => {
   if (!text) return null;
+
+  // Clean away any unwanted reasoning tags, monologue, or raw JSON
+  const cleanedText = cleanAiText(text);
+  if (!cleanedText) return null;
+
   let seenPaymentLink = false;
-  const lines = text.split('\n');
+  const lines = cleanedText.split('\n');
 
   const renderedLines = lines
     .map((line, i) => {
-      const parts = line.split(URL_SPLIT);
+      const trimmed = line.trim();
+      const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ');
+      const content = isBullet ? trimmed.replace(/^[-*•]\s+/, '') : line;
+
+      const parts = content.split(URL_SPLIT);
 
       const nodes = parts
         .map((part, j) => {
           if (!part) return null;
 
           if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={j} className="font-bold">{part.slice(2, -2)}</strong>;
+            return <strong key={j} className="font-bold text-stone-900">{part.slice(2, -2)}</strong>;
           }
 
           const md = part.match(/^\[(.*?)\]\((https?:\/\/[^\s)]+)\)$/);
@@ -39,8 +49,6 @@ export const renderMessage = (text, paymentUrl) => {
           if (url) {
             const isPayment = PAYMENT_PATTERN.test(url) || url === paymentUrl;
             if (isPayment) {
-              // Hide every payment link from inline text —
-              // the "Pay securely" button below already handles it.
               if (seenPaymentLink) return null;
               seenPaymentLink = true;
               return null;
@@ -53,9 +61,16 @@ export const renderMessage = (text, paymentUrl) => {
         })
         .filter(Boolean);
 
-      // Skip rendering a line entirely if it was *only* a payment link
-      // (avoids leaving a stray blank line / <br/>)
       if (nodes.length === 0) return null;
+
+      if (isBullet) {
+        return (
+          <div key={i} className="flex items-start gap-2 my-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#C45C26] mt-2 flex-shrink-0" />
+            <div className="flex-1">{nodes}</div>
+          </div>
+        );
+      }
 
       return (
         <React.Fragment key={i}>
@@ -65,7 +80,6 @@ export const renderMessage = (text, paymentUrl) => {
     })
     .filter(Boolean);
 
-  // Re-add line breaks only between remaining, non-empty lines
   return renderedLines.map((node, idx) => (
     <React.Fragment key={idx}>
       {node}

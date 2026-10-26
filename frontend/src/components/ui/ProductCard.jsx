@@ -53,7 +53,7 @@ export function ProductCard({
   // Compact variant for Chatbot suggestions and mini carousels
   if (size === "small") {
     return (
-      <div className="flex-shrink-0 w-36 sm:w-40 bg-white border border-stone-200/90 rounded-2xl overflow-hidden hover:border-stone-400 hover:shadow-md transition-all duration-300 flex flex-col group">
+      <div className="flex-shrink-0 w-32 sm:w-40 bg-white border border-stone-200/90 rounded-2xl overflow-hidden hover:border-stone-400 hover:shadow-md transition-all duration-300 flex flex-col group">
         <Link
           to={finalId ? `/product/${finalId}` : "#"}
           onClick={() => onProductClick?.(finalId)}
@@ -74,7 +74,7 @@ export function ProductCard({
             </span>
           )}
         </Link>
-        <div className="p-2.5 flex flex-col flex-1 justify-between bg-white">
+        <div className="p-2 sm:p-2.5 flex flex-col flex-1 justify-between bg-white">
           <div>
             {brand && (
               <p className="text-[9px] font-bold tracking-widest uppercase text-stone-400 truncate mb-0.5">
@@ -125,14 +125,14 @@ export function ProductCard({
       >
         {/* Discount badge */}
         {discount > 0 && (
-          <span className="absolute top-3 left-3 z-10 bg-[#6e1423] text-white text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full shadow-sm tracking-wide">
+          <span className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 z-10 bg-[#6e1423] text-white text-[9px] sm:text-xs font-bold px-2 py-0.5 rounded-full shadow-sm tracking-wide">
             -{discount}% OFF
           </span>
         )}
 
         {/* Index counter if specified */}
         {typeof index === "number" && !discount && (
-          <span className="absolute top-3 left-3 z-10 text-[10px] font-semibold text-stone-600 bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded-full border border-stone-200/60">
+          <span className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 z-10 text-[9px] sm:text-[10px] font-semibold text-stone-600 bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded-full border border-stone-200/60">
             #{String(index + 1).padStart(2, "0")}
           </span>
         )}
@@ -148,8 +148,8 @@ export function ProductCard({
           onLoad={(e) => e.currentTarget.setAttribute("data-loaded", "true")}
         />
 
-        {/* Quick Add overlay button on hover */}
-        <div className="absolute inset-x-3 bottom-3 z-10 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-1 group-hover:translate-y-0">
+        {/* Quick Add overlay button on hover for desktop */}
+        <div className="hidden sm:block absolute inset-x-3 bottom-3 z-10 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-1 group-hover:translate-y-0">
           <button
             onClick={handleQuickAdd}
             type="button"
@@ -174,15 +174,15 @@ export function ProductCard({
         </div>
       </Link>
 
-      <div className="p-4 sm:p-4.5 flex flex-col flex-1 justify-between bg-white">
+      <div className="p-3 sm:p-4.5 flex flex-col flex-1 justify-between bg-white">
         <div>
           {/* Brand & Type */}
-          <div className="flex items-center justify-between gap-2 mb-1.5">
+          <div className="flex items-center justify-between gap-2 mb-1">
             <span className="text-[10px] sm:text-[11px] font-bold tracking-widest uppercase text-stone-400 truncate">
               {brand || "ATELIER"}
             </span>
             {type && (
-              <span className="text-[10px] uppercase font-medium text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded-sm">
+              <span className="text-[9px] sm:text-[10px] uppercase font-medium text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded-sm">
                 {type}
               </span>
             )}
@@ -192,40 +192,62 @@ export function ProductCard({
           <Link
             to={finalId ? `/product/${finalId}` : "#"}
             onClick={() => onProductClick?.(finalId)}
-            className="block text-sm sm:text-base font-semibold text-stone-900 hover:text-[#6e1423] transition-colors leading-snug line-clamp-1 mb-2"
+            className="block text-xs sm:text-base font-semibold text-stone-900 hover:text-[#6e1423] transition-colors leading-snug line-clamp-1 mb-1.5 sm:mb-2"
             title={name}
           >
             {name}
           </Link>
 
           {/* Rating */}
-          <div className="flex items-center gap-1.5 mb-3">
+          <div className="flex items-center gap-1.5 mb-2.5 sm:mb-3">
             <div className="flex items-center text-amber-500">
-              <Star size={13} fill="currentColor" strokeWidth={0} />
+              <Star size={12} fill="currentColor" strokeWidth={0} />
             </div>
-            <span className="text-xs font-semibold text-stone-700">
+            <span className="text-[11px] sm:text-xs font-semibold text-stone-700">
               {rating ? Number(rating).toFixed(1) : "4.5"}
             </span>
-            <span className="text-[11px] text-stone-400">
+            <span className="text-[10px] sm:text-[11px] text-stone-400">
               ({rating ? Math.round(Number(rating) * 24 + 18) : 84})
             </span>
           </div>
         </div>
 
-        {/* Pricing */}
-        <div className="flex items-baseline justify-between pt-2 border-t border-stone-100">
-          <div className="flex items-baseline gap-2">
-            <span className="text-base sm:text-lg font-bold text-stone-900">
-              {formattedPrice}
-            </span>
-            {originalPrice && (
-              <span className="text-xs text-stone-400 line-through">
-                {originalPrice}
+        {/* Pricing Row with Direct Mobile Quick-Add Button */}
+        <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+          <div>
+            <div className="flex items-baseline gap-1.5 sm:gap-2">
+              <span className="text-sm sm:text-lg font-bold text-stone-900">
+                {formattedPrice}
+              </span>
+              {originalPrice && (
+                <span className="text-[10px] sm:text-xs text-stone-400 line-through">
+                  {originalPrice}
+                </span>
+              )}
+            </div>
+            {discount > 0 && (
+              <span className="inline-block sm:hidden text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded mt-0.5">
+                Save {discount}%
               </span>
             )}
           </div>
+
+          {/* Mobile Tap-To-Add button */}
+          <button
+            onClick={handleQuickAdd}
+            type="button"
+            className={`sm:hidden p-2 rounded-xl transition-all cursor-pointer ${
+              justAdded
+                ? "bg-emerald-600 text-white"
+                : "bg-stone-900 text-white hover:bg-[#6e1423]"
+            }`}
+            title="Add to Bag"
+          >
+            {justAdded ? <Check size={13} strokeWidth={2.5} /> : <ShoppingBag size={13} />}
+          </button>
+
           {discount > 0 && (
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+            <span className="hidden sm:inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
               Save {discount}%
             </span>
           )}
