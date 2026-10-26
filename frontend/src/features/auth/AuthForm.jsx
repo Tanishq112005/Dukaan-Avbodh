@@ -1,19 +1,107 @@
 import { Link } from "react-router-dom";
 import { Button } from "../../components/ui/button";
+import { AuthShowcase } from "./AuthShowcase";
+import { Sparkles, ArrowRight } from "lucide-react";
 
-export function AuthForm({ title, error, onSubmit, children, buttonText, linkText, linkTo, linkLabel }) {
+export function AuthForm({
+  title,
+  subtitle,
+  error,
+  onSubmit,
+  children,
+  buttonText,
+  linkText,
+  linkTo,
+  linkLabel,
+  demoAccounts,
+}) {
   return (
-    <div className="max-w-md mx-auto py-16 px-4">
-      <p className="text-center text-[11px] tracking-[0.22em] uppercase text-[#C45C26] font-bold mb-3">Dukaan</p>
-      <h1 className="font-display text-4xl font-extrabold mb-6 text-center uppercase">{title}</h1>
-      {error && <p className="text-red-500 mb-4 text-center">{error}</p>}
-      <form onSubmit={onSubmit} className="space-y-4 bg-white border border-stone-200 rounded-[28px] p-6 shadow-sm">
-        {children}
-        <Button className="w-full py-6 rounded-full text-lg bg-stone-900 hover:bg-stone-800">{buttonText}</Button>
-      </form>
-      <p className="mt-6 text-center text-stone-500">
-        {linkText} <Link to={linkTo} className="text-stone-900 underline font-bold">{linkLabel}</Link>
-      </p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-14">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 xl:gap-14 items-stretch">
+        {/* Left Column: Authentication Form Panel */}
+        <div className="lg:col-span-6 xl:col-span-5 flex flex-col justify-center">
+          <div className="w-full max-w-md mx-auto lg:mx-0">
+            {/* Dukaan Brand Kicker */}
+            <div className="inline-flex items-center gap-2 mb-3">
+              <span className="text-xs font-bold tracking-[0.25em] uppercase text-[#C45C26]">
+                Dukaan Atelier
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#6e1423]" />
+            </div>
+
+            {/* Display Headline like Claude */}
+            <h1 className="font-display text-3xl sm:text-4xl font-extrabold uppercase tracking-tight text-stone-900 leading-tight mb-2">
+              {title}
+            </h1>
+
+            {/* Subtitle */}
+            <p className="text-stone-500 text-xs sm:text-sm leading-relaxed mb-6">
+              {subtitle || "Your personal AI stylist for luxury apparel & real-time bargaining."}
+            </p>
+
+            {/* Optional Demo Credentials Helper */}
+            {demoAccounts && demoAccounts.length > 0 && (
+              <div className="mb-6 p-3 bg-stone-100/90 rounded-2xl border border-stone-200/80 shadow-xs">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-2 flex items-center gap-1.5">
+                  <Sparkles size={11} className="text-[#C45C26]" />
+                  <span>Quick Demo Access</span>
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {demoAccounts.map((account) => (
+                    <button
+                      key={account.label}
+                      type="button"
+                      onClick={account.onSelect}
+                      className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white hover:bg-stone-900 text-stone-700 hover:text-white border border-stone-200 transition-all cursor-pointer shadow-xs"
+                    >
+                      {account.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Error Notification */}
+            {error && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-medium animate-fade-in flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* Main Interactive Form Card */}
+            <form onSubmit={onSubmit} className="space-y-4">
+              <div className="bg-white border border-stone-200/90 rounded-2xl p-5 sm:p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] space-y-3.5">
+                {children}
+
+                <Button
+                  type="submit"
+                  className="w-full py-3.5 mt-2 rounded-xl text-xs sm:text-sm font-bold tracking-wider uppercase bg-stone-900 hover:bg-[#6e1423] text-white shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>{buttonText}</span>
+                  <ArrowRight size={14} />
+                </Button>
+              </div>
+            </form>
+
+            {/* Bottom Switcher */}
+            <p className="mt-5 text-center sm:text-left text-xs text-stone-500 font-medium">
+              {linkText}{" "}
+              <Link
+                to={linkTo}
+                className="text-stone-900 font-bold hover:text-[#6e1423] underline underline-offset-4 transition-colors"
+              >
+                {linkLabel}
+              </Link>
+            </p>
+          </div>
+        </div>
+
+        {/* Right Column: Running Clothes & AI Agent Showcase */}
+        <div className="hidden lg:block lg:col-span-6 xl:col-span-7">
+          <AuthShowcase />
+        </div>
+      </div>
     </div>
   );
 }

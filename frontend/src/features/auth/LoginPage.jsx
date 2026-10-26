@@ -5,6 +5,7 @@ import { Input } from "../../components/ui/input";
 import { AuthForm } from "./AuthForm";
 import { PasswordInput } from "./PasswordInput";
 import { authService } from "../../services/authService";
+import { Mail } from "lucide-react";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -43,30 +44,65 @@ export function LoginPage() {
     }
   };
 
+  const demoAccounts = [
+    {
+      label: "Customer Demo",
+      onSelect: () => {
+        setEmail("customer@dukaan.com");
+        setPassword("password123");
+      },
+    },
+    {
+      label: "Merchant Demo",
+      onSelect: () => {
+        setEmail("merchant@dukaan.com");
+        setPassword("password123");
+      },
+    },
+  ];
+
   return (
     <AuthForm
-      title="Login"
+      title="Welcome Back"
+      subtitle="Sign in to curate your luxury wardrobe with our real-time AI stylist."
       error={error}
       onSubmit={handleLogin}
-      buttonText={loading ? "Logging in..." : "Log In"}
+      buttonText={loading ? "Authenticating..." : "Log In to Dukaan"}
       linkText="Don't have an account?"
       linkTo="/signup"
-      linkLabel="Sign Up"
+      linkLabel="Create an Account"
+      demoAccounts={demoAccounts}
     >
-      <Input
-        placeholder="Email Address"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        disabled={loading}
-      />
-      <PasswordInput
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        disabled={loading}
-      />
+      <div>
+        <label className="block text-[11px] font-bold uppercase tracking-wider text-stone-500 mb-1.5">
+          Email Address
+        </label>
+        <div className="relative">
+          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+          <Input
+            placeholder="name@example.com"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            disabled={loading}
+            className="pl-10 bg-stone-50 hover:bg-stone-50/80 focus-visible:bg-white border-stone-200 rounded-xl text-xs sm:text-sm h-11 transition-all"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-[11px] font-bold uppercase tracking-wider text-stone-500 mb-1.5">
+          Password
+        </label>
+        <PasswordInput
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Enter your secret password"
+          required
+          disabled={loading}
+        />
+      </div>
     </AuthForm>
   );
 }
