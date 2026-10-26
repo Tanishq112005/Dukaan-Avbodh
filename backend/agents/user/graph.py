@@ -72,6 +72,13 @@ ORDER_STATUS_TOOLS = {
     "verify_order_payment",
 }
 
+AUTH_TOOLS = {
+    "get_user_profile",
+    "update_user_profile",
+    "check_auth_status",
+    "request_login",
+}
+
 
 # --- Tool Helpers ---
 
@@ -162,6 +169,17 @@ def _extract_state_updates_from_tool_result(tool_name: str, parsed: dict) -> dic
         updates["cart_total"] = 0.0
         updates["cart_subtotal"] = 0.0
         updates["cart_count"] = 0
+
+    # 5. Customer Profile & Identity
+    if tool_name in AUTH_TOOLS:
+        if "user_id" in parsed and parsed.get("user_id"):
+            updates["user_id"] = int(parsed["user_id"])
+        if "name" in parsed or "address" in parsed or "email" in parsed:
+            updates["customer_profile"] = {
+                "name": parsed.get("name"),
+                "email": parsed.get("email"),
+                "address": parsed.get("address"),
+            }
 
     return updates
 
@@ -399,7 +417,7 @@ route_specialist = route_agent
 
 def resolve_all_tools(tools_dict=None) -> dict:
     """
-    Resolves tools from MCP tools_dict and local feature modules (Cart, Negotiation, Recommedation, Order, Payment).
+    Resolves tools from MCP tools_dict and local feature modules (Cart, Negotiation, Recommedation, Order, Payment, Auth).
     Returns a unified dict mapping tool names to tool objects.
     """
     resolved_tools = {}
@@ -419,6 +437,7 @@ def resolve_all_tools(tools_dict=None) -> dict:
         ("Recommedation.tools", "get_recommendation_langchain_tools"),
         ("Payment.tools", "get_payment_langchain_tools"),
         ("Order.tools", "get_order_langchain_tools"),
+        ("Auth.tools", "get_auth_langchain_tools"),
     ]:
         try:
             mod = __import__(module_name, fromlist=[getter_name])

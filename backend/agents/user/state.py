@@ -10,6 +10,9 @@ class AgentState(TypedDict, total=False):
     intent: Optional[str]
     gender: Optional[str]
 
+    # Customer Identity & Profile
+    customer_profile: Optional[dict]
+
     # Product Discovery & Recommendations
     suggested_products: List[dict]
 
