@@ -31,29 +31,35 @@ class NegotiationDatabase:
         product_id: int,
         size: Optional[str] = None
     ) -> Optional[CartItem]:
-        """Fetch a specific CartItem for a user by product ID and optional size."""
-        user_cart: Optional[Cart] = await cart.get_cart(user_id=user_id)
-        if not user_cart or not user_cart.id:
-            return None
+        """Fetch a specific CartItem for a user by product ID and optional size without force-creating a cart."""
+        try:
+            async with self.db.get_session() as session:
+                user_cart = (await session.exec(
+                    select(Cart).where(Cart.user_id == user_id)
+                )).first()
+                if not user_cart or not user_cart.id:
+                    return None
 
-        async with self.db.get_session() as session:
-            query = select(CartItem).where(
-                CartItem.cart_id == user_cart.id,
-                CartItem.product_id == product_id,
-            )
-            if size is not None:
-                query = query.where(CartItem.size == size)
-            item = (await session.exec(query)).first()
-
-            # Fallback if size was provided but item was stored with size=None
-            if not item and size is not None:
-                query_fallback = select(CartItem).where(
+                query = select(CartItem).where(
                     CartItem.cart_id == user_cart.id,
                     CartItem.product_id == product_id,
                 )
-                item = (await session.exec(query_fallback)).first()
+                if size is not None:
+                    query = query.where(CartItem.size == size)
+                item = (await session.exec(query)).first()
 
-            return item
+                # Fallback if size was provided but item was stored with size=None
+                if not item and size is not None:
+                    query_fallback = select(CartItem).where(
+                        CartItem.cart_id == user_cart.id,
+                        CartItem.product_id == product_id,
+                    )
+                    item = (await session.exec(query_fallback)).first()
+
+                return item
+        except Exception as e:
+            logger.warning("Could not check cart item for user %s: %s", user_id, e)
+            return None
 
     async def apply_item_discount(
         self,

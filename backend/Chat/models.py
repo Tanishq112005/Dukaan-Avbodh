@@ -7,6 +7,8 @@ class ChatMessage(BaseModel):
     sender: Literal["human", "ai", "system"]
     message: str
     tool_calls: Optional[List[Dict[str, Any]]] = None  # To show audit (what action, why)
+    cards: Optional[List[Dict[str, Any]]] = None  # UI cards generated in this turn
+    metadata: Optional[Dict[str, Any]] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -48,6 +50,8 @@ class ThreadState(BaseModel):
     final_profit: float = 0.0
     
     order_placed: bool = False
+    order_ids: Optional[List[int]] = None
+    pending_payment_link: Optional[str] = None
     razorpay_id: Optional[str] = None
     payment_status: Optional[str] = None
     user_info: Optional[Dict[str, str]] = None

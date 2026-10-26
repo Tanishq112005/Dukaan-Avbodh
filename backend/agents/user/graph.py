@@ -462,6 +462,85 @@ def resolve_all_tools(tools_dict=None) -> dict:
     return resolved_tools
 
 
+def _log_tool_audit(tool_name: str, tool_args: dict, parsed: Any, state: dict):
+    """Logs tool actions and security bounds checks directly into dukaan_audit.audit_logs."""
+    try:
+        from services.audit_logger import audit_logger
+        user_id = tool_args.get("user_id") or state.get("user_id", 0)
+        thread_id = tool_args.get("thread_id") or state.get("thread_id", "")
+
+        action = None
+        reason = None
+        result = None
+        metadata = {}
+
+        if tool_name in ("negotiate_discount", "evaluate_counter_offer"):
+            req_pct = tool_args.get("requested_discount_percent", 0.0)
+            granted_pct = parsed.get("granted_discount_percent", 0.0) if isinstance(parsed, dict) else 0.0
+            accepted = parsed.get("accepted", False) if isinstance(parsed, dict) else False
+            action = "AI_DISCOUNT_NEGOTIATION"
+            reason = f"Customer requested {req_pct}% discount. Evaluated against margin hard caps."
+            result = f"{'AGREED' if accepted else 'COUNTERED'}: Offered {granted_pct}% discount."
+            metadata = {
+                "requested": req_pct,
+                "offered": granted_pct,
+                "accepted": accepted,
+                "cart_total": parsed.get("cart_total") if isinstance(parsed, dict) else None,
+                "products": state.get("cart") or state.get("cart_items") or [],
+            }
+
+        elif tool_name in ("checkout_order", "create_order", "create_payment_order"):
+            action = "ORDER_CHECKOUT"
+            reason = "Customer initiated checkout order generation and inventory stock reservation."
+            st = parsed.get("payment_status", "pending") if isinstance(parsed, dict) else "placed"
+            tot = parsed.get("total_amount", 0.0) if isinstance(parsed, dict) else 0.0
+            result = f"Order created. Status: {st}, Amount: ₹{tot}"
+            metadata = parsed if isinstance(parsed, dict) else {}
+
+        elif tool_name == "cancel_order":
+            action = "ORDER_CANCELLED"
+            reason = f"Customer requested cancellation of order #{tool_args.get('order_id')}; restored inventory stock."
+            result = "Order cancelled and stock refunded"
+            metadata = tool_args
+
+        elif tool_name in ("add_to_cart", "remove_from_cart", "update_cart_quantity", "clear_cart"):
+            action = "CART_UPDATE"
+            reason = f"Cart mutation performed: {tool_name}"
+            result = parsed.get("message", "Cart updated") if isinstance(parsed, dict) else "Cart modified"
+            metadata = tool_args
+
+        elif tool_name in ("update_user_profile",):
+            action = "PROFILE_UPDATE"
+            reason = "Customer profile updated via assistant"
+            result = "Profile fields saved"
+            metadata = tool_args
+
+        elif tool_name in ("recommend_by_query", "get_personalized_recommendations", "get_category_best_sellers", "search_catalog"):
+            action = "CATALOG_RECOMMENDATION"
+            reason = f"AI Stylist searched catalog with query: '{tool_args.get('query', '')}'"
+            count = len(parsed.get("products", [])) if isinstance(parsed, dict) else 0
+            result = f"Dispatched {count} recommendations"
+            metadata = {"query": tool_args.get("query"), "count": count}
+
+        if action:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(
+                    audit_logger.log_action(
+                        action=action,
+                        reason=reason,
+                        result=result,
+                        user_id=user_id,
+                        thread_id=thread_id,
+                        metadata=metadata,
+                    )
+                )
+            except RuntimeError:
+                pass
+    except Exception as e:
+        logger.debug("Tool audit logging error: %s", e)
+
+
 def create_tools_node(tools_dict=None):
     """
     Creates a dual sync/async tools execution node for the user agent graph.
@@ -555,6 +634,8 @@ def create_tools_node(tools_dict=None):
                     cart_modified = True
                     cart_user_id = tool_args.get("user_id") or cart_user_id
 
+                _log_tool_audit(tool_name, tool_args, parsed, state)
+
             tool_messages.append(ToolMessage(content=res_text, tool_call_id=call_id))
 
         if cart_modified and cart_user_id and cart_user_id > 0:
@@ -645,6 +726,8 @@ def create_tools_node(tools_dict=None):
                 if tool_name in ("add_to_cart", "update_cart_quantity", "remove_from_cart") and parsed.get("success"):
                     cart_modified = True
                     cart_user_id = tool_args.get("user_id") or cart_user_id
+
+                _log_tool_audit(tool_name, tool_args, parsed, state)
 
             tool_messages.append(ToolMessage(content=res_text, tool_call_id=call_id))
 

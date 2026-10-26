@@ -150,6 +150,60 @@ class AgentController:
         except Exception as q_err:
             logger.warning("Failed to dispatch chat state to background queue: %s", q_err)
 
+        # Reliably persist conversation turn (human + AI message + cards + tools) directly to MongoDB chat audit
+        try:
+            executed_tools = []
+            for msg in state.get("messages", []):
+                t_calls = getattr(msg, "tool_calls", None)
+                if t_calls:
+                    for tc in t_calls:
+                        t_name = tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", str(tc))
+                        t_args = tc.get("args") if isinstance(tc, dict) else getattr(tc, "args", {})
+                        executed_tools.append({"name": t_name, "args": t_args})
+
+            cart_list = state.get("cart") or state.get("cart_items") or []
+            selling_tot = 0.0
+            cost_tot = 0.0
+            if isinstance(cart_list, list):
+                for item in cart_list:
+                    if isinstance(item, dict):
+                        p_val = float(item.get("price") or 0.0)
+                        c_val = float(item.get("cost_price") or 0.0)
+                        q_val = int(item.get("quantity") or 1)
+                        selling_tot += p_val * q_val
+                        cost_tot += c_val * q_val
+
+            final_prof = max(0.0, (selling_tot * (1.0 - current_discount / 100.0)) - cost_tot)
+
+            patch_payload = {
+                "current_discount_percent": current_discount,
+                "cart_products": cart_list,
+                "total_selling_price": round(selling_tot, 2),
+                "total_cost_price": round(cost_tot, 2),
+                "final_profit": round(final_prof, 2),
+                "order_placed": bool(state.get("order_placed") or payment_link),
+            }
+            if payment_link:
+                patch_payload["pending_payment_link"] = payment_link
+            if state.get("negotiation_log"):
+                patch_payload["negotiation_log"] = state.get("negotiation_log")
+            if combo_offer:
+                patch_payload["combo_offer"] = combo_offer
+
+            asyncio.create_task(
+                self.audit_repo.save_full_thread_turn(
+                    user_id=user_id,
+                    thread_id=thread_id_val,
+                    human_text=getattr(human_msg, "content", str(human_msg)),
+                    ai_text=ai_reply,
+                    cards=cards,
+                    tool_calls=executed_tools,
+                    state_patch=patch_payload,
+                )
+            )
+        except Exception as persist_err:
+            logger.warning("Could not persist chat thread to Mongo dukaan_audit: %s", persist_err)
+
         # Use updated cart directly from state if populated by tools, avoiding redundant SQL query
         updated_cart = state.get("cart") or state.get("cart_items")
         if updated_cart is None:
