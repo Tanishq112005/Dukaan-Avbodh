@@ -27,6 +27,11 @@ class AgentState(TypedDict, total=False):
     # Payments & Checkout
     pending_payment_link: Optional[str]
     pending_payment_link_id: Optional[str]
+    payment_confirmed: Optional[bool]
+
+    # Order Placement & Tracking
+    order_ids: Optional[List[int]]
+    order_placed: Optional[bool]
 
     # UI Cards for Frontend Generative UI
     cards: Optional[List[dict]]

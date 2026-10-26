@@ -46,8 +46,30 @@ PAYMENT_TOOLS = {
     "create_payment_order",
 }
 
+ORDER_CREATION_TOOLS = {
+    "checkout_order",
+    "create_order",
+    "create_payment_order",
+}
+
+ORDER_TRACKING_TOOLS = {
+    "track_order",
+    "get_order_status",
+}
+
+ORDER_LISTING_TOOLS = {
+    "get_my_orders",
+    "get_user_orders",
+}
+
+ORDER_MUTATION_TOOLS = {
+    "cancel_order",
+}
+
 ORDER_STATUS_TOOLS = {
+    "check_order_payment_status",
     "check_payment_status",
+    "verify_order_payment",
 }
 
 
@@ -118,7 +140,7 @@ def _extract_state_updates_from_tool_result(tool_name: str, parsed: dict) -> dic
         updates["cart_subtotal"] = 0.0
         updates["cart_count"] = 0
 
-    # 4. Payments & Checkout Links
+    # 4. Payments, Checkout Links & Orders
     if "pending_payment_link" in parsed:
         updates["pending_payment_link"] = parsed.get("pending_payment_link")
     elif "payment_link" in parsed:
@@ -129,7 +151,11 @@ def _extract_state_updates_from_tool_result(tool_name: str, parsed: dict) -> dic
     elif "payment_link_id" in parsed:
         updates["pending_payment_link_id"] = parsed.get("payment_link_id")
 
-    if tool_name in ORDER_STATUS_TOOLS and parsed.get("paid"):
+    if "order_ids" in parsed and parsed.get("order_ids"):
+        updates["order_ids"] = parsed.get("order_ids")
+        updates["order_placed"] = True
+
+    if (tool_name in ORDER_STATUS_TOOLS or tool_name in ORDER_CREATION_TOOLS) and parsed.get("paid"):
         updates["payment_confirmed"] = True
         updates["cart"] = []
         updates["cart_items"] = []
@@ -147,6 +173,8 @@ def _build_cards_from_tool(tool_name: str, parsed: dict, updates: dict, state: d
     - Cart items ONLY when cart view or mutation tools run.
     - Negotiation offer ONLY when price negotiation tools run.
     - Payment/ordering card ONLY when checkout tool runs, displaying photos of the items being ordered.
+    - Order tracking card ONLY when order tracking tools run.
+    - Order confirmed card ONLY when payment completes.
     """
     cards = []
     suffix = uuid.uuid4().hex[:6]
@@ -250,24 +278,42 @@ def _build_cards_from_tool(tool_name: str, parsed: dict, updates: dict, state: d
         })
 
     # 5. Instant Payment Card during Checkout: displays photos of the items being ordered from cart
-    elif tool_name in PAYMENT_TOOLS:
-        if "pending_payment_link" in updates and updates["pending_payment_link"]:
-            ordered_cart = updates.get("cart") or (state.get("cart") if state else [])
+    elif tool_name in PAYMENT_TOOLS or tool_name in ORDER_CREATION_TOOLS:
+        link = updates.get("pending_payment_link") or parsed.get("payment_link")
+        if link:
+            ordered_cart = parsed.get("ordered_items") or updates.get("cart") or (state.get("cart") if state else [])
             cards.append({
                 "id": f"pay_{suffix}",
                 "type": "payment",
                 "data": {
                     "title": "Instant Secure Checkout",
-                    "payment_link": updates["pending_payment_link"],
-                    "payment_link_id": updates.get("pending_payment_link_id"),
-                    "amount": parsed.get("amount") or updates.get("cart_total"),
+                    "payment_link": link,
+                    "payment_link_id": updates.get("pending_payment_link_id") or parsed.get("payment_link_id"),
+                    "amount": parsed.get("total_amount") or parsed.get("amount") or updates.get("cart_total"),
                     "cart": ordered_cart,
+                    "order_ids": parsed.get("order_ids") or updates.get("order_ids"),
                     "currency": "INR",
                     "status": "ready",
                 },
             })
 
-    # 6. Order Confirmed Card
+    # 6. Live Order Tracking Card: when user asks "track my order" or order tracking tool runs
+    elif tool_name in ORDER_TRACKING_TOOLS and parsed.get("success"):
+        cards.append({
+            "id": f"track_{suffix}",
+            "type": "order_tracking",
+            "data": {
+                "title": "Live Order Tracking",
+                "order_id": str(parsed.get("order_id") or "ORD-2026"),
+                "status": parsed.get("status") or "placed",
+                "stage": parsed.get("stage") or "Order Placed",
+                "delivery_estimate": parsed.get("delivery_estimate") or "3-5 Business Days",
+                "amount": parsed.get("amount"),
+                "items": parsed.get("items") or [],
+            },
+        })
+
+    # 7. Order Confirmed Card: when payment completed or confirmed
     elif tool_name in ORDER_STATUS_TOOLS or updates.get("payment_confirmed") or parsed.get("paid"):
         cards.append({
             "id": f"ord_{suffix}",
@@ -275,8 +321,8 @@ def _build_cards_from_tool(tool_name: str, parsed: dict, updates: dict, state: d
             "data": {
                 "title": "Order Placed Successfully",
                 "paid": True,
-                "order_id": parsed.get("order_id") or parsed.get("payment_id") or "CONFIRMED",
-                "amount": parsed.get("amount"),
+                "order_id": parsed.get("order_id") or parsed.get("razorpay_payment_id") or parsed.get("payment_id") or "CONFIRMED",
+                "amount": parsed.get("amount") or parsed.get("total_amount"),
                 "delivery_estimate": "3-5 Business Days",
                 "status": "confirmed",
             },
@@ -353,7 +399,7 @@ route_specialist = route_agent
 
 def resolve_all_tools(tools_dict=None) -> dict:
     """
-    Resolves tools from MCP tools_dict and local feature modules (Cart, Negotiation, Recommedation).
+    Resolves tools from MCP tools_dict and local feature modules (Cart, Negotiation, Recommedation, Order, Payment).
     Returns a unified dict mapping tool names to tool objects.
     """
     resolved_tools = {}
@@ -372,6 +418,7 @@ def resolve_all_tools(tools_dict=None) -> dict:
         ("Negotiation.tools", "get_negotiation_langchain_tools"),
         ("Recommedation.tools", "get_recommendation_langchain_tools"),
         ("Payment.tools", "get_payment_langchain_tools"),
+        ("Order.tools", "get_order_langchain_tools"),
     ]:
         try:
             mod = __import__(module_name, fromlist=[getter_name])
