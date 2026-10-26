@@ -17,14 +17,14 @@ router = APIRouter(
 
 @router.get("/item")
 async def get_all_products(
-    current_user: dict = Depends(auth_middleware)
+   
 ):
     return await productController.get_all_products()
 
 
 @router.get("/item/Stock")
 async def get_list_of_items_in_stock(
-    current_user: dict = Depends(auth_middleware)
+   
 ):
     return await productController.get_list_of_items_in_stock()
 
@@ -32,7 +32,7 @@ async def get_list_of_items_in_stock(
 @router.get("/type")
 async def get_list_of_items_in_stock_by_types(
     product_types: List[ProductType] = Query(...),
-    current_user: dict = Depends(auth_middleware)
+    
 ):
     return await productController.get_list_of_items_in_stock_by_types(
         product_types=product_types
@@ -42,7 +42,7 @@ async def get_list_of_items_in_stock_by_types(
 @router.get("/type/{product_type}")
 async def get_by_type(
     product_type: ProductType,
-    current_user: dict = Depends(auth_middleware)
+   
 ):
     return await productController.get_by_type(
         product_type=product_type
@@ -52,7 +52,7 @@ async def get_by_type(
 @router.get("/ids")
 async def get_by_ids(
     product_ids: List[int] = Query(...),
-    current_user: dict = Depends(auth_middleware)
+   
 ):
     if merchant_required.check(current_user=current_user):
         return await productController.get_by_ids(

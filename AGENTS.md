@@ -21,7 +21,7 @@ Think like an experienced engineer:
 - Before making changes, inspect the current branch and Git working tree.
 - If currently on `main`, create and switch to an appropriate agent branch before editing files.
 - Use descriptive branch names, such as:
-  - `agent-backend` -> for the backend works 
+  - `agent-frontend` -> for the backend works 
   - `agent-frontend` -> for the frontend works 
 - Never commit changes directly to `main`.
 - Never merge into `main`, push directly to `main`, or modify its history.
