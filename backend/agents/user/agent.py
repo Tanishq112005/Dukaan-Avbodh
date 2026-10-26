@@ -1,7 +1,7 @@
 """
 Unified User Agent for Dukaan E-Commerce.
 Replaces fragmented specialist agents (Director, Recommendation, Cart, Negotiation, General)
-with a single, highly capable shopping stylist agent equipped with all catalog, cart, and bargaining tools.
+with a single, highly capable shopping stylist agent equipped with all catalog, cart, bargaining, and order tools.
 """
 import re
 import asyncio
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class UserAgent(IAgentInterface):
     """
     Unified User Shopping & Stylist Agent.
-    Binds all e-commerce tools (recommendations, cart management, negotiation)
+    Binds all e-commerce tools (recommendations, cart management, negotiation, orders)
     and operates directly on AgentState in a unified graph.
     """
 
@@ -36,6 +36,7 @@ class UserAgent(IAgentInterface):
                 ("Recommedation.tools", "get_recommendation_langchain_tools"),
                 ("Cart.tools", "get_cart_langchain_tools"),
                 ("Negotiation.tools", "get_negotiation_langchain_tools"),
+                ("Order.tools", "get_order_langchain_tools"),
             ]:
                 try:
                     mod = __import__(module_name, fromlist=[getter_name])
