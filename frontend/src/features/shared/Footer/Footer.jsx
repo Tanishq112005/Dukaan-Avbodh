@@ -1,50 +1,9 @@
 import { Link } from "react-router-dom";
-import { ShieldCheck, Truck, RotateCcw, Sparkles } from "lucide-react";
 
 export function Footer() {
   return (
-    <footer className="bg-stone-950 text-white mt-12 pt-16 pb-10 border-t border-stone-800">
+    <footer className="bg-stone-950 text-white mt-12 pt-12 pb-10 border-t border-stone-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Upper Footer: Value Props */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pb-12 mb-12 border-b border-stone-800">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-stone-900 text-[#C45C26]">
-              <Truck size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-white">Free Express</p>
-              <p className="text-[11px] text-stone-400">On all orders over ₹999</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-stone-900 text-[#C45C26]">
-              <Sparkles size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-white">AI Stylist Live</p>
-              <p className="text-[11px] text-stone-400">Personalized looks & deals</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-stone-900 text-[#C45C26]">
-              <RotateCcw size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-white">14-Day Returns</p>
-              <p className="text-[11px] text-stone-400">Doorstep pickup & refund</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-stone-900 text-[#C45C26]">
-              <ShieldCheck size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-white">100% Authentic</p>
-              <p className="text-[11px] text-stone-400">Directly sourced luxury</p>
-            </div>
-          </div>
-        </div>
-
         {/* Main Footer Links */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
           {/* Brand Info */}
