@@ -106,8 +106,8 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 bg-[#FBF8F3]/95 backdrop-blur-md">
       {/* Main Navbar */}
-      <nav className="border-b border-stone-200/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav className="border-b border-stone-200/80 w-full">
+        <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16">
           <div className="flex justify-between items-center h-[64px] sm:h-[68px]">
             {/* Left: Mobile Menu Toggle + Brand Logo */}
             <div className="flex items-center gap-3 sm:gap-8 lg:gap-10">

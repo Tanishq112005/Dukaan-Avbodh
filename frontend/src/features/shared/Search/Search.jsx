@@ -3,7 +3,7 @@ import { Input } from "../../../components/ui/input";
 
 export function Search({ searchQuery, setSearchQuery, handleSearch }) {
   return (
-    <div className="hidden md:flex flex-1 max-w-md mx-6 lg:mx-8 relative items-center">
+    <div className="hidden md:flex flex-1 max-w-md lg:max-w-lg xl:max-w-xl mx-6 lg:mx-10 relative items-center">
       <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" strokeWidth={1.75} />
       <Input
         placeholder="Search for products, brands, styles..."
