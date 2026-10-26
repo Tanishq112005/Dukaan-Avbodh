@@ -1,16 +1,43 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles, ArrowRight, ShoppingBag, Check } from "lucide-react";
+import { useStore } from "../../../store/useStore";
 
 export function RecommendationCard({ data, onProductClick }) {
   const products = data?.products || [];
+  const addToCart = useStore((state) => state.addToCart);
+  const [addedIds, setAddedIds] = useState({});
 
   if (!products || products.length === 0) return null;
 
+  const handleQuickAdd = (e, p) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const finalId = p.id || p.product_id;
+    if (finalId) {
+      addToCart(
+        {
+          id: finalId,
+          name: p.name || "Apparel Item",
+          price: p.price || 0,
+          image_url: p.image_url || p.image,
+          brand: p.brand || "DUKAAN",
+        },
+        1,
+        "M",
+        "Default"
+      );
+      setAddedIds((prev) => ({ ...prev, [finalId]: true }));
+      setTimeout(() => {
+        setAddedIds((prev) => ({ ...prev, [finalId]: false }));
+      }, 1800);
+    }
+  };
+
   return (
-    <div className="w-full mt-3 bg-stone-50/80 border border-stone-200/90 rounded-2xl p-3.5 shadow-xs">
+    <div className="w-full mt-3 bg-stone-50/90 border border-stone-200/90 rounded-2xl p-3.5 shadow-xs">
       <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-stone-200/60">
-        <div className="flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase text-stone-800">
+        <div className="flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase text-stone-900">
           <Sparkles size={13} className="text-[#C45C26]" />
           <span>{data.title || "Curated Stylist Picks"}</span>
         </div>
@@ -29,21 +56,29 @@ export function RecommendationCard({ data, onProductClick }) {
               ? `https://picsum.photos/seed/${finalId}/400/500`
               : "https://picsum.photos/seed/dukaan/400/500");
 
-          // Selling price (base list price before discount, e.g. 858)
-          const displayPrice = p.discount > 0 && p.price
-            ? `₹${Math.round(Number(p.price) / (1 - p.discount / 100)).toLocaleString("en-IN")}`
-            : (p.price !== undefined && p.price !== null ? `₹${Number(p.price).toLocaleString("en-IN")}` : "₹0");
+          const displayPrice =
+            p.price !== undefined && p.price !== null
+              ? `₹${Number(p.price).toLocaleString("en-IN")}`
+              : "₹0";
+
+          const originalPrice =
+            p.discount > 0 && p.price
+              ? `₹${Math.round(Number(p.price) / (1 - p.discount / 100)).toLocaleString("en-IN")}`
+              : null;
+
+          const isJustAdded = addedIds[finalId];
 
           return (
-            <Link
+            <div
               key={finalId ? `rec-card-${finalId}` : `item-${idx}`}
-              to={`/product/${finalId}`}
-              onClick={() => onProductClick?.(p)}
-              className="group flex-shrink-0 w-36 sm:w-40 bg-white border border-stone-200/80 rounded-xl overflow-hidden hover:border-[#C45C26]/60 hover:shadow-md transition-all duration-200 snap-start flex flex-col justify-between cursor-pointer"
-              title={`View ${p.name}`}
+              className="group flex-shrink-0 w-36 sm:w-40 bg-white border border-stone-200/80 rounded-xl overflow-hidden hover:border-stone-400 hover:shadow-md transition-all duration-200 snap-start flex flex-col justify-between"
             >
-              {/* Image thumbnail linking to product detail page */}
-              <div className="relative aspect-[4/5] bg-stone-100 overflow-hidden block">
+              <Link
+                to={`/product/${finalId}`}
+                onClick={() => onProductClick?.(p)}
+                className="relative aspect-[4/5] bg-stone-100 overflow-hidden block"
+                title={`View ${p.name}`}
+              >
                 <img
                   src={imgUrl}
                   alt={p.name}
@@ -55,26 +90,57 @@ export function RecommendationCard({ data, onProductClick }) {
                     {p.brand}
                   </span>
                 )}
-              </div>
+              </Link>
 
-              {/* Product Info: Only Product Name and Selling Price */}
+              {/* Product Info */}
               <div className="p-2.5 flex-1 flex flex-col justify-between">
                 <div>
-                  <h4 className="font-semibold text-xs text-stone-900 line-clamp-1 group-hover:text-[#C45C26] transition-colors leading-tight">
+                  <Link
+                    to={`/product/${finalId}`}
+                    onClick={() => onProductClick?.(p)}
+                    className="font-semibold text-xs text-stone-900 line-clamp-1 hover:text-[#6e1423] transition-colors leading-tight block"
+                    title={p.name}
+                  >
                     {p.name || "Curated Apparel"}
-                  </h4>
-                  <div className="flex items-center justify-between mt-1.5">
+                  </Link>
+                  <div className="flex items-center gap-1.5 mt-1">
                     <span className="font-bold text-xs sm:text-sm text-stone-900">
                       {displayPrice}
                     </span>
-                    <span className="text-[10px] font-semibold text-stone-400 group-hover:text-[#C45C26] transition-colors flex items-center gap-0.5">
-                      <span>View</span>
-                      <ArrowRight size={10} />
-                    </span>
+                    {originalPrice && (
+                      <span className="text-[10px] text-stone-400 line-through">
+                        {originalPrice}
+                      </span>
+                    )}
                   </div>
                 </div>
+
+                {/* Quick Add Action Button */}
+                <div className="mt-2 pt-2 border-t border-stone-100 flex items-center justify-between">
+                  <Link
+                    to={`/product/${finalId}`}
+                    onClick={() => onProductClick?.(p)}
+                    className="text-[10px] font-semibold text-stone-400 hover:text-stone-900 transition-colors flex items-center gap-0.5"
+                  >
+                    <span>Details</span>
+                    <ArrowRight size={10} />
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={(e) => handleQuickAdd(e, p)}
+                    className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                      isJustAdded
+                        ? "bg-emerald-600 text-white"
+                        : "bg-stone-100 hover:bg-stone-900 text-stone-700 hover:text-white"
+                    }`}
+                    title="Add to Bag"
+                  >
+                    {isJustAdded ? <Check size={11} strokeWidth={2.5} /> : <ShoppingBag size={11} />}
+                  </button>
+                </div>
               </div>
-            </Link>
+            </div>
           );
         })}
       </div>

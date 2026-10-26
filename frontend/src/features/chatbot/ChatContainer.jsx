@@ -94,6 +94,19 @@ export function AgentWidget() {
     }
   };
 
+  const handleQuickPrompt = (prompt) => {
+    if (prompt) {
+      sendAiMessage(prompt);
+    }
+  };
+
+  const handleAction = (actionType, payload) => {
+    if (actionType === "accept_offer") {
+      const discount = payload?.discountPercent || 10;
+      sendAiMessage(`Deal accepted! Applying the ${discount}% VIP discount.`);
+    }
+  };
+
   const handleProductClick = () => {
     if (isFullScreen) {
       setIsFullScreen(false);
@@ -121,7 +134,7 @@ export function AgentWidget() {
               "flex flex-col overflow-hidden bg-white",
               isFullScreen
                 ? "flex-1 w-full h-full bg-[#FBF8F3]"
-                : "w-full h-full sm:w-[420px] sm:h-[72vh] sm:rounded-[28px] sm:border sm:border-stone-200/80 sm:shadow-[0_24px_80px_-24px_rgba(20,16,12,0.45)] sm:mb-2"
+                : "w-full h-full sm:w-[440px] sm:h-[75vh] sm:rounded-[28px] sm:border sm:border-stone-200/80 sm:shadow-[0_24px_80px_-24px_rgba(20,16,12,0.45)] sm:mb-2"
             )}
           >
             <ChatHeader
@@ -140,6 +153,8 @@ export function AgentWidget() {
                 renderMessage={renderMessage}
                 onPayClick={openPaymentLink}
                 onProductClick={handleProductClick}
+                onQuickPrompt={handleQuickPrompt}
+                onAction={handleAction}
                 isFullScreen={isFullScreen}
               />
             </div>
@@ -150,6 +165,7 @@ export function AgentWidget() {
                 handleSend={handleSend}
                 isAiConnected={isAiConnected}
                 isFullScreen={isFullScreen}
+                onQuickPrompt={handleQuickPrompt}
               />
             </div>
           </div>
