@@ -21,16 +21,16 @@ export function ProductSection({ title = "NEW ARRIVALS", products = [], eager = 
   const displayList = filteredProducts.slice(0, 8);
 
   return (
-    <section className="py-16 md:py-20 border-t border-stone-200/80 bg-white">
+    <section className="py-14 md:py-18 border-t border-stone-200/80 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-7">
           <div>
-            <div className="flex items-center gap-1.5 text-xs font-bold tracking-widest text-[#C45C26] uppercase mb-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-bold tracking-widest text-[#C45C26] uppercase mb-1">
               <Sparkles size={13} />
               <span>Curated Selection</span>
             </div>
-            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight uppercase text-stone-900">
+            <h2 className="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight uppercase text-stone-900">
               {title}
             </h2>
           </div>
@@ -41,7 +41,7 @@ export function ProductSection({ title = "NEW ARRIVALS", products = [], eager = 
               <button
                 key={c.key}
                 onClick={() => setActiveTab(c.key)}
-                className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   activeTab === c.key
                     ? "bg-stone-900 text-white shadow-xs"
                     : "bg-stone-100 hover:bg-stone-200/80 text-stone-600"
@@ -53,9 +53,9 @@ export function ProductSection({ title = "NEW ARRIVALS", products = [], eager = 
           </div>
         </div>
 
-        {/* Product Grid */}
+        {/* Product Grid: 4 cards per row */}
         {displayList.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
             {displayList.map((p, i) => (
               <ProductCard
                 key={p.id || i}
@@ -78,10 +78,10 @@ export function ProductSection({ title = "NEW ARRIVALS", products = [], eager = 
         )}
 
         {/* View All Button */}
-        <div className="mt-12 text-center">
+        <div className="mt-10 text-center">
           <Link
             to="/products"
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full border border-stone-900 text-stone-900 hover:bg-stone-900 hover:text-white text-xs font-bold tracking-widest uppercase transition-all duration-300 shadow-xs hover:shadow-md cursor-pointer"
+            className="inline-flex items-center gap-2 px-7 py-3 rounded-full border border-stone-900 text-stone-900 hover:bg-stone-900 hover:text-white text-xs font-bold tracking-widest uppercase transition-all duration-300 shadow-xs hover:shadow-md cursor-pointer"
           >
             <span>View Complete Collection</span>
             <ArrowRight size={14} />

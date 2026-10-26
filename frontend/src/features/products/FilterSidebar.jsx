@@ -20,12 +20,12 @@ export function FilterSidebar({ isMobile = false, onClose }) {
   };
 
   const content = (
-    <div className="bg-white border border-stone-200/80 rounded-2xl p-5 sm:p-6 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.04)]">
+    <div className="bg-white border border-stone-200/80 rounded-2xl p-4 sm:p-5 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.04)]">
       {/* Header */}
-      <div className="flex justify-between items-center pb-4 border-b border-stone-100">
+      <div className="flex justify-between items-center pb-3.5 border-b border-stone-100">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="h-4 w-4 text-[#C45C26]" />
-          <h3 className="font-bold text-sm uppercase tracking-wider text-stone-900">Filter By</h3>
+          <h3 className="font-bold text-xs sm:text-sm uppercase tracking-wider text-stone-900">Filter By</h3>
         </div>
         {isMobile && onClose ? (
           <button
@@ -49,9 +49,9 @@ export function FilterSidebar({ isMobile = false, onClose }) {
       </div>
 
       {/* Categories */}
-      <div className="py-5 border-b border-stone-100">
-        <p className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">Categories</p>
-        <div className="space-y-1.5">
+      <div className="py-4 border-b border-stone-100">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-stone-400 mb-2.5">Categories</p>
+        <div className="space-y-1">
           {categories.map((c) => {
             const isSelected = selectedType.toLowerCase() === c.key.toLowerCase();
             return (
@@ -62,7 +62,7 @@ export function FilterSidebar({ isMobile = false, onClose }) {
                   setSelectedType(c.key);
                   if (isMobile && onClose) onClose();
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                   isSelected
                     ? "bg-stone-900 text-white font-semibold shadow-xs"
                     : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
@@ -77,10 +77,10 @@ export function FilterSidebar({ isMobile = false, onClose }) {
       </div>
 
       {/* Price Range Slider */}
-      <div className="pt-5 space-y-3">
+      <div className="pt-4 space-y-2.5">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-wider text-stone-400">Max Budget</p>
-          <span className="text-xs font-bold text-stone-900 bg-stone-100 px-2.5 py-0.5 rounded-full">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Max Budget</p>
+          <span className="text-[11px] font-bold text-stone-900 bg-stone-100 px-2 py-0.5 rounded-full">
             ₹{maxPrice.toLocaleString("en-IN")}
           </span>
         </div>
@@ -95,7 +95,7 @@ export function FilterSidebar({ isMobile = false, onClose }) {
           className="w-full accent-stone-900 cursor-pointer h-1.5 bg-stone-200 rounded-lg appearance-none"
         />
 
-        <div className="flex justify-between text-[11px] font-medium text-stone-400">
+        <div className="flex justify-between text-[10px] font-medium text-stone-400">
           <span>₹50</span>
           <span>₹6,000</span>
         </div>
@@ -105,7 +105,7 @@ export function FilterSidebar({ isMobile = false, onClose }) {
       {(selectedType !== "" || maxPrice < 6000) && (
         <button
           onClick={handleReset}
-          className="w-full mt-6 py-2.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 text-xs font-semibold tracking-wider uppercase transition-colors cursor-pointer"
+          className="w-full mt-5 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 text-[11px] font-semibold tracking-wider uppercase transition-colors cursor-pointer"
         >
           Clear all filters
         </button>
@@ -118,7 +118,7 @@ export function FilterSidebar({ isMobile = false, onClose }) {
   }
 
   return (
-    <aside className="hidden md:block w-64 lg:w-72 flex-shrink-0 sticky top-[76px] sm:top-[80px] self-start max-h-[calc(100vh-90px)] overflow-y-auto custom-scrollbar">
+    <aside className="hidden md:block w-56 lg:w-60 flex-shrink-0 sticky top-[76px] sm:top-[80px] self-start max-h-[calc(100vh-90px)] overflow-y-auto custom-scrollbar">
       {content}
     </aside>
   );
