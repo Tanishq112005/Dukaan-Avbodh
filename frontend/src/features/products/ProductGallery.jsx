@@ -6,8 +6,8 @@ export function ProductGallery({ product }) {
 
   return (
     <div className="w-full">
-      {/* Main Single Product Image Container with refined height & proportions */}
-      <div className="relative aspect-[3/4] max-h-[460px] sm:max-h-[500px] w-full bg-stone-100 rounded-2xl overflow-hidden border border-stone-200/90 shadow-xs group">
+      {/* Main Single Product Image Container with extended portrait length */}
+      <div className="relative aspect-[2/3] max-h-[620px] sm:max-h-[660px] w-full bg-stone-100 rounded-2xl overflow-hidden border border-stone-200/90 shadow-xs group">
         <img
           src={primaryImg}
           alt={name || "Product view"}
