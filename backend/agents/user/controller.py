@@ -14,16 +14,17 @@ from Cart.database import cart_repository
 from Chat.models import ChatMessage
 from Chat.schemas import ChatRequest, EventRequest
 from Chat.database import chat_audit_repo
-from utils.text_cleaning import clean_ai_output
+from utils.text_cleaning import clean_ai_output, StreamingThoughtFilter
 
 logger = logging.getLogger(__name__)
 
 
-class UserController:
+class AgentController:
     """
     Controller for the User AI Chat Agent.
-    Orchestrates user-cart synchronization, Redis memory hydration,
-    LangGraph execution, streaming SSE responses, and background summarization queueing.
+    Orchestrates user-cart synchronization, in-memory LangGraph execution,
+    real-time Server-Sent Events (SSE) token streaming with online thought filtering,
+    and non-blocking asynchronous state queueing.
     """
 
     def __init__(self, service=None, audit_repo=None, cart_repo=None):
@@ -89,8 +90,8 @@ class UserController:
         human_msg: HumanMessage,
     ) -> dict:
         """
-        Audits AI reply, syncs thread patch to MongoDB, queues rolling summary task,
-        and constructs final response payload.
+        Extracts final AI reply, normalizes products, dispatches state to the
+        background queue asynchronously without blocking the user response.
         """
         ai_reply = state.get("final_response")
         if not ai_reply:
@@ -102,6 +103,7 @@ class UserController:
                 if (msg_type == "ai" or hasattr(msg, "tool_calls")) and not has_tool_calls and content:
                     ai_reply = str(content)
                     break
+
         ai_reply = clean_ai_output(ai_reply) if ai_reply else "Sorry, system error."
         combo_offer = state.get("combo_offer", None)
         raw_suggested = state.get("suggested_products", [])
@@ -114,44 +116,40 @@ class UserController:
                 suggested_products.append(prod_info)
             elif isinstance(p, dict):
                 suggested_products.append(p)
+
         payment_link = state.get("pending_payment_link")
         payment_link_id = state.get("pending_payment_link_id")
         current_discount = state.get("current_discount_percent", 0.0)
 
-        # Save AI reply to audit log
-        await self.audit_repo.add_message(
-            user_id,
-            thread_id_val,
-            ChatMessage(sender="ai", message=ai_reply),
-        )
-
-        # Update thread state in audit storage
-        await self.audit_repo.update_state_patch(
-            user_id,
-            thread_id_val,
-            {
-                "current_discount_percent": current_discount,
-                "combo_offer": combo_offer,
-            },
-        )
-
-        # Dispatch background state archival and rolling summarization to queue
+        # Asynchronously dispatch state to task queue for background summarization and Mongo persistence
         try:
             from task_queue.sendingResult import sendingResult
+
+            raw_msgs = state.get("messages", [])
+            all_msgs = [human_msg] + [m for m in raw_msgs if m != human_msg] if raw_msgs and raw_msgs[0] != human_msg else raw_msgs
 
             queue_payload = {
                 "thread_id": thread_id_val,
                 "user_id": user_id,
-                "messages": state.get("messages", [human_msg]),
+                "messages": all_msgs or [human_msg],
                 "conversation_summary": state.get("conversation_summary") or cached_summary or "",
                 "important_facts": state.get("important_facts") or cached_facts or {},
+                "current_discount_percent": current_discount,
+                "combo_offer": combo_offer,
+                "final_response": ai_reply,
             }
-            await sendingResult.sendData(queue_payload)
+            # Fire-and-forget background queue dispatch (zero latency overhead on HTTP response)
+            asyncio.create_task(sendingResult.sendData(queue_payload))
         except Exception as q_err:
             logger.warning("Failed to dispatch chat state to background queue: %s", q_err)
 
-        # Fetch the updated cart state after the AI has potentially run MCP tools
-        updated_cart = await self.cart_repo.get_items(user_id)
+        # Use updated cart directly from state if populated by tools, avoiding redundant SQL query
+        updated_cart = state.get("cart") or state.get("cart_items")
+        if updated_cart is None:
+            try:
+                updated_cart = await self.cart_repo.get_items(user_id)
+            except Exception:
+                updated_cart = []
 
         return {
             "type": "chat_reply",
@@ -166,7 +164,7 @@ class UserController:
 
     async def process_message(self, req: ChatRequest) -> dict:
         """
-        Synchronous non-streaming execution for chat messages.
+        Fast execution for chat messages without blocking audit database calls.
         """
         try:
             await self.sync_cart_and_user(req.user_id, req.cart)
@@ -182,15 +180,7 @@ class UserController:
         )
 
         try:
-            # Audit user message
-            await self.audit_repo.get_or_create_thread(req.user_id, thread_id_val)
-            await self.audit_repo.add_message(
-                req.user_id,
-                thread_id_val,
-                ChatMessage(sender="human", message=req.text),
-            )
-
-            # Invoke LangGraph conversation agent
+            # Directly invoke LangGraph conversation agent without pre-call database blocking
             agent = await self.agent_service.get_agent_async()
             result = await agent.ainvoke(initial_state, config=config)
 
@@ -207,8 +197,10 @@ class UserController:
 
     async def stream_message(self, req: ChatRequest) -> AsyncGenerator[str, None]:
         """
-        Streams LangGraph execution events, node state updates, token deltas,
-        and final structured chat reply via Server-Sent Events (SSE).
+        Streams LangGraph execution tokens in REAL TIME as they are produced by the LLM.
+        Applies StreamingThoughtFilter to strip internal <think>, <thought>, and <reasoning> tags
+        so zero internal model monologue leaks into the UI.
+        Emits graph node updates, intermediate tool state, real-time tokens, and final structured payload.
         """
         try:
             await self.sync_cart_and_user(req.user_id, req.cart)
@@ -223,69 +215,84 @@ class UserController:
             req.user_id, thread_id_val, human_msg
         )
 
-        try:
-            # Audit user message
-            await self.audit_repo.get_or_create_thread(req.user_id, thread_id_val)
-            await self.audit_repo.add_message(
-                req.user_id,
-                thread_id_val,
-                ChatMessage(sender="human", message=req.text),
-            )
+        thought_filter = StreamingThoughtFilter()
+        streamed_tokens: List[str] = []
 
-            # Signal stream initiation
+        try:
+            # Signal stream initiation immediately
             yield f"data: {json.dumps({'type': 'stream_start', 'thread_id': thread_id_val})}\n\n"
 
             agent = await self.agent_service.get_agent_async()
             latest_state = dict(initial_state)
 
-            async for mode, chunk in agent.astream(
-                initial_state,
-                config=config,
-                stream_mode=["updates", "values"],
-            ):
-                if mode == "updates" and isinstance(chunk, dict):
-                    for node_name, updates in chunk.items():
-                        if not isinstance(updates, dict):
-                            continue
-                        node_payload = {
-                            "type": "node_update",
-                            "node": node_name,
-                        }
-                        if "intent" in updates:
-                            node_payload["intent"] = updates["intent"]
-                        if "gender" in updates:
-                            node_payload["gender"] = updates["gender"]
-                        if "suggested_products" in updates:
-                            node_payload["suggested_products"] = updates["suggested_products"]
-                        if "current_discount_percent" in updates:
-                            node_payload["current_discount_percent"] = updates["current_discount_percent"]
-                        if "cart_total" in updates:
-                            node_payload["cart_total"] = updates["cart_total"]
-                        if "cart" in updates:
-                            node_payload["cart"] = updates["cart"]
-                        if "combo_offer" in updates:
-                            node_payload["combo_offer"] = updates["combo_offer"]
-                        if "final_response" in updates:
-                            node_payload["final_response"] = clean_ai_output(updates["final_response"])
+            # Stream LLM tokens and graph execution in real-time
+            async for event in agent.astream_events(initial_state, config=config, version="v2"):
+                kind = event.get("event", "")
 
-                        yield f"data: {json.dumps(node_payload)}\n\n"
+                # 1. Real-time streaming LLM tokens
+                if kind == "on_chat_model_stream":
+                    chunk = event.get("data", {}).get("chunk")
+                    if chunk:
+                        # Skip tool call chunks (do not stream tool arguments as chat text)
+                        tool_chunks = getattr(chunk, "tool_call_chunks", None)
+                        if not tool_chunks:
+                            content = getattr(chunk, "content", "")
+                            if isinstance(content, str) and content:
+                                clean_token = thought_filter.process(content)
+                                if clean_token:
+                                    streamed_tokens.append(clean_token)
+                                    yield f"data: {json.dumps({'type': 'token', 'content': clean_token})}\n\n"
 
-                elif mode == "values" and isinstance(chunk, dict):
-                    latest_state.update(chunk)
+                # 2. Graph node transition updates
+                elif kind == "on_chain_start":
+                    node_name = event.get("metadata", {}).get("langgraph_node")
+                    if node_name:
+                        yield f"data: {json.dumps({'type': 'node_update', 'node': node_name})}\n\n"
 
-            # Final response assembly and persistence
+                # 3. Intermediate tool outputs and final chain updates
+                elif kind == "on_chain_end":
+                    node_name = event.get("metadata", {}).get("langgraph_node")
+                    output = event.get("data", {}).get("output")
+                    if isinstance(output, dict):
+                        latest_state.update(output)
+                        # When tools finish, stream intermediate tool updates to UI
+                        if node_name == "tools":
+                            tools_payload = {"type": "node_update", "node": "tools"}
+                            for key in (
+                                "suggested_products",
+                                "current_discount_percent",
+                                "cart_total",
+                                "cart",
+                                "combo_offer",
+                            ):
+                                if key in output:
+                                    tools_payload[key] = output[key]
+                            yield f"data: {json.dumps(tools_payload)}\n\n"
+
+            # Flush any remaining clean buffer from thought filter
+            flushed = thought_filter.flush()
+            if flushed:
+                streamed_tokens.append(flushed)
+                yield f"data: {json.dumps({'type': 'token', 'content': flushed})}\n\n"
+
+            # Final response assembly and non-blocking background queue persistence
             final_payload = await self._post_process_chat_completion(
                 req.user_id, thread_id_val, latest_state, cached_summary, cached_facts, human_msg
             )
 
-            # Stream message tokens for typing animations
-            message_text = final_payload.get("message", "")
-            if message_text:
-                words = re.split(r"(\s+)", message_text)
+            # If the LLM provider did not support token streaming, stream words as fallback
+            if not streamed_tokens and final_payload.get("message"):
+                fallback_text = final_payload["message"]
+                words = re.split(r"(\s+)", fallback_text)
                 for w in words:
                     if w:
                         yield f"data: {json.dumps({'type': 'token', 'content': w})}\n\n"
                         await asyncio.sleep(0.005)
+            elif streamed_tokens:
+                # Ensure final payload text matches the streamed text
+                combined_text = "".join(streamed_tokens).strip()
+                if combined_text:
+                    final_payload["message"] = clean_ai_output(combined_text)
 
             # Complete payload and termination marker
             yield f"data: {json.dumps(final_payload)}\n\n"
@@ -303,7 +310,7 @@ class UserController:
 
     async def process_event(self, req: EventRequest) -> dict:
         """
-        Synchronous non-streaming execution for system/UI triggered events.
+        Fast execution for system/UI triggered events.
         """
         thread_id_val = req.thread_id or str(req.user_id)
         config = {"configurable": {"thread_id": thread_id_val}}
@@ -315,11 +322,6 @@ class UserController:
                 await agent.aupdate_state(config, {"combo_offer": None})
             except Exception as e:
                 logger.warning("combo_declined langgraph update failed: %s", e)
-
-            try:
-                await self.audit_repo.update_state_patch(req.user_id, thread_id_val, {"combo_offer": None})
-            except Exception as e:
-                logger.warning("combo_declined audit update failed: %s", e)
 
             return {"type": "combo_cleared", "combo_offer": None}
 
@@ -340,7 +342,7 @@ class UserController:
                 )
 
                 ai_reply = result.get("final_response")
-                updated_cart = await self.cart_repo.get_items(req.user_id)
+                updated_cart = result.get("cart") or await self.cart_repo.get_items(req.user_id)
 
                 return {
                     "type": "chat_reply",
@@ -378,13 +380,6 @@ class UserController:
 
             hidden_msg = HumanMessage(content="PROACTIVE_SUGGESTION_TRIGGER")
             try:
-                await self.audit_repo.get_or_create_thread(req.user_id, thread_id_val)
-                await self.audit_repo.add_message(
-                    req.user_id,
-                    thread_id_val,
-                    ChatMessage(sender="system", message=f"Event triggered: {req.event}"),
-                )
-
                 agent = await self.agent_service.get_agent_async()
                 result = await agent.ainvoke(
                     {
@@ -397,21 +392,7 @@ class UserController:
 
                 ai_reply = result.get("final_response")
                 if ai_reply:
-                    await self.audit_repo.add_message(
-                        req.user_id,
-                        thread_id_val,
-                        ChatMessage(sender="ai", message=ai_reply),
-                    )
-                    await self.audit_repo.update_state_patch(
-                        req.user_id,
-                        thread_id_val,
-                        {
-                            "current_discount_percent": result.get("current_discount_percent", 0.0),
-                            "combo_offer": result.get("combo_offer", None),
-                        },
-                    )
-
-                    updated_cart = await self.cart_repo.get_items(req.user_id)
+                    updated_cart = result.get("cart") or await self.cart_repo.get_items(req.user_id)
                     return {
                         "type": "proactive_suggestion",
                         "message": ai_reply,
@@ -437,7 +418,9 @@ class UserController:
         yield "data: [DONE]\n\n"
 
 
-userController = UserController()
-user_controller = userController
-AgentController = UserController
-agentController = userController
+agentController = AgentController()
+agent_controller = agentController
+
+userController = agentController
+UserController = AgentController
+

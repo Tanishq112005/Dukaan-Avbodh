@@ -199,8 +199,8 @@ def resolve_all_tools(tools_dict=None) -> dict:
 def create_tools_node(tools_dict=None):
     """
     Creates a dual sync/async tools execution node for the user agent graph.
-    Resolves tools from MCP tools_dict and local feature modules (Cart, Negotiation, Recommedation),
-    executes tool calls, and propagates structured output back to AgentState.
+    Resolves tools and executes tool calls concurrently in parallel via asyncio.gather.
+    Propagates structured output back to AgentState.
     """
     resolved_tools = resolve_all_tools(tools_dict)
 
@@ -214,23 +214,14 @@ def create_tools_node(tools_dict=None):
         if not tool_calls:
             return {}
 
-        tool_messages = []
-        updates = {}
-
-        for tool_call in tool_calls:
+        def _exec_single(tool_call):
             tool_name = tool_call.get("name")
             tool_args = dict(tool_call.get("args") or {})
             call_id = tool_call.get("id")
 
             tool = resolved_tools.get(tool_name)
             if tool is None:
-                tool_messages.append(
-                    ToolMessage(
-                        content=json.dumps({"error": f"Unknown tool '{tool_name}'"}),
-                        tool_call_id=call_id,
-                    )
-                )
-                continue
+                return tool_name, call_id, tool_args, json.dumps({"error": f"Unknown tool '{tool_name}'"})
 
             accepted_params = getattr(tool, "args", {}) or {}
             if "user_id" in accepted_params:
@@ -265,47 +256,47 @@ def create_tools_node(tools_dict=None):
                         raw_res = tool(tool_args)
                 else:
                     raw_res = tool
+                res_text = _extract_text(raw_res)
             except Exception as e:
-                tool_messages.append(
-                    ToolMessage(
-                        content=json.dumps({"error": str(e)}),
-                        tool_call_id=call_id,
-                    )
-                )
-                continue
+                res_text = json.dumps({"error": str(e)})
 
-            res_text = _extract_text(raw_res)
+            return tool_name, call_id, tool_args, res_text
+
+        import concurrent.futures
+        if len(tool_calls) > 1:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(tool_calls), 5)) as executor:
+                results = list(executor.map(_exec_single, tool_calls))
+        else:
+            results = [_exec_single(tool_calls[0])]
+
+        tool_messages = []
+        updates = {}
+        cart_modified = False
+        cart_user_id = state.get("user_id", 0)
+
+        for tool_name, call_id, tool_args, res_text in results:
             parsed = _safe_parse(res_text)
-
             if isinstance(parsed, dict):
                 state_updates = _extract_state_updates_from_tool_result(tool_name, parsed)
                 updates.update(state_updates)
 
-                # If a cart modifying tool ran, refresh cart summary from DB if user_id > 0
                 if tool_name in ("add_to_cart", "update_cart_quantity", "remove_from_cart") and parsed.get("success"):
-                    effective_uid = tool_args.get("user_id") or state.get("user_id", 0)
-                    if effective_uid and effective_uid > 0:
-                        try:
-                            from Cart.controller import cartController
-                            try:
-                                loop = asyncio.get_event_loop()
-                                if loop.is_running():
-                                    import concurrent.futures
-                                    with concurrent.futures.ThreadPoolExecutor() as pool:
-                                        summary = pool.submit(asyncio.run, cartController.get_summary(user_id=effective_uid)).result()
-                                else:
-                                    summary = loop.run_until_complete(cartController.get_summary(user_id=effective_uid))
-                            except Exception:
-                                summary = asyncio.run(cartController.get_summary(user_id=effective_uid))
-                            if summary and summary.get("success"):
-                                updates["cart"] = summary.get("items", [])
-                                updates["cart_items"] = summary.get("items", [])
-                                updates["cart_total"] = summary.get("total_amount", 0.0)
-                                updates["cart_subtotal"] = summary.get("subtotal", 0.0)
-                        except Exception:
-                            pass
+                    cart_modified = True
+                    cart_user_id = tool_args.get("user_id") or cart_user_id
 
             tool_messages.append(ToolMessage(content=res_text, tool_call_id=call_id))
+
+        if cart_modified and cart_user_id and cart_user_id > 0:
+            try:
+                from Cart.controller import cartController
+                summary = asyncio.run(cartController.get_summary(user_id=cart_user_id))
+                if summary and summary.get("success"):
+                    updates["cart"] = summary.get("items", [])
+                    updates["cart_items"] = summary.get("items", [])
+                    updates["cart_total"] = summary.get("total_amount", 0.0)
+                    updates["cart_subtotal"] = summary.get("subtotal", 0.0)
+            except Exception:
+                pass
 
         updates["messages"] = tool_messages
         return updates
@@ -323,20 +314,14 @@ def create_tools_node(tools_dict=None):
         tool_messages = []
         updates = {}
 
-        for tool_call in tool_calls:
+        async def _execute_single_tool(tool_call):
             tool_name = tool_call.get("name")
             tool_args = dict(tool_call.get("args") or {})
             call_id = tool_call.get("id")
 
             tool = resolved_tools.get(tool_name)
             if tool is None:
-                tool_messages.append(
-                    ToolMessage(
-                        content=json.dumps({"error": f"Unknown tool '{tool_name}'"}),
-                        tool_call_id=call_id,
-                    )
-                )
-                continue
+                return tool_name, call_id, tool_args, json.dumps({"error": f"Unknown tool '{tool_name}'"})
 
             accepted_params = getattr(tool, "args", {}) or {}
             if "user_id" in accepted_params:
@@ -362,38 +347,42 @@ def create_tools_node(tools_dict=None):
                         raw_res = await asyncio.to_thread(tool, tool_args)
                 else:
                     raw_res = tool
+                res_text = _extract_text(raw_res)
             except Exception as e:
-                tool_messages.append(
-                    ToolMessage(
-                        content=json.dumps({"error": str(e)}),
-                        tool_call_id=call_id,
-                    )
-                )
-                continue
+                res_text = json.dumps({"error": str(e)})
 
-            res_text = _extract_text(raw_res)
+            return tool_name, call_id, tool_args, res_text
+
+        # Execute all tool calls concurrently in parallel
+        results = await asyncio.gather(*[_execute_single_tool(tc) for tc in tool_calls])
+
+        cart_modified = False
+        cart_user_id = state.get("user_id", 0)
+
+        for tool_name, call_id, tool_args, res_text in results:
             parsed = _safe_parse(res_text)
-
             if isinstance(parsed, dict):
                 state_updates = _extract_state_updates_from_tool_result(tool_name, parsed)
                 updates.update(state_updates)
 
-                # If a cart modifying tool ran, refresh cart summary from DB if user_id > 0
                 if tool_name in ("add_to_cart", "update_cart_quantity", "remove_from_cart") and parsed.get("success"):
-                    effective_uid = tool_args.get("user_id") or state.get("user_id", 0)
-                    if effective_uid and effective_uid > 0:
-                        try:
-                            from Cart.controller import cartController
-                            summary = await cartController.get_summary(user_id=effective_uid)
-                            if summary and summary.get("success"):
-                                updates["cart"] = summary.get("items", [])
-                                updates["cart_items"] = summary.get("items", [])
-                                updates["cart_total"] = summary.get("total_amount", 0.0)
-                                updates["cart_subtotal"] = summary.get("subtotal", 0.0)
-                        except Exception:
-                            pass
+                    cart_modified = True
+                    cart_user_id = tool_args.get("user_id") or cart_user_id
 
             tool_messages.append(ToolMessage(content=res_text, tool_call_id=call_id))
+
+        # Refresh cart summary once after all parallel tools complete
+        if cart_modified and cart_user_id and cart_user_id > 0:
+            try:
+                from Cart.controller import cartController
+                summary = await cartController.get_summary(user_id=cart_user_id)
+                if summary and summary.get("success"):
+                    updates["cart"] = summary.get("items", [])
+                    updates["cart_items"] = summary.get("items", [])
+                    updates["cart_total"] = summary.get("total_amount", 0.0)
+                    updates["cart_subtotal"] = summary.get("subtotal", 0.0)
+            except Exception:
+                pass
 
         updates["messages"] = tool_messages
         return updates
@@ -422,7 +411,8 @@ def initialize_agents(fast_llm, medium_llm=None, small_llm=None, tools_dict=None
 
 def setup_nodes(workflow: StateGraph, agents: dict, tools_node):
     """Registers all workflow nodes to the StateGraph."""
-    workflow.add_node("agent", agents["agent"].run)
+    agent_node = RunnableLambda(agents["agent"].run, afunc=agents["agent"].arun)
+    workflow.add_node("agent", agent_node)
     workflow.add_node("tools", tools_node)
     workflow.add_node("post_process", post_process_node)
 
@@ -461,5 +451,5 @@ def compile_agent_graph(fast_llm, medium_llm=None, small_llm=None, tools_dict=No
     setup_nodes(workflow, agents, tools_node)
     setup_edges(workflow)
 
-    checkpointer_instance = checkPointer.getCheckPointer(prefer="redis")
+    checkpointer_instance = checkPointer.getCheckPointer(prefer="memory")
     return workflow.compile(checkpointer=checkpointer_instance)

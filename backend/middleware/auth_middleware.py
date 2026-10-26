@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 try:
     from Auth.jwt import AuthHandler
 except ImportError:
-    from auth.jwt import AuthHandler
+    from Auth.jwt import AuthHandler
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 

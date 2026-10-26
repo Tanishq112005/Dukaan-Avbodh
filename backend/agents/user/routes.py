@@ -3,7 +3,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
 from Chat.schemas import ChatRequest, EventRequest
-from agents.user.controller import userController
+from agents.user.controller import agentController
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ async def chat_message_endpoint(req: ChatRequest, request: Request):
 
     if is_stream:
         return StreamingResponse(
-            userController.stream_message(req),
+            agentController.stream_message(req),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -35,7 +35,7 @@ async def chat_message_endpoint(req: ChatRequest, request: Request):
             },
         )
 
-    return await userController.process_message(req)
+    return await agentController.process_message(req)
 
 
 @router.post("/chat/message/stream")
@@ -47,7 +47,7 @@ async def chat_message_stream_endpoint(req: ChatRequest):
     and final structured response payload.
     """
     return StreamingResponse(
-        userController.stream_message(req),
+        agentController.stream_message(req),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -71,7 +71,7 @@ async def chat_event_endpoint(req: EventRequest, request: Request):
 
     if is_stream:
         return StreamingResponse(
-            userController.stream_event(req),
+            agentController.stream_event(req),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -80,7 +80,7 @@ async def chat_event_endpoint(req: EventRequest, request: Request):
             },
         )
 
-    return await userController.process_event(req)
+    return await agentController.process_event(req)
 
 
 @router.post("/chat/event/stream")
@@ -89,7 +89,7 @@ async def chat_event_stream_endpoint(req: EventRequest):
     Dedicated Server-Sent Events (SSE) streaming endpoint for chat events.
     """
     return StreamingResponse(
-        userController.stream_event(req),
+        agentController.stream_event(req),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

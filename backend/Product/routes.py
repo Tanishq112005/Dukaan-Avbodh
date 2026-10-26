@@ -54,16 +54,12 @@ async def get_by_ids(
     product_ids: List[int] = Query(...),
    
 ):
-    if merchant_required.check(current_user=current_user):
-        return await productController.get_by_ids(
+    
+    await productController.get_by_ids(
             product_ids=product_ids
         )
 
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Only merchants can access products by IDs."
-    )
-
+   
 
 @router.post("/add")
 async def add_product(
