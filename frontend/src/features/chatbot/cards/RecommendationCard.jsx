@@ -28,7 +28,11 @@ export function RecommendationCard({ data, onProductClick }) {
             (finalId
               ? `https://picsum.photos/seed/${finalId}/400/500`
               : "https://picsum.photos/seed/dukaan/400/500");
-          const formattedPrice = `₹${Number(p.price || 0).toLocaleString("en-IN")}`;
+
+          // Selling price (base list price before discount, e.g. 858)
+          const displayPrice = p.discount > 0 && p.price
+            ? `₹${Math.round(Number(p.price) / (1 - p.discount / 100)).toLocaleString("en-IN")}`
+            : (p.price !== undefined && p.price !== null ? `₹${Number(p.price).toLocaleString("en-IN")}` : "₹0");
 
           return (
             <Link
@@ -61,7 +65,7 @@ export function RecommendationCard({ data, onProductClick }) {
                   </h4>
                   <div className="flex items-center justify-between mt-1.5">
                     <span className="font-bold text-xs sm:text-sm text-stone-900">
-                      {formattedPrice}
+                      {displayPrice}
                     </span>
                     <span className="text-[10px] font-semibold text-stone-400 group-hover:text-[#C45C26] transition-colors flex items-center gap-0.5">
                       <span>View</span>

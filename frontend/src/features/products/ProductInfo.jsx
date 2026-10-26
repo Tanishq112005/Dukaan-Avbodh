@@ -25,13 +25,10 @@ export function ProductInfo({ product, addToCart }) {
     sendAiMessage(`Can I get a VIP discount or combo deal on the ${product.name}?`);
   };
 
-  const formattedPrice = product.price !== undefined && product.price !== null
-    ? `₹${Number(product.price).toLocaleString("en-IN")}`
-    : "₹0";
-
-  const originalPrice = product.discount > 0 && product.price
+  // Base list / selling price (e.g. 858), matching the catalog card display
+  const displayPrice = product.discount > 0 && product.price
     ? `₹${Math.round(Number(product.price) / (1 - product.discount / 100)).toLocaleString("en-IN")}`
-    : null;
+    : (product.price !== undefined && product.price !== null ? `₹${Number(product.price).toLocaleString("en-IN")}` : "₹0");
 
   return (
     <div className="md:w-1/2 flex flex-col justify-between py-2 space-y-6">
@@ -67,16 +64,11 @@ export function ProductInfo({ product, addToCart }) {
           <span className="text-xs text-stone-400">· 142 verified buyers</span>
         </div>
 
-        {/* Pricing without percentage badge */}
+        {/* Pricing: Only single clean selling price */}
         <div className="flex items-baseline gap-3 mt-5 pb-5 border-b border-stone-200/80">
           <span className="font-display text-3xl sm:text-4xl font-extrabold text-stone-900">
-            {formattedPrice}
+            {displayPrice}
           </span>
-          {originalPrice && (
-            <span className="text-base text-stone-400 line-through font-medium">
-              {originalPrice}
-            </span>
-          )}
         </div>
 
         {/* Description */}
