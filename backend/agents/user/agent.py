@@ -82,12 +82,16 @@ class UserAgent(IAgentInterface):
         user_id = state.get("user_id")
         gender = state.get("gender")
         current_discount = state.get("current_discount_percent", 0.0) or 0.0
+        customer_profile = state.get("customer_profile")
+        is_authenticated = state.get("is_authenticated")
 
-        # Dynamic customer session prompt
+        # Dynamic customer session prompt enriched with authentication and profile state
         system_text = get_user_agent_prompt(
             user_id=user_id,
             gender=gender,
             current_discount=current_discount,
+            customer_profile=customer_profile,
+            is_authenticated=is_authenticated,
         )
 
         return build_prompt_with_summary(
