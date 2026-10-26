@@ -223,22 +223,32 @@ async def request_login(
     action_reason: str = "save items to your cart across devices and unlock VIP deals",
 ) -> Dict[str, Any]:
     """
-    Generates a conversational authentication nudge providing direct login and registration links.
+    Generates a conversational authentication nudge providing direct login and registration links
+    and automatically renders an interactive card with Log In and Sign Up buttons in the chat UI.
 
     Parameters:
-    - action_reason (str, Optional): Reason why login is recommended (e.g. 'checkout', 'save cart', 'VIP discount').
+    - action_reason (str, Optional): Reason why login is recommended (e.g. 'checkout', 'save cart across devices', 'view order history', 'track orders', 'VIP discount').
 
     LLM Usage & Instructions:
     1. Call this tool when an unauthenticated guest attempts an action that requires a registered account.
-    2. Share the login link formatted as markdown [Log In or Sign Up](/login) in your response.
+    2. Calling this tool automatically displays an interactive card with dedicated 'Log In' (/login) and 'Sign Up' (/signup) buttons.
+    3. Share the login link formatted as markdown [Log In or Sign Up](/login) in your conversational response.
     """
     return {
         "success": True,
+        "action": "request_login",
         "requires_login": True,
+        "title": "Sign In to Dukaan",
         "login_url": "/login",
         "signup_url": "/signup",
         "action_reason": action_reason,
-        "message": f"To {action_reason}, please [Log In or Sign Up](/login) to Dukaan!",
+        "reason": f"Please sign in or create an account to {action_reason}.",
+        "message": f"To {action_reason}, please sign in or create an account.",
+        "benefits": [
+            "Sync your shopping bag across all devices",
+            "Track live order shipments & delivery updates",
+            "Unlock member-exclusive bargaining discounts",
+        ],
     }
 
 

@@ -262,10 +262,12 @@ class OrderRepository:
                         product.stock -= requested_qty
                         session.add(product)
 
+                        from Product.models import get_base_selling_price
                         item_disc = product_discounts.get(pid, discount_percentage)
                         item_discount_factor = max(0.0, 1.0 - (item_disc / 100.0))
 
-                        item_subtotal = product.price * requested_qty
+                        item_base_price = get_base_selling_price(product)
+                        item_subtotal = item_base_price * requested_qty
                         item_final_amount = round(item_subtotal * item_discount_factor, 2)
 
                         order = OrderModel(

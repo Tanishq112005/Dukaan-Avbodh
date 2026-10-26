@@ -116,6 +116,38 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
       });
     }
 
+    // 8. Synthesize Auth Prompt Card if login is requested or auth nudge present
+    if (
+      !list.some((c) => c.type === "auth_prompt" || c.type === "request_login" || c.type === "auth") &&
+      (msg.requires_login ||
+        msg.action === "request_login" ||
+        msg.auth_required ||
+        (typeof msg.text === "string" &&
+          (msg.text.includes("/login") || msg.text.includes("/signup")) &&
+          (msg.text.toLowerCase().includes("log in") ||
+            msg.text.toLowerCase().includes("sign in") ||
+            msg.text.toLowerCase().includes("create an account") ||
+            msg.text.toLowerCase().includes("account required"))))
+    ) {
+      list.push({
+        type: "auth_prompt",
+        data: {
+          title: msg.auth_title || "Sign In to Dukaan",
+          reason:
+            msg.auth_reason ||
+            msg.action_reason ||
+            "Please sign in or create an account to access your orders, cart, and member-only pricing.",
+          login_url: msg.login_url || "/login",
+          signup_url: msg.signup_url || "/signup",
+          benefits: msg.auth_benefits || [
+            "Sync your shopping bag across all devices",
+            "Track live order shipments & delivery stages",
+            "Unlock member-exclusive bargaining discounts",
+          ],
+        },
+      });
+    }
+
     return list;
   }, [msg]);
 

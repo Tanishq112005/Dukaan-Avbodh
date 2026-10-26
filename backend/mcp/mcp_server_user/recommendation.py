@@ -34,11 +34,16 @@ async def recommend_products(user_id: int, thread_id: str = "") -> dict:
     if not result.get("success") or not result.get("suggested_products"):
         return {"success": False, "message": "No suitable recommendations found based on current cart and behavior."}
 
+    from Product.models import get_base_selling_price
     forbidden_fields = {"cost_price", "min_profit_margin_percent", "discount", "discount_percentage", "discount_percent", "min_selling_price", "minimum_selling_price", "min_price"}
-    suggested = [
-        {k: v for k, v in item.items() if k not in forbidden_fields} if isinstance(item, dict) else item
-        for item in result["suggested_products"][:4]
-    ]
+    suggested = []
+    for item in result["suggested_products"][:4]:
+        if isinstance(item, dict):
+            clean = {k: v for k, v in item.items() if k not in forbidden_fields}
+            clean["price"] = get_base_selling_price(item)
+            suggested.append(clean)
+        else:
+            suggested.append(item)
     combo_offer = result.get("combo_offer") or {}
 
     scores = await behavior_scorer.get_category_affinity(user_id, events=all_events)

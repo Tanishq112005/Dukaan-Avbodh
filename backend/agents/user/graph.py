@@ -226,10 +226,12 @@ def _build_cards_from_tool(tool_name: str, parsed: dict, updates: dict, state: d
                     "cost_price",
                     "min_profit_margin_percent",
                 }
-                sanitized_prods = [
-                    {k: v for k, v in item.items() if k not in forbidden_rec_fields}
-                    for item in normalized_prods
-                ]
+                from Product.models import get_base_selling_price
+                sanitized_prods = []
+                for item in normalized_prods:
+                    clean_item = {k: v for k, v in item.items() if k not in forbidden_rec_fields}
+                    clean_item["price"] = get_base_selling_price(item)
+                    sanitized_prods.append(clean_item)
                 cards.append({
                     "id": f"rec_{suffix}",
                     "type": "recommendation",
@@ -368,6 +370,34 @@ def _build_cards_from_tool(tool_name: str, parsed: dict, updates: dict, state: d
                 "amount": parsed.get("amount") or parsed.get("total_amount"),
                 "delivery_estimate": "3-5 Business Days",
                 "status": "confirmed",
+            },
+        })
+
+    # 8. Authentication & Account Prompt Card: when request_login runs or action requires auth
+    elif (
+        tool_name == "request_login"
+        or (tool_name in AUTH_TOOLS and (parsed.get("requires_login") or parsed.get("action") == "request_login"))
+        or parsed.get("action") == "request_login"
+        or parsed.get("requires_login")
+    ):
+        cards.append({
+            "id": f"auth_{suffix}",
+            "type": "auth_prompt",
+            "data": {
+                "title": parsed.get("title") or "Sign In to Dukaan",
+                "reason": (
+                    parsed.get("reason")
+                    or parsed.get("action_reason")
+                    or parsed.get("message")
+                    or "Please sign in or create an account to continue."
+                ),
+                "login_url": parsed.get("login_url") or "/login",
+                "signup_url": parsed.get("signup_url") or "/signup",
+                "benefits": parsed.get("benefits") or [
+                    "Sync your shopping bag across all devices",
+                    "Track live order shipments & delivery updates",
+                    "Unlock member-exclusive bargaining discounts",
+                ],
             },
         })
 
@@ -528,6 +558,12 @@ def _log_tool_audit(tool_name: str, tool_args: dict, parsed: Any, state: dict):
             action = "PROFILE_UPDATE"
             reason = "Customer profile updated via assistant"
             result = "Profile fields saved"
+            metadata = tool_args
+
+        elif tool_name == "request_login":
+            action = "AUTH_LOGIN_PROMPT"
+            reason = f"Login/signup prompt triggered: {tool_args.get('action_reason', 'Account required')}"
+            result = "Auth prompt card dispatched"
             metadata = tool_args
 
         elif tool_name in ("recommend_by_query", "get_personalized_recommendations", "get_category_best_sellers", "search_catalog"):

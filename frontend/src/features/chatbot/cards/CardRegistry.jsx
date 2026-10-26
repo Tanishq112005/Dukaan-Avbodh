@@ -7,6 +7,7 @@ import { OrderConfirmationCard } from "./OrderConfirmationCard";
 import { SizeAdvisorCard } from "./SizeAdvisorCard";
 import { ComboLookbookCard } from "./ComboLookbookCard";
 import { OrderStatusCard } from "./OrderStatusCard";
+import { AuthPromptCard } from "./AuthPromptCard";
 
 const CARD_COMPONENTS = {
   recommendation: RecommendationCard,
@@ -17,6 +18,9 @@ const CARD_COMPONENTS = {
   size_advisor: SizeAdvisorCard,
   combo_lookbook: ComboLookbookCard,
   order_tracking: OrderStatusCard,
+  auth_prompt: AuthPromptCard,
+  request_login: AuthPromptCard,
+  auth: AuthPromptCard,
 };
 
 export function AiCard({ card, onProductClick, onPayClick, onAction }) {
@@ -43,4 +47,5 @@ export {
   SizeAdvisorCard,
   ComboLookbookCard,
   OrderStatusCard,
+  AuthPromptCard,
 };

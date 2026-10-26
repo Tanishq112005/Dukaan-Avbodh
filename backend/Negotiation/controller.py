@@ -255,7 +255,8 @@ class NegotiationController:
             # Calculate totals for quantity
             qty = max(1, req.quantity)
             total_price = round(offer["counter_offer_price"] * qty, 2)
-            original_total = round(float(product.price) * qty, 2)
+            base_unit_price = round(float(offer["original_price"]), 2)
+            original_total = round(base_unit_price * qty, 2)
             savings = round(max(0.0, original_total - total_price), 2)
 
             # Sanitize confidential ceiling reasons from LLM exposure
@@ -274,7 +275,7 @@ class NegotiationController:
                 accepted=offer["accepted"],
                 product_id=product.id,
                 product_name=product.name,
-                original_price=round(float(product.price), 2),
+                original_price=base_unit_price,
                 current_discount_percent=current_discount,
                 requested_discount_percent=req.requested_discount_percent,
                 next_discount_percent=offer["next_discount_percent"],
