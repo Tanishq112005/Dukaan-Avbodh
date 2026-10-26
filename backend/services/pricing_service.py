@@ -1,31 +1,27 @@
 from typing import Any, Dict, List, Optional
-
-from models import Campaign, Product
-from repositories.campain_repository import CampaignRepository
+from Product.models import Product
 from utils.pricing_math import apply_sequential_discounts
 
-campaign_repo = CampaignRepository()
 
-
-def _campaign_type_value(campaign: Campaign) -> str:
-    ctype = campaign.type
+def _campaign_type_value(campaign: Any) -> str:
+    ctype = getattr(campaign, "type", "low_priority")
     return ctype.value if hasattr(ctype, "value") else str(ctype)
 
 
-def serialize_campaign(campaign: Campaign) -> Dict[str, Any]:
+def serialize_campaign(campaign: Any) -> Dict[str, Any]:
     return {
-        "campaign_id": campaign.id,
-        "agenda": campaign.agenda,
-        "discount_percentage": campaign.discount_percentage,
+        "campaign_id": getattr(campaign, "id", None),
+        "agenda": getattr(campaign, "agenda", ""),
+        "discount_percentage": getattr(campaign, "discount_percentage", 0.0),
         "type": _campaign_type_value(campaign),
-        "priority": campaign.priority or 0,
+        "priority": getattr(campaign, "priority", 0) or 0,
     }
 
 
-def sort_campaigns_for_stacking(campaigns: List[Campaign]) -> List[Campaign]:
+def sort_campaigns_for_stacking(campaigns: List[Any]) -> List[Any]:
     return sorted(
-        campaigns,
-        key=lambda c: (-(c.priority or 0), -float(c.discount_percentage or 0), c.id or 0),
+        campaigns or [],
+        key=lambda c: (-(getattr(c, "priority", 0) or 0), -float(getattr(c, "discount_percentage", 0.0) or 0), getattr(c, "id", 0) or 0),
     )
 
 
@@ -38,28 +34,24 @@ class PricingService:
     def price_from_campaigns(
         self,
         product: Product,
-        campaigns: Optional[List[Campaign]] = None,
+        campaigns: Optional[List[Any]] = None,
         quantity: int = 1,
     ) -> Dict[str, Any]:
         stacked = sort_campaigns_for_stacking(campaigns or [])
-        percents = [c.discount_percentage for c in stacked if c.discount_percentage]
+        percents = [getattr(c, "discount_percentage", 0) for c in stacked if getattr(c, "discount_percentage", 0)]
         nsp = apply_sequential_discounts(product.price, percents) if percents else round(float(product.price), 2)
         qty = max(1, int(quantity or 1))
         return {
             "id": product.id,
             "name": product.name,
-            "image": product.image_url,
-            "image_url": product.image_url,
-            "type": product.type.value if hasattr(product.type, "value") else product.type,
-            "gender": product.gender,
+            "image": getattr(product, "image_url", None),
+            "image_url": getattr(product, "image_url", None),
+            "type": product.type.value if hasattr(product.type, "value") else str(product.type),
             "price": round(float(product.price), 2),
             "new_selling_price": nsp,
-            "line_total": round(nsp * qty, 2),
-            "cost_price": round(float(product.cost_price or 0.0), 2),
-            "min_profit_margin_percent": float(product.min_profit_margin_percent or 0.0),
-            "importance_score": int(product.importance_score or 0),
+            "importance_score": int(getattr(product, "importance_score", 0) or 0),
             "quantity": qty,
-            "applied_campaigns": [serialize_campaign(c) for c in stacked if c.discount_percentage],
+            "applied_campaigns": [serialize_campaign(c) for c in stacked if getattr(c, "discount_percentage", 0)],
             "has_campaign": bool(percents),
         }
 
@@ -70,11 +62,9 @@ class PricingService:
     ) -> List[Dict[str, Any]]:
         if not products:
             return []
-        ids = [p.id for p in products if p.id is not None]
-        campaign_map = await campaign_repo.get_campaigns_by_product_ids(ids)
         qty_map = quantities or {}
         return [
-            self.price_from_campaigns(p, campaign_map.get(p.id, []), qty_map.get(p.id, 1))
+            self.price_from_campaigns(p, [], qty_map.get(p.id, 1))
             for p in products
         ]
 

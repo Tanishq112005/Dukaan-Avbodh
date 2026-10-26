@@ -2,8 +2,8 @@ from typing import List, Optional
 import asyncio
 from mcp_server_user.server import mcp
 from repositories import OrderRepository, UserRepository, ProductRepository, DiscountPolicyRepository
-from repositories.campain_repository import CampaignRepository
-from models import Order
+
+from Order.models import Order
 from config.database import db_connection
 from sqlmodel import select
 from User.models import User
@@ -15,7 +15,11 @@ order_repo = OrderRepository()
 user_repo = UserRepository()
 product_repo = ProductRepository()
 discount_repo = DiscountPolicyRepository()
-campaign_repo = CampaignRepository()
+class DummyCampaignRepo:
+    async def record_product_sales_batch(self, *args, **kwargs):
+        pass
+
+campaign_repo = DummyCampaignRepo()
 
 
 load_dotenv()

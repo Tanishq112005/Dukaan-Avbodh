@@ -2,9 +2,8 @@ from User.database import User, UserRepository, userRepository
 from Product.database import Product, ProductRepository, productRepository
 from Order.database import Order, OrderRepository, orderRepository
 from Cart.database import Cart, CartRepository, cart_repository, cart
+from Merchant.database import MerchantRepository, merchantRepository
 from .discount_policy_repository import DiscountPolicyRepository
-from .campain_repository import CampaignRepository
-from .analytics_repository import AnalyticsRepository
 
 __all__ = [
     "User",
@@ -21,6 +20,6 @@ __all__ = [
     "CartRepository",
     "cart_repository",
     "cart",
-    "CampaignRepository",
-    "AnalyticsRepository"
+    "MerchantRepository",
+    "merchantRepository",
 ]
