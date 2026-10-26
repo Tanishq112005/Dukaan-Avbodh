@@ -178,11 +178,15 @@ export const createChatSlice = (set, get) => ({
             accumulatedText += token;
             set((state) => {
               const msgs = [...state.aiMessages];
-              const last = msgs[msgs.length - 1];
+              const lastIdx = msgs.length - 1;
+              const last = msgs[lastIdx];
               if (last && last.sender === "ai") {
-                last.text = accumulatedText;
-                last.isStreaming = true;
-                last.streamingStatus = null;
+                msgs[lastIdx] = {
+                  ...last,
+                  text: accumulatedText,
+                  isStreaming: true,
+                  streamingStatus: null,
+                };
               }
               return { aiMessages: msgs, isAiTyping: false };
             });
@@ -194,13 +198,18 @@ export const createChatSlice = (set, get) => ({
               catalog: "Checking inventory...",
               negotiation: "Calculating VIP discount...",
               cart: "Updating shopping bag...",
+              post_process: "Finalizing recommendations...",
             };
             const label = statusMap[nodeName] || "Stylist is thinking...";
             set((state) => {
               const msgs = [...state.aiMessages];
-              const last = msgs[msgs.length - 1];
+              const lastIdx = msgs.length - 1;
+              const last = msgs[lastIdx];
               if (last && last.sender === "ai" && !last.text) {
-                last.streamingStatus = label;
+                msgs[lastIdx] = {
+                  ...last,
+                  streamingStatus: label,
+                };
               }
               return { aiMessages: msgs };
             });
@@ -208,13 +217,17 @@ export const createChatSlice = (set, get) => ({
           onComplete: (payload) => {
             set((state) => {
               const msgs = [...state.aiMessages];
-              const last = msgs[msgs.length - 1];
+              const lastIdx = msgs.length - 1;
+              const last = msgs[lastIdx];
               if (last && last.sender === "ai") {
-                last.text = payload.message || accumulatedText;
-                last.isStreaming = false;
-                last.streamingStatus = null;
-                last.suggested_products = payload.suggested_products || [];
-                last.payment_link = payload.payment_link || null;
+                msgs[lastIdx] = {
+                  ...last,
+                  text: payload.message || accumulatedText || "Sorry, I couldn't process that. Please try again.",
+                  isStreaming: false,
+                  streamingStatus: null,
+                  suggested_products: payload.suggested_products || [],
+                  payment_link: payload.payment_link || null,
+                };
               }
               return { aiMessages: msgs, isAiTyping: false };
             });

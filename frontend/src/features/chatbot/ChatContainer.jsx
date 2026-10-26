@@ -17,6 +17,15 @@ export function AgentWidget() {
 
   useEffect(() => {
     connectAgent();
+
+    // Clean up any stale/interrupted streaming placeholders restored from localStorage
+    useStore.setState((state) => ({
+      aiMessages: (state.aiMessages || [])
+        .filter((m) => !(m.isStreaming && !m.text))
+        .map((m) => (m.isStreaming ? { ...m, isStreaming: false, streamingStatus: null } : m)),
+      isAiTyping: false,
+    }));
+
     if (aiMessagesLastUpdated && (Date.now() - aiMessagesLastUpdated > 24 * 60 * 60 * 1000)) {
       useStore.setState({ aiMessages: [], aiMessagesLastUpdated: Date.now(), comboOffer: null });
     } else if (!aiMessagesLastUpdated) {
