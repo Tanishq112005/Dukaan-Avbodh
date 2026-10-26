@@ -14,12 +14,17 @@ export function RecommendationCard({ data, onProductClick }) {
     e.preventDefault();
     e.stopPropagation();
     const finalId = p.id || p.product_id;
+    const sellingPrice =
+      p.discount > 0 && p.price
+        ? Math.round(Number(p.price) / (1 - p.discount / 100))
+        : (p.price !== undefined && p.price !== null ? Number(p.price) : 0);
+
     if (finalId) {
       addToCart(
         {
           id: finalId,
           name: p.name || "Apparel Item",
-          price: p.price || 0,
+          price: sellingPrice,
           image_url: p.image_url || p.image,
           brand: p.brand || "DUKAAN",
         },
@@ -56,15 +61,13 @@ export function RecommendationCard({ data, onProductClick }) {
               ? `https://picsum.photos/seed/${finalId}/400/500`
               : "https://picsum.photos/seed/dukaan/400/500");
 
-          const displayPrice =
-            p.price !== undefined && p.price !== null
-              ? `₹${Number(p.price).toLocaleString("en-IN")}`
-              : "₹0";
-
-          const originalPrice =
+          // Selling price (base list/selling price before discount, e.g. 1176 rather than 1000)
+          const sellingPrice =
             p.discount > 0 && p.price
-              ? `₹${Math.round(Number(p.price) / (1 - p.discount / 100)).toLocaleString("en-IN")}`
-              : null;
+              ? Math.round(Number(p.price) / (1 - p.discount / 100))
+              : (p.price !== undefined && p.price !== null ? Number(p.price) : 0);
+
+          const displayPrice = `₹${sellingPrice.toLocaleString("en-IN")}`;
 
           const isJustAdded = addedIds[finalId];
 
@@ -107,11 +110,6 @@ export function RecommendationCard({ data, onProductClick }) {
                     <span className="font-bold text-xs sm:text-sm text-stone-900">
                       {displayPrice}
                     </span>
-                    {originalPrice && (
-                      <span className="text-[10px] text-stone-400 line-through">
-                        {originalPrice}
-                      </span>
-                    )}
                   </div>
                 </div>
 

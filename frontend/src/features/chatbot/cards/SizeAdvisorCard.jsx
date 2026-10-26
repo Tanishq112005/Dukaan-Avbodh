@@ -17,7 +17,13 @@ export function SizeAdvisorCard({ data, onProductClick }) {
     product.image_url ||
     product.image ||
     (finalId ? `https://picsum.photos/seed/${finalId}/400/400` : "https://picsum.photos/seed/dukaan-size/400/400");
-  const price = product.price ? `₹${Number(product.price).toLocaleString("en-IN")}` : null;
+
+  const sellingPrice =
+    product.discount > 0 && product.price
+      ? Math.round(Number(product.price) / (1 - product.discount / 100))
+      : (product.price !== undefined && product.price !== null ? Number(product.price) : 0);
+
+  const price = sellingPrice ? `₹${sellingPrice.toLocaleString("en-IN")}` : null;
 
   const handleQuickAddRecommended = (e) => {
     e.preventDefault();
@@ -26,7 +32,7 @@ export function SizeAdvisorCard({ data, onProductClick }) {
         {
           id: finalId,
           name: product.name || "Apparel Item",
-          price: product.price || 0,
+          price: sellingPrice,
           image_url: imgUrl,
           brand: product.brand || "DUKAAN",
         },
@@ -100,7 +106,7 @@ export function SizeAdvisorCard({ data, onProductClick }) {
           ) : (
             <>
               <ShoppingBag size={14} />
-              <span>Add Size {recommendedSize} to Shopping Bag</span>
+              <span>Add Size {recommendedSize} to Bag</span>
             </>
           )}
         </button>
