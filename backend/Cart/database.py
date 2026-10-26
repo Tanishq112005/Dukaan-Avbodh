@@ -24,13 +24,24 @@ class Cart:
         ).first()
 
         if not cart:
-            cart = CartModel(
-                user_id=user_id,
-                discount_percentage=0.0
-            )
-            session.add(cart)
-            await session.flush()
-            await session.refresh(cart)
+            try:
+                async with session.begin_nested():
+                    cart = CartModel(
+                        user_id=user_id,
+                        discount_percentage=0.0
+                    )
+                    session.add(cart)
+                    await session.flush()
+                await session.refresh(cart)
+            except Exception:
+                # Concurrent insert or cart already exists, fetch existing
+                cart = (
+                    await session.exec(
+                        select(CartModel).where(
+                            CartModel.user_id == user_id
+                        )
+                    )
+                ).first()
 
         return cart
 

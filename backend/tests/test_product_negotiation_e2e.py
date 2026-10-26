@@ -43,13 +43,14 @@ async def run_e2e_verification():
 
         test_user_id = existing_user.id
 
-        # Clear existing test cart and items for this user
+        # Clear existing test cart items for this user
         test_cart = (await session.exec(select(Cart).where(Cart.user_id == test_user_id))).first()
         if test_cart:
             items = (await session.exec(select(CartItem).where(CartItem.cart_id == test_cart.id))).all()
             for it in items:
                 await session.delete(it)
-            await session.delete(test_cart)
+            test_cart.discount_percentage = 0.0
+            session.add(test_cart)
             await session.commit()
 
         # Find or create a test product
@@ -198,7 +199,8 @@ async def run_e2e_verification():
             items = (await session.exec(select(CartItem).where(CartItem.cart_id == t_cart.id))).all()
             for it in items:
                 await session.delete(it)
-            await session.delete(t_cart)
+            t_cart.discount_percentage = 0.0
+            session.add(t_cart)
         await session.commit()
 
     print("\n" + "=" * 60)
