@@ -148,3 +148,8 @@ langchain-google-genai
 rq==2.12.0
 croniter==6.2.4
 python-dateutil==2.9.0.post0
+langgraph-checkpoint-redis==0.5.2
+redisvl==0.27.2
+jsonpath-ng==1.8.0
+ml-dtypes==0.6.0
+python-ulid==4.0.1
