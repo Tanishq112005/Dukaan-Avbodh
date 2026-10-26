@@ -280,8 +280,8 @@ def _build_cards_from_tool(tool_name: str, parsed: dict, updates: dict, state: d
             or 0.0
         )
         offer_price = parsed.get("counter_offer_price") or parsed.get("discounted_price") or updates.get("cart_total")
-        original_price = parsed.get("subtotal") or parsed.get("original_subtotal") or updates.get("cart_subtotal")
-        savings = parsed.get("savings")
+        original_price = parsed.get("original_price") or parsed.get("subtotal") or parsed.get("original_subtotal") or updates.get("cart_subtotal")
+        savings = parsed.get("savings_amount") or parsed.get("savings")
         if not savings and original_price and offer_price and original_price > offer_price:
             savings = round(float(original_price) - float(offer_price), 2)
 
