@@ -97,11 +97,15 @@ class RazorpayPaymentGateway(PaymentGatewayInterface):
         }
 
         if customer:
-            payload["customer"] = {
-                "name": customer.get("name", "Valued Customer"),
-                "email": customer.get("email", "client@dukaan.store"),
-                "contact": customer.get("contact", "9999999999"),
+            cust_dict = {
+                "name": customer.get("name") or "Valued Customer",
+                "email": customer.get("email") or "client@dukaan.store",
             }
+            contact = customer.get("contact")
+            # Razorpay requires valid contact format; recurring dummy digits (e.g. 9999999999) are rejected
+            if contact and len(contact) >= 10 and len(set(contact.replace("+", "").replace("-", ""))) > 1:
+                cust_dict["contact"] = contact
+            payload["customer"] = cust_dict
 
         if callback_url:
             payload["callback_url"] = callback_url

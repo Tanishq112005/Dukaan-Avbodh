@@ -4,7 +4,6 @@ from datetime import datetime
 from fastapi import HTTPException, status
 
 from Order.database import OrderRepository, orderRepository, InsufficientStockError
-from Payment.controller import paymentController
 from Order.schemas import CheckoutRequest
 from Order.models import Order as OrderModel
 
@@ -63,6 +62,8 @@ class OrderController:
                 cust_name = req.customer_name
                 cust_email = req.customer_email
 
+            # Lazy import to break circular dependency between Order and Payment
+            from Payment.controller import paymentController
             return await paymentController.checkout_with_concurrency_lock(
                 user_id=user_id,
                 items=items_payload,
