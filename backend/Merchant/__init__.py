@@ -5,6 +5,7 @@ from Merchant.models import (
     CampaignType,
     CAMPAIGN_WEIGHTS,
     MerchantDiscountPolicy,
+    DiscountPolicy,
 )
 from Merchant.database import merchantRepository, MerchantRepository
 from Merchant.controller import merchantController, MerchantController

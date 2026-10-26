@@ -216,6 +216,14 @@ export const agentService = {
    * @param {number} merchantId
    * @returns {Promise<Array>}
    */
+  async sendMerchantMessage({ text, threadId }) {
+    const res = await apiClient.post("/merchant/chat", {
+      text: String(text),
+      thread_id: threadId ? String(threadId) : undefined,
+    });
+    return res.data;
+  },
+
   async getMerchantNegotiations(merchantId) {
     const res = await apiClient.get(`/negotiations/merchant/${merchantId}`);
     return res.data;

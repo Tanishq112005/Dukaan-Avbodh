@@ -2,12 +2,13 @@ from typing import Optional, List, Dict
 from sqlmodel import select, func
 from sqlalchemy.orm import selectinload
 from config.database import db_connection
-from models import Campaign, Product, CampaignProductLink, CAMPAIGN_WEIGHTS, CampaingType
+from Merchant.models import Campaign, CampaignProductLink, CAMPAIGN_WEIGHTS, CampaingType
+from Product.models import Product
 
 
 class CampaignRepository:
     def __init__(self):
-        super().__init__(Campaign)
+        pass
 
     async def get_all_campaigns(self, skip: int = 0, limit: int = 100) -> List[Campaign]:
         """Fetches all campaigns with optional pagination."""

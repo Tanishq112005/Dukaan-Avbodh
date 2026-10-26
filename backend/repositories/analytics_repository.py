@@ -2,7 +2,8 @@ from typing import Optional, List, Dict, Any
 from sqlmodel import select
 from sqlalchemy import func
 from config.database import db_connection
-from models import Product, Order, ProductType
+from Product.models import Product, ProductType
+from Order.models import Order
 
 class AnalyticsRepository:
     

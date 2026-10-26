@@ -37,6 +37,7 @@ from routes.payment_routes import router as payment_router
 from Payment.routes import router as direct_payment_router
 from routes.a2a_routes import router as a2a_router
 from routes.merchant_routes import router as merchant_router
+from Merchant.models import Campaign, CampaignProductLink, MerchantDiscountPolicy
 
 app = FastAPI(title="Dukaan")
 
@@ -106,6 +107,13 @@ async def startup():
         print("[OK] User Agent ready hai, saare tools connected hain.")
     except Exception as agent_err:
         print(f"[WARNING] User Agent startup initialization deferred: {agent_err}")
+
+    try:
+        print("[MERCHANT AGENT] Merchant agent graph initialize ho raha hai...")
+        await merchant_agent_service.init_merchant_agent()
+        print("[OK] Merchant Agent ready hai, saare merchant tools connected hain.")
+    except Exception as merchant_err:
+        print(f"[WARNING] Merchant Agent startup initialization deferred: {merchant_err}")
 
     print("Abh MongoDb se connect ho raha hai ...")
     nosql_client.get_client()
