@@ -118,7 +118,7 @@ export function FilterSidebar({ isMobile = false, onClose }) {
   }
 
   return (
-    <aside className="hidden md:block w-64 lg:w-72 flex-shrink-0 sticky top-[92px] self-start">
+    <aside className="hidden md:block w-64 lg:w-72 flex-shrink-0 sticky top-[106px] sm:top-[112px] self-start max-h-[calc(100vh-125px)] overflow-y-auto custom-scrollbar">
       {content}
     </aside>
   );
