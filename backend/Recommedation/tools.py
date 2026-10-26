@@ -25,14 +25,38 @@ LOGIN_NUDGE_PROMPT = (
 def _sanitize_product(product: Product) -> Dict[str, Any]:
     """
     Sanitizes product data for LLM consumption, stripping sensitive merchant
-    wholesale economics (cost_price, min_profit_margin_percent).
+    wholesale economics (cost_price, min_profit_margin_percent) as well as
+    confidential merchant discount limits, discount percentages, and minimum selling prices.
+    Only public standard listing price ('price') is passed to LLM recommendation tools.
     """
     data = product.model_dump(
-        exclude={"cost_price", "min_profit_margin_percent"}
+        exclude={
+            "cost_price",
+            "min_profit_margin_percent",
+            "discount",
+            "discount_percentage",
+            "discount_percent",
+            "min_selling_price",
+            "minimum_selling_price",
+            "min_price",
+        }
     )
 
     if hasattr(product.type, "value"):
         data["type"] = product.type.value
+
+    # Defensive guard to guarantee no discount percentage or minimum selling price leaks
+    for forbidden in (
+        "cost_price",
+        "min_profit_margin_percent",
+        "discount",
+        "discount_percentage",
+        "discount_percent",
+        "min_selling_price",
+        "minimum_selling_price",
+        "min_price",
+    ):
+        data.pop(forbidden, None)
 
     return data
 
@@ -114,6 +138,8 @@ async def search_and_recommend_by_type(
     LLM Usage & Instructions:
     1. Call this tool when the customer mentions a specific clothing category and describes what they want.
     2. All returned items are strictly confirmed in stock (stock > 0).
+    3. Products contain only standard listing price ('price'). Confidential discount percentages and minimum selling prices are strictly excluded.
+    4. NEVER invent or present an upfront discount. If the user bargains, invoke 'negotiate_product_discount'.
     3. If user_id is NOT provided (or user is a guest/unauthenticated):
        Present these recommendations and ALWAYS conclude your response with:
        "For personalized recommendations tailored specifically to your style and size, please log in or sign up to Dukaan!"
@@ -194,10 +220,11 @@ async def recommend_by_query(
     
     LLM Usage & Instructions:
     1. Call this tool when the customer makes an open-ended search across categories.
-    2. If user_id is NOT provided (or user is a guest/unauthenticated):
+    2. Products contain only standard listing price ('price'). Confidential discount percentages and minimum selling prices are strictly excluded.
+    3. If user_id is NOT provided (or user is a guest/unauthenticated):
        Present these recommendations and ALWAYS conclude your response with:
        "For personalized recommendations tailored specifically to your style and size, please log in or sign up to Dukaan!"
-    3. DO NOT invent extra products or prices.
+    4. DO NOT invent extra products, upfront discounts, or prices.
     """
     is_guest = user_id is None or user_id <= 0
     effective_user_id = user_id if not is_guest else 1

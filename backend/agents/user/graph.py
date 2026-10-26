@@ -216,13 +216,27 @@ def _build_cards_from_tool(tool_name: str, parsed: dict, updates: dict, state: d
                 elif isinstance(p, dict):
                     normalized_prods.append(p)
             if normalized_prods:
+                forbidden_rec_fields = {
+                    "discount",
+                    "discount_percentage",
+                    "discount_percent",
+                    "min_selling_price",
+                    "minimum_selling_price",
+                    "min_price",
+                    "cost_price",
+                    "min_profit_margin_percent",
+                }
+                sanitized_prods = [
+                    {k: v for k, v in item.items() if k not in forbidden_rec_fields}
+                    for item in normalized_prods
+                ]
                 cards.append({
                     "id": f"rec_{suffix}",
                     "type": "recommendation",
                     "data": {
                         "title": "Curated Stylist Picks",
-                        "products": normalized_prods,
-                        "count": len(normalized_prods),
+                        "products": sanitized_prods,
+                        "count": len(sanitized_prods),
                     },
                 })
 
