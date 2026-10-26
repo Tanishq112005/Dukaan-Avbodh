@@ -82,6 +82,7 @@ export const createChatSlice = (set, get) => ({
         id: "ai_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
         sender: "ai",
         text: cleanedText,
+        cards: Array.isArray(data.cards) ? data.cards : [],
         suggested_products: normalizeProducts(data.suggested_products),
         payment_link,
       };
@@ -187,6 +188,7 @@ export const createChatSlice = (set, get) => ({
       text: "",
       isStreaming: true,
       streamingStatus: "Consulting stylist...",
+      cards: [],
       suggested_products: [],
     };
 
@@ -215,6 +217,7 @@ export const createChatSlice = (set, get) => ({
             sender: "ai",
             text: "",
             isStreaming: true,
+            cards: [],
             suggested_products: [],
           }));
         }
@@ -280,18 +283,43 @@ export const createChatSlice = (set, get) => ({
               return prev;
             });
           },
+          onCard: (cardData) => {
+            if (!cardData) return;
+            const newCards = Array.isArray(cardData) ? cardData : [cardData];
+            updateStreamingMessage((prev) => {
+              const currentCards = Array.isArray(prev.cards) ? [...prev.cards] : [];
+              for (const c of newCards) {
+                if (c && c.id && !currentCards.some((existing) => existing.id === c.id)) {
+                  currentCards.push(c);
+                }
+              }
+              return { ...prev, cards: currentCards };
+            });
+          },
           onComplete: (payload) => {
             completed = true;
             const finalMessage = cleanAiText(payload.message || accumulatedText) || "Sorry, I couldn't process that. Please try again.";
 
-            updateStreamingMessage((prev) => ({
-              ...prev,
-              text: finalMessage,
-              isStreaming: false,
-              streamingStatus: null,
-              suggested_products: normalizeProducts(payload.suggested_products),
-              payment_link: payload.payment_link || null,
-            }));
+            updateStreamingMessage((prev) => {
+              const existingCards = Array.isArray(prev.cards) ? [...prev.cards] : [];
+              if (Array.isArray(payload.cards)) {
+                for (const c of payload.cards) {
+                  if (c && c.id && !existingCards.some((e) => e.id === c.id)) {
+                    existingCards.push(c);
+                  }
+                }
+              }
+
+              return {
+                ...prev,
+                text: finalMessage,
+                isStreaming: false,
+                streamingStatus: null,
+                cards: existingCards,
+                suggested_products: normalizeProducts(payload.suggested_products),
+                payment_link: payload.payment_link || null,
+              };
+            });
 
             set({ isAiTyping: false });
 

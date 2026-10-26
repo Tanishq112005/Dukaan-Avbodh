@@ -4,11 +4,17 @@ import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { ProductCard } from "../../components/ui/ProductCard";
 import { ComboBanner } from "./ComboBanner";
+import { AiCard } from "./cards/CardRegistry";
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 // Extracted + memoized: only re-renders if ITS OWN props change
-const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage, onPayClick, onProductClick }) {
+const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage, onPayClick, onProductClick, onAction }) {
+  const hasCards = Array.isArray(msg.cards) && msg.cards.length > 0;
+  const hasRecCard = hasCards && msg.cards.some((c) => c.type === "recommendation");
+  const hasPayCard = hasCards && msg.cards.some((c) => c.type === "payment");
+  const hasOrderCard = hasCards && msg.cards.some((c) => c.type === "order_confirmed");
+
   return (
     <div className={cn("flex gap-2", msg.sender === 'user' ? "flex-row-reverse" : "")}>
       <div className={cn(
@@ -18,11 +24,12 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
         {msg.sender === 'user' ? <User size={13} /> : <Bot size={13} className="text-[#C45C26]"/>}
       </div>
       <div className={cn(
-        "px-3.5 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm leading-relaxed transition-all",
+        "px-3.5 py-2.5 rounded-2xl max-w-[88%] text-sm shadow-xs leading-relaxed transition-all",
         msg.sender === 'user'
           ? "bg-stone-900 text-white rounded-tr-sm"
-          : "bg-white border border-stone-100 text-stone-800 rounded-tl-sm"
+          : "bg-white border border-stone-200/80 text-stone-800 rounded-tl-sm"
       )}>
+        {/* Streaming thinking state */}
         {msg.streamingStatus && !msg.text ? (
           <div className="flex items-center gap-2.5 text-xs text-stone-600 py-1.5 transition-all duration-300">
             <div className="relative flex items-center justify-center w-4 h-4 flex-shrink-0">
@@ -41,22 +48,24 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
             )}
           </div>
         )}
-        {msg.payment_link && !msg.payment_confirmed && (
-          <button
-            type="button"
-            onClick={() => onPayClick?.(msg.payment_link)}
-            className="mt-3 inline-flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold tracking-wide uppercase px-3.5 py-2 rounded-full transition-colors"
-          >
-            Pay securely <ExternalLink size={12} />
-          </button>
-        )}
-        {msg.payment_confirmed && (
-          <div className="mt-3 inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold px-3 py-1.5 rounded-full">
-            <CheckCircle size={13} className="text-emerald-600" />
-            <span>Payment Confirmed</span>
+
+        {/* 1. Generative UI Interactive Cards */}
+        {hasCards && (
+          <div className="space-y-2.5 mt-2">
+            {msg.cards.map((card, idx) => (
+              <AiCard
+                key={card.id || `card-${card.type}-${idx}`}
+                card={card}
+                onProductClick={onProductClick}
+                onPayClick={onPayClick}
+                onAction={onAction}
+              />
+            ))}
           </div>
         )}
-        {msg.suggested_products && msg.suggested_products.length > 0 && (
+
+        {/* 2. Fallback Legacy Suggested Products (if not already rendered via RecommendationCard) */}
+        {!hasRecCard && msg.suggested_products && msg.suggested_products.length > 0 && (
           <div className="mt-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {msg.suggested_products.map((rawProduct, idx) => {
               const p = rawProduct?.product ? { ...rawProduct.product, id: rawProduct.product.id || rawProduct.product_id } : rawProduct;
@@ -80,12 +89,31 @@ const ChatMessageItem = React.memo(function ChatMessageItem({ msg, renderMessage
             })}
           </div>
         )}
+
+        {/* 3. Fallback Legacy Payment Link (if not already rendered via PaymentCard) */}
+        {!hasPayCard && msg.payment_link && !msg.payment_confirmed && (
+          <button
+            type="button"
+            onClick={() => onPayClick?.(msg.payment_link)}
+            className="mt-3 inline-flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold tracking-wide uppercase px-3.5 py-2 rounded-full transition-colors cursor-pointer"
+          >
+            Pay securely <ExternalLink size={12} />
+          </button>
+        )}
+
+        {/* 4. Fallback Legacy Payment Confirmed Badge */}
+        {!hasOrderCard && msg.payment_confirmed && (
+          <div className="mt-3 inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold px-3 py-1.5 rounded-full">
+            <CheckCircle size={13} className="text-emerald-600" />
+            <span>Payment Confirmed</span>
+          </div>
+        )}
       </div>
     </div>
   );
 });
 
-export function ChatMessages({ aiMessages, isAiTyping, comboOffer, chatContainerRef, renderMessage, onPayClick, onProductClick, isFullScreen }) {
+export function ChatMessages({ aiMessages, isAiTyping, comboOffer, chatContainerRef, renderMessage, onPayClick, onProductClick, onAction, isFullScreen }) {
   // Memoize the rendered list so it only recomputes when aiMessages actually changes
   const renderedMessages = useMemo(() => (
     aiMessages.map((msg, idx) => (
@@ -95,9 +123,10 @@ export function ChatMessages({ aiMessages, isAiTyping, comboOffer, chatContainer
         renderMessage={renderMessage}
         onPayClick={onPayClick}
         onProductClick={onProductClick}
+        onAction={onAction}
       />
     ))
-  ), [aiMessages, renderMessage, onPayClick, onProductClick]);
+  ), [aiMessages, renderMessage, onPayClick, onProductClick, onAction]);
 
   const hasStreamingMessage = useMemo(
     () => aiMessages.some((m) => m.isStreaming),

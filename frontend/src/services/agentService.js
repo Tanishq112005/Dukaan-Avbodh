@@ -56,12 +56,13 @@ export const agentService = {
    * @param {Object} callbacks
    * @param {Function} [callbacks.onToken] - Called for streaming word/character tokens
    * @param {Function} [callbacks.onNodeUpdate] - Called for graph progress nodes (director, negotiation, etc.)
+   * @param {Function} [callbacks.onCard] - Called for real-time Generative UI cards
    * @param {Function} [callbacks.onComplete] - Called with the final structured JSON payload
    * @param {Function} [callbacks.onError] - Called on network/stream errors
    */
   async streamUserMessage(
     { userId, threadId, text, cart = [] },
-    { onToken, onNodeUpdate, onComplete, onError } = {}
+    { onToken, onNodeUpdate, onCard, onComplete, onError } = {}
   ) {
     try {
       const headers = {
@@ -137,7 +138,13 @@ export const agentService = {
                 onNodeUpdate(parsed.node, parsed);
               }
             }
-            // 3. Final structured chat reply payload
+            // 3. Generative UI cards streamed from tool execution
+            else if (parsed.type === "card" || parsed.type === "cards") {
+              if (onCard) {
+                onCard(parsed.card || parsed.cards);
+              }
+            }
+            // 4. Final structured chat reply payload
             else if (
               parsed.type === "chat_reply" ||
               parsed.event === "complete" ||
@@ -147,63 +154,56 @@ export const agentService = {
                 onComplete(parsed);
               }
             }
-            // 4. Server-reported error payload
+            // 5. Server-reported error payload
             else if (parsed.error) {
               if (onComplete) {
                 onComplete({
                   type: "chat_reply",
                   message: typeof parsed.error === "string" ? parsed.error : "An error occurred.",
+                  cards: [],
                 });
               }
             }
           } catch {
             // Raw text fallback if JSON parsing fails
-            if (onToken && rawData) {
-              onToken(rawData);
-            }
           }
         }
       }
     } catch (err) {
-      if (onError) onError(err);
-      throw err;
+      if (onError) {
+        onError(err);
+      } else {
+        throw err;
+      }
     }
   },
 
   /**
-   * Merchant Agent: Asks merchant assistant for store analytics and recommendations.
-   * @param {Object} payload
-   * @param {string} payload.text
-   * @param {string} [payload.threadId]
-   * @returns {Promise<Object>}
+   * Fetches active negotiations for a merchant.
+   * @param {number} merchantId
+   * @returns {Promise<Array>}
    */
-  async sendMerchantMessage({ text, threadId = null }) {
-    const res = await apiClient.post("/merchant/chat", {
-      text,
-      thread_id: threadId,
-    });
+  async getMerchantNegotiations(merchantId) {
+    const res = await apiClient.get(`/negotiations/merchant/${merchantId}`);
     return res.data;
   },
 
   /**
-   * Negotiation: Computes maximum possible discount percentage without breaching merchant margin.
-   * @param {Array} items - List of cart or product items
-   * @returns {Promise<Object>}
+   * Fetches all conversation transcripts for merchant oversight.
+   * @returns {Promise<Array>}
    */
-  async getNegotiationMaxDiscount(items) {
-    const res = await apiClient.post("/negotiation/max-discount", { items });
+  async getMerchantTranscripts() {
+    const res = await apiClient.get("/transcripts");
     return res.data;
   },
 
   /**
-   * Negotiation: Computes next counter-offer discount percentage.
-   * @param {Object} payload
+   * Updates merchant dynamic pricing bounds.
+   * @param {Object} bounds
    * @returns {Promise<Object>}
    */
-  async getNegotiationNextDiscount(payload) {
-    const res = await apiClient.post("/negotiation/next-discount", payload);
+  async updatePricingBounds(bounds) {
+    const res = await apiClient.put("/merchant/pricing-bounds", bounds);
     return res.data;
   },
 };
-
-export default agentService;
