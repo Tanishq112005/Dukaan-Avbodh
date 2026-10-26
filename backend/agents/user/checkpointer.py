@@ -1,7 +1,7 @@
 import os
 import asyncio
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
@@ -22,39 +22,45 @@ except Exception:
 from pymongo import MongoClient
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.checkpoint.mongodb import MongoDBSaver
-from langgraph.checkpoint.redis import RedisSaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
+try:
+    from langgraph.checkpoint.mongodb import MongoDBSaver
+
+    async def _aget_tuple(self, config):
+        return await asyncio.to_thread(self.get_tuple, config)
+
+    async def _aput(self, config, checkpoint, metadata, new_versions):
+        return await asyncio.to_thread(self.put, config, checkpoint, metadata, new_versions)
+
+    async def _aput_writes(self, config, writes, task_id):
+        return await asyncio.to_thread(self.put_writes, config, writes, task_id)
+
+    MongoDBSaver.aget_tuple = _aget_tuple
+    MongoDBSaver.aput = _aput
+    MongoDBSaver.aput_writes = _aput_writes
+except (ImportError, ModuleNotFoundError):
+    MongoDBSaver = None
+
+try:
+    from langgraph.checkpoint.redis import RedisSaver
+
+    async def _redis_aget_tuple(self, config):
+        return await asyncio.to_thread(self.get_tuple, config)
+
+    async def _redis_aput(self, config, checkpoint, metadata, new_versions):
+        return await asyncio.to_thread(self.put, config, checkpoint, metadata, new_versions)
+
+    async def _redis_aput_writes(self, config, writes, task_id):
+        return await asyncio.to_thread(self.put_writes, config, writes, task_id)
+
+    RedisSaver.aget_tuple = _redis_aget_tuple
+    RedisSaver.aput = _redis_aput
+    RedisSaver.aput_writes = _redis_aput_writes
+except (ImportError, ModuleNotFoundError):
+    RedisSaver = None
+
 logger = logging.getLogger(__name__)
-
-# --- Monkey-patch MongoDBSaver for async support ---
-async def _aget_tuple(self, config):
-    return await asyncio.to_thread(self.get_tuple, config)
-
-async def _aput(self, config, checkpoint, metadata, new_versions):
-    return await asyncio.to_thread(self.put, config, checkpoint, metadata, new_versions)
-
-async def _aput_writes(self, config, writes, task_id):
-    return await asyncio.to_thread(self.put_writes, config, writes, task_id)
-
-MongoDBSaver.aget_tuple = _aget_tuple
-MongoDBSaver.aput = _aput
-MongoDBSaver.aput_writes = _aput_writes
-
-# --- Monkey-patch RedisSaver for async support ---
-async def _redis_aget_tuple(self, config):
-    return await asyncio.to_thread(self.get_tuple, config)
-
-async def _redis_aput(self, config, checkpoint, metadata, new_versions):
-    return await asyncio.to_thread(self.put, config, checkpoint, metadata, new_versions)
-
-async def _redis_aput_writes(self, config, writes, task_id):
-    return await asyncio.to_thread(self.put_writes, config, writes, task_id)
-
-RedisSaver.aget_tuple = _redis_aget_tuple
-RedisSaver.aput = _redis_aput
-RedisSaver.aput_writes = _redis_aput_writes
 
 # --- Monkey-patch JsonPlusSerializer for serialization compatibility ---
 if not hasattr(JsonPlusSerializer, "dumps"):
@@ -76,11 +82,11 @@ class AgentCheckPointer:
 
         # MongoDB configurations
         self.mongo_uri = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-        self.mongodb_memory: Optional[MongoDBSaver] = None
+        self.mongodb_memory: Optional[Any] = None
 
         # Redis configurations
         self.redis_url = os.getenv("REDIS_URL") or "redis://localhost:6379"
-        self.redis_memory: Optional[RedisSaver] = None
+        self.redis_memory: Optional[Any] = None
         self.checkpoint_prefix = os.getenv("REDIS_CHECKPOINT_PREFIX", "checkpoint:user_agent")
         self.checkpoint_write_prefix = os.getenv(
             "REDIS_CHECKPOINT_WRITE_PREFIX", "checkpoint_write:user_agent"
@@ -103,13 +109,16 @@ class AgentCheckPointer:
         checkpoint_prefix: Optional[str] = None,
         checkpoint_write_prefix: Optional[str] = None,
         ttl: Optional[Dict[str, int]] = None,
-    ) -> RedisSaver:
+    ) -> BaseCheckpointSaver:
         """
         Initializes and returns the RedisSaver checkpointer configured with
         connection URL, keyspace prefixes, and TTL values.
         """
         if self.redis_memory is not None:
             return self.redis_memory
+
+        if RedisSaver is None:
+            raise ImportError("langgraph.checkpoint.redis is not installed")
 
         url = redis_url or self.redis_url
         prefix = checkpoint_prefix or self.checkpoint_prefix
@@ -130,12 +139,15 @@ class AgentCheckPointer:
 
         return self.redis_memory
 
-    def getMongoDBCheckPointer(self) -> MongoDBSaver:
+    def getMongoDBCheckPointer(self) -> BaseCheckpointSaver:
         """
         Initializes and returns the MongoDB checkpointer.
         """
         if self.mongodb_memory is not None:
             return self.mongodb_memory
+
+        if MongoDBSaver is None:
+            raise ImportError("langgraph.checkpoint.mongodb is not installed")
 
         sync_client = MongoClient(self.mongo_uri)
         self.mongodb_memory = MongoDBSaver(sync_client)
