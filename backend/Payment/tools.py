@@ -22,7 +22,10 @@ async def create_payment_order(
     """
     try:
         from Cart.database import cart_repository
-        cart_items = await cart_repository.get_cart_items(user_id)
+        if hasattr(cart_repository, "get_cart_items"):
+            cart_items = await cart_repository.get_cart_items(user_id)
+        else:
+            cart_items = await cart_repository.get_items(user_id)
         if not cart_items:
             return {
                 "success": False,

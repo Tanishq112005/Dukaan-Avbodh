@@ -431,6 +431,18 @@ class Cart:
 
             return items
 
+    # Compatibility alias for get_items across tools and MCP services
+    async def get_cart_items(self, user_id: int) -> list[dict]:
+        return await self.get_items(user_id)
+
+    # Compatibility alias for get_summary across tools and services
+    async def get_cart_summary(self, user_id: int) -> dict:
+        return await self.get_summary(user_id)
+
+    # Ensure user cart exists in database
+    async def ensure_user_cart(self, user_id: int) -> CartModel:
+        return await self.get_cart(user_id)
+
     # Get the user's cart summary
     async def get_summary(self, user_id: int) -> dict:
 

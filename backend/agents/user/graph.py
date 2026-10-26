@@ -570,9 +570,12 @@ def _log_tool_audit(tool_name: str, tool_args: dict, parsed: Any, state: dict):
         elif tool_name in ("checkout_order", "create_order", "create_payment_order"):
             action = "ORDER_CHECKOUT"
             reason = "Customer initiated checkout order generation and inventory stock reservation."
-            st = parsed.get("payment_status", "pending") if isinstance(parsed, dict) else "placed"
-            tot = parsed.get("total_amount", 0.0) if isinstance(parsed, dict) else 0.0
-            result = f"Order created. Status: {st}, Amount: ₹{tot}"
+            if isinstance(parsed, dict) and not parsed.get("success", True):
+                result = f"Checkout failed: {parsed.get('error', 'Unknown error')}"
+            else:
+                st = parsed.get("payment_status", "pending") if isinstance(parsed, dict) else "placed"
+                tot = parsed.get("total_amount", 0.0) if isinstance(parsed, dict) else 0.0
+                result = f"Order created. Status: {st}, Amount: ₹{tot}"
             metadata = parsed if isinstance(parsed, dict) else {}
 
         elif tool_name == "cancel_order":
