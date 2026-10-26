@@ -16,9 +16,15 @@ export function CartSummary() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const subtotal = cartItems.reduce((acc, item) => acc + (item.price || 0) * (item.qty || 1), 0);
-  const discountAmount = subtotal * ((aiDiscount || 0) / 100);
+  const originalSubtotal = cartItems.reduce((acc, item) => acc + (item.original_price || item.price || 0) * (item.qty || 1), 0);
+  const itemsDiscountAmount = cartItems.reduce((acc, item) => {
+    const orig = (item.original_price || item.price || 0) * (item.qty || 1);
+    const curr = (item.price || 0) * (item.qty || 1);
+    return acc + Math.max(0, orig - curr);
+  }, 0);
+  const extraAiDiscount = subtotal * ((aiDiscount || 0) / 100);
   const delivery = subtotal > 0 ? 15 : 0;
-  const total = Math.max(0, subtotal - discountAmount + delivery);
+  const total = Math.max(0, subtotal - extraAiDiscount + delivery);
 
   const handleApplyPromo = (e) => {
     e.preventDefault();
@@ -163,12 +169,18 @@ export function CartSummary() {
       <div className="space-y-4 text-stone-600 mb-6 text-sm">
         <div className="flex justify-between">
           <span>Subtotal</span>
-          <span className="font-semibold text-stone-900">₹{subtotal.toFixed(0)}</span>
+          <span className="font-semibold text-stone-900">₹{(itemsDiscountAmount > 0 ? originalSubtotal : subtotal).toFixed(0)}</span>
         </div>
+        {itemsDiscountAmount > 0 && (
+          <div className="flex justify-between text-emerald-700">
+            <span>Item Discounts</span>
+            <span className="font-semibold">-₹{itemsDiscountAmount.toFixed(0)}</span>
+          </div>
+        )}
         {aiDiscount > 0 && (
           <div className="flex justify-between text-emerald-700">
             <span>Special AI Discount (-{aiDiscount.toFixed(1)}%)</span>
-            <span className="font-semibold">-₹{discountAmount.toFixed(0)}</span>
+            <span className="font-semibold">-₹{extraAiDiscount.toFixed(0)}</span>
           </div>
         )}
         <div className="flex justify-between">

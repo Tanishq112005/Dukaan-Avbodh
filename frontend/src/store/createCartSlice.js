@@ -41,7 +41,10 @@ export const createCartSlice = (set, get) => ({
         const mappedItems = items.map((item) => ({
           id: item.product_id || item.product?.id || item.id,
           name: item.product?.name || item.name || "Product",
-          price: item.product?.price ?? item.price ?? 0,
+          price: item.price ?? item.product?.price ?? 0,
+          original_price: item.original_price ?? item.product?.price ?? item.price ?? 0,
+          discount_percentage: item.discount_percentage || 0,
+          discounted_price: item.discounted_price || null,
           qty: item.quantity ?? item.qty ?? 1,
           size: item.size || null,
           color: item.color || null,

@@ -87,7 +87,19 @@ export function CartItemList() {
                 </div>
 
                 <div className="flex items-center justify-between mt-4 pt-2">
-                  <span className="font-bold text-lg text-stone-900">{formattedPrice}</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-bold text-lg text-stone-900">{formattedPrice}</span>
+                    {item.discount_percentage > 0 && item.original_price && item.original_price > item.price && (
+                      <span className="text-xs text-stone-400 line-through">
+                        ₹{Number(item.original_price).toLocaleString("en-IN")}
+                      </span>
+                    )}
+                    {item.discount_percentage > 0 && (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                        {item.discount_percentage}% OFF
+                      </span>
+                    )}
+                  </div>
 
                   {/* Quantity Stepper */}
                   <div className="flex items-center justify-between bg-stone-100 rounded-xl px-3 py-1.5 w-26 border border-stone-200/60">
