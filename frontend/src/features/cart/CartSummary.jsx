@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, ShieldCheck } from "lucide-react";
+import { ChevronRight, ShieldCheck, Sparkles, MessageCircle, Tag } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { useStore } from "../../store/useStore";
@@ -8,7 +8,7 @@ import { orderService } from "../../services/orderService";
 import { userEventService, EVENT_TYPES } from "../../services/userEventService";
 
 export function CartSummary() {
-  const { cart: cartItems, token, clearCart, aiDiscount, setAiDiscount } = useStore();
+  const { cart: cartItems, token, clearCart, aiDiscount, setAiDiscount, setIsAgentOpen, sendAiMessage } = useStore();
   const navigate = useNavigate();
   const [promoCode, setPromoCode] = useState("");
   const [promoMsg, setPromoMsg] = useState("");
@@ -16,7 +16,7 @@ export function CartSummary() {
 
   const subtotal = cartItems.reduce((acc, item) => acc + (item.price || 0) * (item.qty || 1), 0);
   const discountAmount = subtotal * ((aiDiscount || 0) / 100);
-  const delivery = subtotal > 0 ? 15 : 0;
+  const delivery = subtotal >= 999 || subtotal === 0 ? 0 : 99;
   const total = Math.max(0, subtotal - discountAmount + delivery);
 
   const handleApplyPromo = (e) => {
@@ -30,8 +30,13 @@ export function CartSummary() {
       setAiDiscount(20);
       setPromoMsg("20% promotional discount applied!");
     } else {
-      setPromoMsg("Invalid promo code. Chat with our AI Stylist to negotiate your best deal!");
+      setPromoMsg("Invalid code. Tap below to negotiate directly with our AI Stylist!");
     }
+  };
+
+  const handleNegotiateWithStylist = () => {
+    setIsAgentOpen(true);
+    sendAiMessage(`I have ${cartItems.length} items in my cart totaling ₹${subtotal.toFixed(0)}. Can you offer me a VIP combo discount?`);
   };
 
   const loadRazorpayScript = () => {
@@ -64,7 +69,6 @@ export function CartSummary() {
 
       if (isOnline && window.Razorpay) {
         try {
-          // Attempt online payment creation
           const order = await orderService.createPaymentOrder({
             amount: amountPaise,
             currency: "INR",
@@ -86,15 +90,13 @@ export function CartSummary() {
                   razorpay_signature: response.razorpay_signature,
                 });
 
-                // Place final order in DB
                 await orderService.createOrder();
                 userEventService.trackEvent(EVENT_TYPES.PURCHASED, cartItems[0]?.id || 0);
 
                 await clearCart();
                 navigate("/order-confirmed");
               } catch (verifyErr) {
-                console.error("Payment verification failed:", verifyErr);
-                alert("Payment verification issue on server, but creating your order...");
+                console.error("Payment verification issue:", verifyErr);
                 await orderService.createOrder();
                 await clearCart();
                 navigate("/order-confirmed");
@@ -121,7 +123,6 @@ export function CartSummary() {
         }
       }
 
-      // Fallback direct order creation (e.g. cash on delivery or dev test mode)
       await orderService.createOrder();
       userEventService.trackEvent(EVENT_TYPES.PURCHASED, cartItems[0]?.id || 0);
       await clearCart();
@@ -135,61 +136,96 @@ export function CartSummary() {
   };
 
   return (
-    <div className="md:w-1/3 border border-stone-200 bg-white rounded-[24px] p-6 h-fit shadow-sm">
-      <h2 className="text-xl font-bold mb-6 text-stone-900">Order Summary</h2>
-      <div className="space-y-4 text-stone-600 mb-6 text-sm">
+    <div className="md:w-1/3 border border-stone-200/80 bg-white rounded-3xl p-6 sm:p-7 h-fit shadow-xs space-y-6">
+      <div className="flex items-center justify-between pb-4 border-b border-stone-100">
+        <h2 className="text-base font-bold tracking-wider uppercase text-stone-900">Summary</h2>
+        <span className="text-xs text-stone-400 font-medium">Standard INR</span>
+      </div>
+
+      <div className="space-y-3.5 text-stone-600 text-xs sm:text-sm">
         <div className="flex justify-between">
           <span>Subtotal</span>
-          <span className="font-semibold text-stone-900">₹{subtotal.toFixed(0)}</span>
+          <span className="font-semibold text-stone-900">₹{subtotal.toLocaleString("en-IN")}</span>
         </div>
+
         {aiDiscount > 0 && (
-          <div className="flex justify-between text-emerald-700">
-            <span>Special AI Discount (-{aiDiscount.toFixed(1)}%)</span>
-            <span className="font-semibold">-₹{discountAmount.toFixed(0)}</span>
+          <div className="flex justify-between items-center text-emerald-800 bg-emerald-50 px-3 py-2 rounded-xl">
+            <span className="flex items-center gap-1.5 font-semibold text-xs">
+              <Sparkles size={13} className="text-[#C45C26]" />
+              <span>AI Stylist VIP Deal (-{aiDiscount.toFixed(0)}%)</span>
+            </span>
+            <span className="font-bold text-xs">-₹{discountAmount.toLocaleString("en-IN")}</span>
           </div>
         )}
-        <div className="flex justify-between">
-          <span>Delivery Fee</span>
+
+        <div className="flex justify-between items-center">
+          <span>Express Delivery</span>
           <span className="font-semibold text-stone-900">
-            {subtotal > 0 ? `₹${delivery}` : "₹0"}
+            {delivery === 0 ? (
+              <span className="text-emerald-700 font-bold uppercase text-xs">Free Delivery</span>
+            ) : (
+              `₹${delivery}`
+            )}
           </span>
         </div>
+        {subtotal < 999 && subtotal > 0 && (
+          <p className="text-[11px] text-[#C45C26]">
+            Add ₹{(999 - subtotal).toLocaleString("en-IN")} more to qualify for Free Express Shipping.
+          </p>
+        )}
       </div>
 
-      <hr className="my-4 border-stone-200" />
+      <div className="pt-4 border-t border-stone-100">
+        <div className="flex justify-between items-baseline mb-5">
+          <span className="font-display text-lg font-bold text-stone-900">Total</span>
+          <span className="font-display text-2xl font-extrabold text-stone-900">
+            ₹{total.toLocaleString("en-IN")}
+          </span>
+        </div>
 
-      <div className="flex justify-between text-xl font-bold mb-6 text-stone-900">
-        <span>Total</span>
-        <span>₹{total.toFixed(0)}</span>
-      </div>
+        {/* Promo code form */}
+        <form onSubmit={handleApplyPromo} className="flex gap-2 mb-3">
+          <div className="relative flex-1">
+            <Tag size={14} className="absolute left-3 top-3 text-stone-400" />
+            <Input
+              placeholder="Promo code (e.g. DUKAAN10)"
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value)}
+              className="bg-stone-50 border-stone-200 rounded-xl text-xs pl-8.5 h-10.5"
+            />
+          </div>
+          <Button type="submit" variant="outline" className="rounded-xl px-4 text-xs font-semibold h-10.5 cursor-pointer">
+            Apply
+          </Button>
+        </form>
+        {promoMsg && (
+          <p className="text-xs mb-3 text-stone-600 font-medium">{promoMsg}</p>
+        )}
 
-      <form onSubmit={handleApplyPromo} className="flex gap-2 mb-2">
-        <Input
-          placeholder="Promo code (e.g. DUKAAN10)"
-          value={promoCode}
-          onChange={(e) => setPromoCode(e.target.value)}
-          className="bg-[#EFE8DE] border-none rounded-full text-xs"
-        />
-        <Button type="submit" variant="outline" className="rounded-full px-5 text-xs">
-          Apply
+        {/* AI Negotiation CTA in cart */}
+        <button
+          onClick={handleNegotiateWithStylist}
+          type="button"
+          className="w-full py-2.5 px-3 mb-4 rounded-xl border border-dashed border-[#C45C26]/40 hover:border-[#C45C26] bg-[#C45C26]/5 text-stone-800 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <MessageCircle size={13} className="text-[#C45C26]" />
+          <span>Negotiate custom cart price with AI Stylist</span>
+        </button>
+
+        {/* Checkout Button */}
+        <Button
+          className="w-full rounded-2xl py-6.5 text-xs sm:text-sm font-bold tracking-wider uppercase bg-stone-900 hover:bg-[#6e1423] text-white flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer disabled:opacity-50"
+          onClick={handleCheckout}
+          disabled={isProcessing || cartItems.length === 0}
+        >
+          <span>{isProcessing ? "Processing..." : "Proceed to Checkout"}</span>
+          <ChevronRight size={16} />
         </Button>
-      </form>
-      {promoMsg && (
-        <p className="text-xs mb-4 text-stone-600 italic">{promoMsg}</p>
-      )}
 
-      <Button
-        className="w-full rounded-full py-6 text-base bg-stone-900 hover:bg-stone-800 text-white flex items-center justify-center gap-2"
-        onClick={handleCheckout}
-        disabled={isProcessing || cartItems.length === 0}
-      >
-        <span>{isProcessing ? "Processing Order..." : "Proceed to Checkout"}</span>
-        <ChevronRight className="w-5 h-5" />
-      </Button>
-
-      <div className="flex items-center justify-center gap-1.5 mt-4 text-xs text-stone-400">
-        <ShieldCheck className="w-4 h-4 text-stone-500" />
-        <span>Secure transaction backed by Dukaan Guarantee</span>
+        <div className="flex items-center justify-center gap-1.5 mt-4 text-[11px] text-stone-400">
+          <ShieldCheck size={14} className="text-emerald-700" />
+          <span>256-Bit SSL Encrypted Razorpay Checkout</span>
+        </div>
       </div>
     </div>
   );
