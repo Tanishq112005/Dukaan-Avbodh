@@ -23,20 +23,33 @@ class OrderRepository:
         self.lock_manager = product_lock_manager
 
     async def getUsersAllOrder(self, user_id: int) -> List[OrderModel]:
-        """Fetch all orders for a specific user."""
+        """Fetch all orders for a specific user with product data loaded."""
         async with self.db.get_session() as session:
             result = await session.exec(
                 select(OrderModel)
+                .options(selectinload(OrderModel.product))
                 .where(OrderModel.user_id == user_id)
                 .order_by(OrderModel.created_at.desc())
             )
             return result.all()
 
+    async def get_order_by_id(self, order_id: int) -> Optional[OrderModel]:
+        """Fetch a single order by its ID with product data loaded."""
+        async with self.db.get_session() as session:
+            result = await session.exec(
+                select(OrderModel)
+                .options(selectinload(OrderModel.product))
+                .where(OrderModel.id == order_id)
+            )
+            return result.first()
+
     async def get_orders_by_gateway_id(self, gateway_order_id: str) -> List[OrderModel]:
         """Fetch orders associated with an external payment gateway order ID."""
         async with self.db.get_session() as session:
             result = await session.exec(
-                select(OrderModel).where(OrderModel.gateway_order_id == gateway_order_id)
+                select(OrderModel)
+                .options(selectinload(OrderModel.product))
+                .where(OrderModel.gateway_order_id == gateway_order_id)
             )
             return result.all()
 
@@ -75,7 +88,7 @@ class OrderRepository:
         """
         async with self.db.get_session() as session:
             try:
-                query = select(OrderModel)
+                query = select(OrderModel).options(selectinload(OrderModel.product))
                 if gateway_order_id:
                     query = query.where(OrderModel.gateway_order_id == gateway_order_id)
                 elif order_id:
