@@ -3,6 +3,7 @@ import re
 import json
 import uuid
 import asyncio
+from typing import Any, Optional, Dict, List, Union
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import ToolMessage
 from langchain_core.runnables import RunnableLambda
@@ -474,7 +475,7 @@ def _log_tool_audit(tool_name: str, tool_args: dict, parsed: Any, state: dict):
         result = None
         metadata = {}
 
-        if tool_name in ("negotiate_discount", "evaluate_counter_offer"):
+        if tool_name in ("negotiate_discount", "evaluate_counter_offer", "negotiate_product_discount"):
             req_pct = tool_args.get("requested_discount_percent", 0.0)
             granted_pct = parsed.get("granted_discount_percent", 0.0) if isinstance(parsed, dict) else 0.0
             accepted = parsed.get("accepted", False) if isinstance(parsed, dict) else False
