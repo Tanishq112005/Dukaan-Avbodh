@@ -439,3 +439,6 @@ class AgentController:
 
 agentController = AgentController()
 agent_controller = agentController
+
+userController = agentController
+UserController = AgentController

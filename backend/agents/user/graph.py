@@ -452,5 +452,5 @@ def compile_agent_graph(fast_llm, medium_llm=None, small_llm=None, tools_dict=No
     setup_nodes(workflow, agents, tools_node)
     setup_edges(workflow)
 
-    checkpointer_instance = checkPointer.getCheckPointer(prefer="redis")
+    checkpointer_instance = checkPointer.getCheckPointer(prefer="memory")
     return workflow.compile(checkpointer=checkpointer_instance)

@@ -66,11 +66,14 @@ if not hasattr(JsonPlusSerializer, "loads"):
 class AgentCheckPointer:
     """
     Manages LangGraph checkpointers for persisting conversation state.
-    Supports RedisCheckPointer (RedisSaver) with configurable connection parameters,
-    MongoDBCheckPointer (MongoDBSaver), and in-memory fallback.
+    Provides fast MemorySaver for zero-latency in-memory state transitions during live execution,
+    with RedisCheckPointer (RedisSaver) and MongoDBCheckPointer (MongoDBSaver) available for persistence.
     """
 
     def __init__(self):
+        # In-memory checkpointer
+        self._in_memory: Optional[MemorySaver] = None
+
         # MongoDB configurations
         self.mongo_uri = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
         self.mongodb_memory: Optional[MongoDBSaver] = None
@@ -84,6 +87,15 @@ class AgentCheckPointer:
         )
         ttl_seconds = int(os.getenv("REDIS_CHECKPOINT_TTL", "86400"))
         self.ttl = {"checkpoint": ttl_seconds, "checkpoint_write": ttl_seconds}
+
+    def getMemorySaver(self) -> MemorySaver:
+        """
+        Initializes and returns a shared in-memory checkpointer.
+        Eliminates network and serialization overhead during live graph execution.
+        """
+        if self._in_memory is None:
+            self._in_memory = MemorySaver()
+        return self._in_memory
 
     def getRedisCheckPointer(
         self,
@@ -129,30 +141,38 @@ class AgentCheckPointer:
         self.mongodb_memory = MongoDBSaver(sync_client)
         return self.mongodb_memory
 
-    def getCheckPointer(self, prefer: str = "redis") -> BaseCheckpointSaver:
+    def getCheckPointer(self, prefer: str = "memory") -> BaseCheckpointSaver:
         """
         Returns the active checkpointer passed to workflow.compile(checkpointer=...).
-        Prefers Redis by default, with graceful fallback to MongoDB or MemorySaver.
+        Defaults to in-memory checkpointer for ultra-fast, zero-I/O execution.
+        Persistence is handled asynchronously at the end of the turn.
         """
         prefer_type = os.getenv("CHECKPOINTER_TYPE", prefer).lower()
+
+        if prefer_type == "memory":
+            return self.getMemorySaver()
 
         if prefer_type == "redis":
             try:
                 return self.getRedisCheckPointer()
             except Exception as e:
                 logger.warning(
-                    "Redis checkpointer initialization failed (%s); falling back to MongoDB/MemorySaver.",
+                    "Redis checkpointer initialization failed (%s); falling back to MemorySaver.",
                     e,
                 )
+                return self.getMemorySaver()
 
-        try:
-            return self.getMongoDBCheckPointer()
-        except Exception as e:
-            logger.warning(
-                "MongoDB checkpointer initialization failed (%s); falling back to MemorySaver.",
-                e,
-            )
-            return MemorySaver()
+        if prefer_type == "mongodb":
+            try:
+                return self.getMongoDBCheckPointer()
+            except Exception as e:
+                logger.warning(
+                    "MongoDB checkpointer initialization failed (%s); falling back to MemorySaver.",
+                    e,
+                )
+                return self.getMemorySaver()
+
+        return self.getMemorySaver()
 
 
 checkPointer = AgentCheckPointer()
