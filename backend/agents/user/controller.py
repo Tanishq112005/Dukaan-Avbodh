@@ -19,7 +19,7 @@ from utils.text_cleaning import clean_ai_output
 logger = logging.getLogger(__name__)
 
 
-class UserController:
+class AgentController:
     """
     Controller for the User AI Chat Agent.
     Orchestrates user-cart synchronization, Redis memory hydration,
@@ -437,5 +437,5 @@ class UserController:
         yield "data: [DONE]\n\n"
 
 
-userController = UserController()
-user_controller = userController
+agentController = AgentController()
+agent_controller = agentController
