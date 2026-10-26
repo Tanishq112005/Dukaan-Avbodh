@@ -402,7 +402,8 @@ def initialize_agents(fast_llm, medium_llm=None, small_llm=None, tools_dict=None
 
 def setup_nodes(workflow: StateGraph, agents: dict, tools_node):
     """Registers all workflow nodes to the StateGraph."""
-    workflow.add_node("agent", agents["agent"].run)
+    agent_node = RunnableLambda(agents["agent"].run, afunc=agents["agent"].arun)
+    workflow.add_node("agent", agent_node)
     workflow.add_node("tools", tools_node)
     workflow.add_node("post_process", post_process_node)
 

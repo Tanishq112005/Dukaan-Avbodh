@@ -4,6 +4,7 @@ Replaces fragmented specialist agents (Director, Recommendation, Cart, Negotiati
 with a single, highly capable shopping stylist agent equipped with all catalog, cart, and bargaining tools.
 """
 import re
+import asyncio
 import logging
 from typing import List, Optional, Any
 
@@ -101,6 +102,32 @@ class UserAgent(IAgentInterface):
         messages = state.get("messages", [])
         prompt = self._build_prompt(state)
         response = self.llm.invoke(prompt)
+
+        if not hasattr(response, "additional_kwargs") or response.additional_kwargs is None:
+            response.additional_kwargs = {}
+
+        response.additional_kwargs["intent"] = self.intent
+
+        updates = {
+            "messages": [response],
+            "intent": self.intent,
+        }
+
+        # Auto-detect gender if not yet set in state
+        if not state.get("gender"):
+            detected_gender = self._detect_gender(messages)
+            if detected_gender:
+                updates["gender"] = detected_gender
+
+        return updates
+
+    async def arun(self, state: AgentState) -> dict:
+        messages = state.get("messages", [])
+        prompt = self._build_prompt(state)
+        if hasattr(self.llm, "ainvoke"):
+            response = await self.llm.ainvoke(prompt)
+        else:
+            response = await asyncio.to_thread(self.llm.invoke, prompt)
 
         if not hasattr(response, "additional_kwargs") or response.additional_kwargs is None:
             response.additional_kwargs = {}
