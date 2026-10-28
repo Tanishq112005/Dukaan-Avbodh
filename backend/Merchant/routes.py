@@ -1,6 +1,8 @@
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, Request
+from fastapi.responses import StreamingResponse
+from agents.merchant.controller import merchantAgentController
 
 from middleware.merchant_middleware import require_role
 from User.models import UserRole
@@ -152,9 +154,27 @@ async def update_pricing_bounds(
 @router.post("/chat", response_model=MerchantChatResponse)
 async def chat_with_merchant_agent(
     req: MerchantChatRequest,
+    request: Request,
     current_user: dict = Depends(require_role(UserRole.MERCHANT)),
 ):
     """Processes analytical and catalog management queries through the unified Merchant AI Agent."""
+    accept_header = request.headers.get("accept", "")
+    is_stream = (
+        "text/event-stream" in accept_header
+        or request.query_params.get("stream", "").lower() in ("true", "1")
+    )
+
+    if is_stream:
+        return StreamingResponse(
+            merchantAgentController.stream_message(req, current_user=current_user, request=request),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
     res = await merchantController.chat(
         text=req.text,
         thread_id=req.thread_id,

@@ -195,81 +195,16 @@ class MerchantController:
         Executes query through the unified LangGraph Merchant Agent and persists
         every conversation turn and state snapshot into MongoDB 'merchant_chats'.
         """
-        merchant_id = current_user.get("user_id", 1) if current_user else 1
-        thread = thread_id or f"merchant_{merchant_id}"
+        from agents.merchant.controller import merchantAgentController
+        from Merchant.schemas import MerchantChatRequest
 
-        # 1. Log incoming user message into MongoDB merchant_chats collection
-        await self.chat_repo.add_message(
-            merchant_id=merchant_id,
-            thread_id=thread,
-            role="merchant",
-            content=text,
+        req = MerchantChatRequest(text=text, thread_id=thread_id)
+        return await merchantAgentController.process_message(
+            req=req,
+            current_user=current_user,
         )
 
-        try:
-            from agents.merchant import agent_service as merchant_agent_service
 
-            agent = merchant_agent_service.get_merchant_agent()
-            config = {"configurable": {"thread_id": thread}}
-
-            initial_state = {
-                "messages": [HumanMessage(content=text)],
-                "merchant_id": merchant_id,
-                "user_id": merchant_id,
-                "thread_id": thread,
-            }
-
-            result = await agent.ainvoke(initial_state, config=config)
-            ai_reply = result.get("final_response", "Request processed.")
-
-            # 2. Extract state snapshot for verification
-            state_snapshot = {
-                "current_intent": result.get("current_intent"),
-                "last_tool_called": result.get("last_tool_called"),
-                "last_tool_args": result.get("last_tool_args"),
-                "last_tool_result": result.get("last_tool_result"),
-                "analytics_context": result.get("analytics_context"),
-                "updated_at": str(result.get("updated_at", "")),
-            }
-
-            # 3. Save assistant reply and state snapshot to MongoDB merchant_chats
-            await self.chat_repo.add_message(
-                merchant_id=merchant_id,
-                thread_id=thread,
-                role="assistant",
-                content=ai_reply,
-            )
-            await self.chat_repo.update_thread_state(
-                merchant_id=merchant_id,
-                thread_id=thread,
-                state_snapshot=state_snapshot,
-            )
-
-            return {
-                "type": "merchant_chat_reply",
-                "message": ai_reply,
-                "thread_id": thread,
-                "state": state_snapshot,
-            }
-
-        except Exception as e:
-            logger.exception("[MERCHANT CONTROLLER] AI agent interaction failed: %s", e)
-            fallback_reply = (
-                "I encountered an issue processing your store request. "
-                "Please verify backend services are healthy."
-            )
-            await self.chat_repo.add_message(
-                merchant_id=merchant_id,
-                thread_id=thread,
-                role="assistant",
-                content=fallback_reply,
-            )
-            return {
-                "type": "merchant_chat_reply",
-                "message": fallback_reply,
-                "thread_id": thread,
-                "state": {"error": str(e)},
-            }
 
 
 merchantController = MerchantController()

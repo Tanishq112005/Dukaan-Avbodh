@@ -1,6 +1,23 @@
+import os
+import sys
 import logging
 from typing import Optional, Dict, Any, List
 from langchain_core.tools import StructuredTool
+
+# Ensure backend root is discoverable for importing FastMCP merchant server
+backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if backend_path not in sys.path:
+    sys.path.insert(0, backend_path)
+
+try:
+    from mcp.merchant.server import mcp
+except Exception:
+    class DummyMCP:
+        def tool(self, *args, **kwargs):
+            return lambda fn: fn
+        def resource(self, *args, **kwargs):
+            return lambda fn: fn
+    mcp = DummyMCP()
 
 from Merchant.database import merchantRepository
 from Product.controller import productController
@@ -29,6 +46,7 @@ def _check_merchant_authorization(caller_role: Optional[str]) -> bool:
 # Native Merchant Function Tools (Strictly Merchant-Only)
 # ==============================================================================
 
+@mcp.tool()
 async def merchant_get_store_analytics(
     time_range: str = "all",
     caller_role: str = "merchant",
@@ -71,6 +89,7 @@ async def merchant_get_store_analytics(
         return {"status": "error", "error": f"Failed to retrieve analytics: {str(e)}"}
 
 
+@mcp.tool()
 async def merchant_get_top_selling_products(
     limit: int = 10,
     sort_by: str = "units_sold",
@@ -114,6 +133,7 @@ async def merchant_get_top_selling_products(
         return {"status": "error", "error": f"Failed to fetch top selling products: {str(e)}"}
 
 
+@mcp.tool()
 async def merchant_get_inventory_health_and_reorder_alerts(
     stock_threshold: int = 10,
     caller_role: str = "merchant",
@@ -150,6 +170,7 @@ async def merchant_get_inventory_health_and_reorder_alerts(
         return {"status": "error", "error": f"Failed to check inventory: {str(e)}"}
 
 
+@mcp.tool()
 async def merchant_lookup_order_details(
     order_identifier: str,
     caller_role: str = "merchant",
@@ -193,6 +214,7 @@ async def merchant_lookup_order_details(
         return {"status": "error", "error": f"Failed to lookup order: {str(e)}"}
 
 
+@mcp.tool()
 async def merchant_update_product_pricing_and_margin(
     product_id: int,
     new_price: float,
@@ -248,6 +270,7 @@ async def merchant_update_product_pricing_and_margin(
         return {"status": "error", "error": f"Failed to update pricing: {str(e)}"}
 
 
+@mcp.tool()
 async def merchant_get_customer_negotiation_insights(
     caller_role: str = "merchant",
 ) -> Dict[str, Any]:
@@ -273,6 +296,7 @@ async def merchant_get_customer_negotiation_insights(
         return {"status": "error", "error": f"Failed to fetch negotiation insights: {str(e)}"}
 
 
+@mcp.tool()
 async def merchant_publish_catalog_item(
     name: str,
     price: float,
