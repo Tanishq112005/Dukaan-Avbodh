@@ -11,7 +11,27 @@ if mcp_path not in sys.path:
     sys.path.insert(0, mcp_path)
 
 try:
-    from mcp_server_user.server import mcp
+    import mcp as _official_mcp
+    if hasattr(_official_mcp, "__path__") and mcp_path not in _official_mcp.__path__:
+        _official_mcp.__path__.append(mcp_path)
+except Exception:
+    pass
+
+try:
+    from mcp.user.server import mcp
+except Exception:
+    try:
+        from user.server import mcp
+    except Exception:
+        try:
+            from mcp_server_user.server import mcp
+        except Exception:
+            class DummyMCP:
+                def tool(self, *args, **kwargs):
+                    return lambda fn: fn
+                def resource(self, *args, **kwargs):
+                    return lambda fn: fn
+            mcp = DummyMCP()
 except Exception:
     class DummyMCP:
         def tool(self, *args, **kwargs):

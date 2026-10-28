@@ -48,8 +48,24 @@ class AgentService:
         # Fallback if remote MCP server is offline
         if not tools:
             logger.info("Remote MCP server offline or not configured. Using local direct tool suites.")
-            tools = []
-            self.tools_by_name = {}
+            from Auth.tools import get_auth_langchain_tools
+            from Cart.tools import get_cart_langchain_tools
+            from Negotiation.tools import get_negotiation_langchain_tools
+            from Order.tools import get_order_langchain_tools
+            from Recommedation.tools import get_recommendation_langchain_tools
+            from Payment.tools import get_payment_langchain_tools
+
+            direct_tools = (
+                get_auth_langchain_tools()
+                + get_cart_langchain_tools()
+                + get_negotiation_langchain_tools()
+                + get_order_langchain_tools()
+                + get_recommendation_langchain_tools()
+                + get_payment_langchain_tools()
+            )
+            self.tools_by_name = {t.name: t for t in direct_tools}
+            tool_names = ", ".join(sorted(self.tools_by_name.keys()))
+            logger.info(f"{len(direct_tools)} direct local tools loaded: {tool_names}")
         else:
             self.tools_by_name = {t.name: t for t in tools}
             tool_names = ", ".join(sorted(self.tools_by_name.keys()))
@@ -100,4 +116,5 @@ class AgentService:
         return self.agent
 
 
-agent_service = AgentService()
+agentService = AgentService()
+agent_service = agentService

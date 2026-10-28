@@ -1,12 +1,43 @@
+import os
+import sys
 import logging
 from typing import List, Dict, Any, Optional
 from langchain_core.tools import StructuredTool
+
+# Ensure backend/mcp directory is discoverable for importing FastMCP user server
+mcp_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "mcp"))
+if mcp_path not in sys.path:
+    sys.path.insert(0, mcp_path)
+
+try:
+    import mcp as _official_mcp
+    if hasattr(_official_mcp, "__path__") and mcp_path not in _official_mcp.__path__:
+        _official_mcp.__path__.append(mcp_path)
+except Exception:
+    pass
+
+try:
+    from mcp.user.server import mcp
+except Exception:
+    try:
+        from user.server import mcp
+    except Exception:
+        try:
+            from mcp_server_user.server import mcp
+        except Exception:
+            class DummyMCP:
+                def tool(self, *args, **kwargs):
+                    return lambda fn: fn
+                def resource(self, *args, **kwargs):
+                    return lambda fn: fn
+            mcp = DummyMCP()
 
 from Payment.controller import paymentController
 
 logger = logging.getLogger(__name__)
 
 
+@mcp.tool()
 async def create_payment_order(
     user_id: int,
     discount: float = 0.0,
@@ -80,6 +111,7 @@ async def create_payment_order(
         }
 
 
+@mcp.tool()
 async def check_payment_status(
     user_id: int,
     thread_id: str = "",

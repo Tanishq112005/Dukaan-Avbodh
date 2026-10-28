@@ -18,7 +18,7 @@ import asyncio
 script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_dir)
 
-# Same Windows fix used in mcp_server_user/main.py -- asyncpg + ProactorEventLoop
+# Same Windows fix used in mcp/user/server.py -- asyncpg + ProactorEventLoop
 # don't get along on Windows.
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -35,7 +35,7 @@ BATCH_SIZE = 100
 
 def build_product_text(product) -> str:
     """Text representation of a product used to generate its embedding.
-    Keep this in sync with how queries are phrased in mcp_server_user/search.py
+    Keep this in sync with how queries are phrased in Recommedation/tools.py
     so query-vectors and product-vectors live in a similar semantic space."""
     parts = [product.name]
     if product.description:

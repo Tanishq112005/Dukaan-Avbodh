@@ -5,11 +5,31 @@ from fastapi import HTTPException
 
 # Ensure backend/mcp directory is discoverable for importing FastMCP user server
 mcp_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "mcp"))
-
 if mcp_path not in sys.path:
     sys.path.insert(0, mcp_path)
 
-from mcp_server_user.server import mcp
+try:
+    import mcp as _official_mcp
+    if hasattr(_official_mcp, "__path__") and mcp_path not in _official_mcp.__path__:
+        _official_mcp.__path__.append(mcp_path)
+except Exception:
+    pass
+
+try:
+    from mcp.user.server import mcp
+except Exception:
+    try:
+        from user.server import mcp
+    except Exception:
+        try:
+            from mcp_server_user.server import mcp
+        except Exception:
+            class DummyMCP:
+                def tool(self, *args, **kwargs):
+                    return lambda fn: fn
+                def resource(self, *args, **kwargs):
+                    return lambda fn: fn
+            mcp = DummyMCP()
 
 from Cart.controller import cartController
 from Cart.schemas import (
@@ -92,8 +112,9 @@ async def add_to_cart(
 
     LLM Usage & Instructions:
     1. Call this tool when customer says 'add to cart', 'buy this', 'put this in my bag', or accepts a recommended product.
-    2. If product price was negotiated before adding to cart (Scenario 1), ALWAYS pass the agreed 'discount_percentage'.
-    3. If the user hasn't specified a size for clothing, ask them for their size, or pass a default size if agreed.
+    2. NEGOTIATED ITEMS ONLY: If this specific product (product_id) was individually negotiated prior to adding, pass its approved 'discount_percentage'.
+    3. UN-NEGOTIATED ITEMS (CRITICAL): If adding any other product that was NOT individually negotiated in this session, you MUST pass discount_percentage=0.0! NEVER transfer or copy another product's discount percentage to this item!
+    4. If the user hasn't specified a size for clothing, ask them for their size, or pass a default size if agreed.
     4. MANDATORY AUTH CHECK: If user_id is NOT provided (or user is a guest/unauthenticated), do NOT call this tool. Instead, ask the user to log in or sign up first: [Log In or Sign Up](/login).
     5. Confirm addition by stating the product name, quantity, selected size, and any applied discount.
     """

@@ -242,14 +242,10 @@ Dukaan/
 │   │       └── agent_service.py        # Graph compilation & merchant state setup
 │   │
 │   ├── mcp/                            # Model Context Protocol servers
-│   │   └── mcp_server_user/            # Customer tools server (port 8001)
-│   │       ├── cart.py                 # Cart operations
-│   │       ├── order.py                # Order and payment checking
-│   │       ├── pricing.py              # Combo calculations & negotiation tool
-│   │       ├── product.py              # Product retrieval
-│   │       ├── recommendation.py       # Hybrid recommendation logic
-│   │       ├── search.py               # Vector + keyword hybrid search
-│   │       └── user.py                 # Buyer profile management
+│   │   ├── user/                       # Customer FastMCP server (port 8001)
+│   │   │   └── server.py               # Wires tools from Auth, Cart, Negotiation, Order, Recommendation, Payment
+│   │   └── merchant/                   # Merchant FastMCP server (port 8002)
+│   │       └── server.py               # Wires tools directly from Merchant domain
 │   │
 │   ├── Cart/                           # Cart management domain
 │   ├── Chat/                           # Customer chat threads & audit retrieval
@@ -678,7 +674,7 @@ To run the complete platform locally, open separate terminal windows:
 ```bash
 cd backend
 .venv\Scripts\activate   # (or source .venv/bin/activate on Linux/Mac)
-python -m mcp.mcp_server_user.main
+python -m mcp.user.server
 ```
 *Runs FastMCP SSE server on `http://localhost:8001`.*
 
@@ -737,7 +733,7 @@ python tests/test_order_concurrency_e2e.py
 |---|---|---|
 | **Backend API** | [Render](https://render.com) / [Railway](https://railway.app) | Web Service running `uvicorn main:app --host 0.0.0.0 --port $PORT` |
 | **Frontend** | [Vercel](https://vercel.com) | Framework preset: Vite. Output directory: `dist/`. SPA rewrites configured in `vercel.json` |
-| **User MCP Tool Server** | [Render](https://render.com) | Background Worker / Private Service running `python -m mcp.mcp_server_user.main` |
+| **User MCP Tool Server** | [Render](https://render.com) | Background Worker / Private Service running `python -m mcp.user.server` |
 | **PostgreSQL** | [Neon](https://neon.tech) | Serverless PostgreSQL with SSL connection pooling |
 | **MongoDB** | [MongoDB Atlas](https://www.mongodb.com/atlas) | Serverless or M0 cluster with IP access rules configured |
 | **Redis** | [Upstash](https://upstash.com) | Serverless Redis with standard TLS connection string |
