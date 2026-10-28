@@ -104,6 +104,15 @@ async def run_merchant_agent_tests():
     ai_del = AIMessage(content="", tool_calls=[{"name": "merchant_delete_product", "args": {"product_id": 1}, "id": "tc4"}])
     assert agent._detect_intent(ai_del) == "product_deletion"
 
+    ai_order_hist = AIMessage(content="", tool_calls=[{"name": "merchant_get_order_history", "args": {}, "id": "tc5"}])
+    assert agent._detect_intent(ai_order_hist) == "order_history"
+
+    ai_threads = AIMessage(content="", tool_calls=[{"name": "merchant_get_customer_chat_threads", "args": {}, "id": "tc6"}])
+    assert agent._detect_intent(ai_threads) == "chat_threads_inspection"
+
+    ai_transcript = AIMessage(content="", tool_calls=[{"name": "merchant_get_chat_thread_transcript", "args": {"thread_id": "t1"}, "id": "tc7"}])
+    assert agent._detect_intent(ai_transcript) == "chat_transcript_inspection"
+
     print("  -> Sync and async agent execution correctly detects tool-driven intent across all tools.")
 
     # --------------------------------------------------------------------------
