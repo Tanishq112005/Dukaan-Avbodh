@@ -28,6 +28,9 @@ class AgentState(TypedDict, total=False):
     top_selling_products: Optional[List[Dict[str, Any]]]
     inventory_alerts: Optional[List[Dict[str, Any]]]
     order_lookup: Optional[Dict[str, Any]]
+    order_history: Optional[Dict[str, Any]]
+    chat_threads: Optional[List[Dict[str, Any]]]
+    chat_transcript: Optional[Dict[str, Any]]
     negotiation_insights: Optional[Dict[str, Any]]
     pricing_updates: Optional[Dict[str, Any]]
 

@@ -253,7 +253,7 @@ class HealthService:
     def check_agents(self) -> Dict[str, Any]:
         """Verifies state of user and merchant agent graphs."""
         from agents.user import agent_service
-        from agents.merchant import agent_service as merchant_agent_service
+        from agents.merchant import service as merchant_agent_service
 
         user_agent_ready = getattr(agent_service, "graph", None) is not None
         merchant_agent_ready = getattr(merchant_agent_service, "graph", None) is not None

@@ -68,6 +68,12 @@ class MerchantAgent(IAgentInterface):
                 return "top_products_inquiry"
             elif "inventory" in first_tool:
                 return "inventory_health_check"
+            elif "order_history" in first_tool:
+                return "order_history"
+            elif "customer_chat_threads" in first_tool or "chat_threads" in first_tool:
+                return "chat_threads_inspection"
+            elif "transcript" in first_tool:
+                return "chat_transcript_inspection"
             elif "order" in first_tool:
                 return "order_lookup"
             elif "pricing" in first_tool:

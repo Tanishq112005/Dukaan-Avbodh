@@ -15,6 +15,9 @@ from Merchant.tools import (
     merchant_get_top_selling_products,
     merchant_get_inventory_health_and_reorder_alerts,
     merchant_lookup_order_details,
+    merchant_get_order_history,
+    merchant_get_customer_chat_threads,
+    merchant_get_chat_thread_transcript,
     merchant_update_product_pricing_and_margin,
     merchant_get_customer_negotiation_insights,
     merchant_publish_catalog_item,
@@ -61,6 +64,21 @@ async def run_merchant_tools_tests():
     assert unauthorized_del["error"] == MERCHANT_ONLY_ERROR
     print("  -> Access successfully denied with FORBIDDEN message for delete_product!")
 
+    unauthorized_history = await merchant_get_order_history(caller_role="customer")
+    assert unauthorized_history["status"] == "error"
+    assert unauthorized_history["error"] == MERCHANT_ONLY_ERROR
+    print("  -> Access successfully denied with FORBIDDEN message for get_order_history!")
+
+    unauthorized_threads = await merchant_get_customer_chat_threads(caller_role="guest")
+    assert unauthorized_threads["status"] == "error"
+    assert unauthorized_threads["error"] == MERCHANT_ONLY_ERROR
+    print("  -> Access successfully denied with FORBIDDEN message for get_customer_chat_threads!")
+
+    unauthorized_transcript = await merchant_get_chat_thread_transcript(thread_id="t1", caller_role=None)
+    assert unauthorized_transcript["status"] == "error"
+    assert unauthorized_transcript["error"] == MERCHANT_ONLY_ERROR
+    print("  -> Access successfully denied with FORBIDDEN message for get_chat_thread_transcript!")
+
     # 2. Test authorized merchant invocation of tools
     print("\n[2] Testing native LangChain StructuredTools export:")
     tools = get_merchant_langchain_tools()
@@ -68,7 +86,7 @@ async def run_merchant_tools_tests():
     for t in tools:
         print(f"     * {t.name}")
 
-    assert len(tools) == 10, f"Expected 10 merchant tools, found {len(tools)}"
+    assert len(tools) == 13, f"Expected 13 merchant tools, found {len(tools)}"
     print("\nALL MERCHANT TOOLS AUTHORIZATION CHECKS PASSED SUCCESSFULLY!\n")
 
 

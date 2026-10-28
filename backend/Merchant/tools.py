@@ -20,6 +20,7 @@ except Exception:
     mcp = DummyMCP()
 
 from Merchant.database import merchantRepository
+from Merchant.utils import serialize_mongo_doc
 from Product.controller import productController
 from Product.schemas import AddProductRequest
 from Product.models import ProductType, Product
@@ -538,14 +539,236 @@ async def merchant_delete_product(
         return {"status": "error", "error": f"Failed to delete product #{product_id}: {str(e)}"}
 
 
+@mcp.tool()
+async def merchant_get_order_history(
+    status: Optional[str] = None,
+    limit: int = 50,
+    skip: int = 0,
+    caller_role: str = "merchant",
+) -> Dict[str, Any]:
+    """
+    Fetches the store's complete order history and total revenue received,
+    allowing the merchant/shopkeeper to check cumulative total money received,
+    order counts, breakdown by status, and individual order details.
+
+    Parameters:
+    - status (str, Optional): Filter by status (e.g. 'placed', 'completed', 'paid', 'pending', 'cancelled'). Default is None (all orders).
+    - limit (int, Optional, default=50): Maximum number of orders to return.
+    - skip (int, Optional, default=0): Offset for pagination.
+    - caller_role (str, Required): Must strictly be 'merchant'.
+
+    LLM Usage:
+    - Call this tool whenever the merchant asks about:
+      * "Check order history"
+      * "How much total money / order total did we receive?"
+      * "Total sales / revenue received from orders"
+      * "List recent customer orders and payment statuses"
+    """
+    if not _check_merchant_authorization(caller_role):
+        return {"status": "error", "error": MERCHANT_ONLY_ERROR}
+
+    try:
+        raw_orders = await merchantRepository.get_all_orders(limit=limit, skip=skip, status=status)
+        
+        total_revenue = 0.0
+        total_discounts = 0.0
+        status_counts: Dict[str, int] = {}
+        formatted_orders = []
+
+        for ord_dict in raw_orders:
+            amt = float(ord_dict.get("total_amount") or 0.0)
+            disc = float(ord_dict.get("discount_applied") or 0.0)
+            st = str(ord_dict.get("status") or "placed").lower()
+
+            total_revenue += amt
+            total_discounts += disc
+            status_counts[st] = status_counts.get(st, 0) + 1
+
+            prods = ord_dict.get("products") or []
+            item_names = [p.get("name") for p in prods if p.get("name")]
+            total_items_count = sum(p.get("quantity", 1) for p in prods)
+
+            formatted_orders.append({
+                "order_id": ord_dict.get("order_id") or ord_dict.get("id"),
+                "gateway_id": ord_dict.get("razorpay_order_id"),
+                "customer_name": ord_dict.get("user", {}).get("name", "Customer"),
+                "customer_email": ord_dict.get("user", {}).get("email"),
+                "total_amount_inr": round(amt, 2),
+                "discount_applied_inr": round(disc, 2),
+                "status": st,
+                "items_count": total_items_count,
+                "products_summary": ", ".join(item_names[:3]) + ("..." if len(item_names) > 3 else ""),
+                "created_at": ord_dict.get("created_at"),
+            })
+
+        return {
+            "status": "success",
+            "filter_status": status,
+            "total_orders_received": len(raw_orders),
+            "total_revenue_received_inr": round(total_revenue, 2),
+            "total_discounts_given_inr": round(total_discounts, 2),
+            "status_breakdown": status_counts,
+            "orders": formatted_orders,
+        }
+    except Exception as e:
+        logger.exception("[MERCHANT TOOL ERROR] merchant_get_order_history: %s", e)
+        return {"status": "error", "error": f"Failed to retrieve order history: {str(e)}"}
+
+
+@mcp.tool()
+async def merchant_get_customer_chat_threads(
+    limit: int = 20,
+    user_id: Optional[int] = None,
+    caller_role: str = "merchant",
+) -> Dict[str, Any]:
+    """
+    Retrieves customer shopping, negotiation, and assistance chat threads from MongoDB.
+    Allows the merchant to inspect customer interactions, shopping sessions, and negotiation activity.
+
+    Parameters:
+    - limit (int, Optional, default=20): Number of threads to return.
+    - user_id (int, Optional): Filter threads belonging to a specific customer ID.
+    - caller_role (str, Required): Must strictly be 'merchant'.
+
+    LLM Usage:
+    - Call this tool when the merchant wants to see:
+      * "Customer chat threads"
+      * "Inspect customer conversations"
+      * "What sessions did customer #4 have?"
+      * "List recent customer chats"
+    """
+    if not _check_merchant_authorization(caller_role):
+        return {"status": "error", "error": MERCHANT_ONLY_ERROR}
+
+    try:
+        from Chat.database import chat_audit_repo
+        if user_id is not None:
+            raw_threads = await chat_audit_repo.get_all_threads_for_user(int(user_id))
+        else:
+            cursor = chat_audit_repo.collection.find().sort("updated_at", -1).limit(limit)
+            raw_threads = await cursor.to_list(length=limit)
+
+        threads_summary = []
+        for t in raw_threads:
+            doc = serialize_mongo_doc(t)
+            msgs = doc.get("messages") or []
+            state = doc.get("state") or {}
+
+            latest_user_text = None
+            latest_ai_text = None
+            for m in reversed(msgs):
+                sender = str(m.get("sender") or "").lower()
+                text = m.get("message") or ""
+                if not latest_user_text and sender in ("human", "user"):
+                    latest_user_text = text[:120]
+                elif not latest_ai_text and sender in ("ai", "assistant"):
+                    latest_ai_text = text[:120]
+                if latest_user_text and latest_ai_text:
+                    break
+
+            threads_summary.append({
+                "thread_id": doc.get("thread_id"),
+                "user_id": doc.get("user_id"),
+                "messages_count": len(msgs),
+                "created_at": doc.get("created_at"),
+                "updated_at": doc.get("updated_at"),
+                "order_placed": state.get("order_placed", False),
+                "negotiated_discount_percent": state.get("discount") or state.get("discount_percentage", 0),
+                "latest_user_message": latest_user_text,
+                "latest_ai_response": latest_ai_text,
+            })
+
+        return {
+            "status": "success",
+            "threads_count": len(threads_summary),
+            "user_id_filter": user_id,
+            "threads": threads_summary,
+        }
+    except Exception as e:
+        logger.exception("[MERCHANT TOOL ERROR] merchant_get_customer_chat_threads: %s", e)
+        return {"status": "error", "error": f"Failed to retrieve customer chat threads: {str(e)}"}
+
+
+@mcp.tool()
+async def merchant_get_chat_thread_transcript(
+    thread_id: str,
+    user_id: Optional[int] = None,
+    caller_role: str = "merchant",
+) -> Dict[str, Any]:
+    """
+    Retrieves the complete message-by-message transcript and bargaining state
+    for a specific customer chat thread.
+
+    Parameters:
+    - thread_id (str, Required): Unique thread identifier (e.g. 'thread_user_12_abc').
+    - user_id (int, Optional): Customer ID if known.
+    - caller_role (str, Required): Must strictly be 'merchant'.
+
+    LLM Usage:
+    - Call this tool when the merchant wants to inspect the exact dialog of a customer session:
+      * "Show me transcript for thread thread_user_5_xyz"
+      * "Read chat transcript for session 123"
+      * "What exact messages did the customer exchange with the AI?"
+    """
+    if not _check_merchant_authorization(caller_role):
+        return {"status": "error", "error": MERCHANT_ONLY_ERROR}
+
+    try:
+        from Chat.database import chat_audit_repo
+        clean_tid = str(thread_id).strip()
+
+        query: Dict[str, Any] = {"thread_id": clean_tid}
+        if user_id is not None:
+            query["user_id"] = int(user_id)
+
+        doc = await chat_audit_repo.collection.find_one(query)
+        if not doc:
+            doc = await chat_audit_repo.collection.find_one({"thread_id": {"$regex": clean_tid, "$options": "i"}})
+
+        if not doc:
+            return {
+                "status": "not_found",
+                "message": f"No chat thread found matching ID '{thread_id}'.",
+            }
+
+        serialized = serialize_mongo_doc(doc)
+        msgs = serialized.get("messages") or []
+        formatted_messages = []
+        for m in msgs:
+            formatted_messages.append({
+                "sender": m.get("sender") or ("user" if m.get("role") == "user" else "assistant"),
+                "message": m.get("message") or m.get("content") or "",
+                "timestamp": m.get("timestamp"),
+                "has_cards": bool(m.get("cards")),
+            })
+
+        state = serialized.get("state") or {}
+        return {
+            "status": "success",
+            "thread_id": serialized.get("thread_id"),
+            "user_id": serialized.get("user_id"),
+            "created_at": serialized.get("created_at"),
+            "updated_at": serialized.get("updated_at"),
+            "message_count": len(formatted_messages),
+            "order_placed": state.get("order_placed", False),
+            "discount_percentage": state.get("discount") or state.get("discount_percentage", 0),
+            "negotiation_log": state.get("negotiation_log", []),
+            "messages": formatted_messages,
+        }
+    except Exception as e:
+        logger.exception("[MERCHANT TOOL ERROR] merchant_get_chat_thread_transcript: %s", e)
+        return {"status": "error", "error": f"Failed to retrieve chat transcript: {str(e)}"}
+
+
 # ==============================================================================
 # LangChain / LangGraph Adapter Helper
 # ==============================================================================
 
 def get_merchant_langchain_tools() -> List[StructuredTool]:
     """
-    Returns all 10 merchant administration, product management, and analytics tools
-    wrapped as native LangChain StructuredTools, ready to bind directly to the Merchant Agent
+    Returns all 13 merchant administration, product management, order history,
+    customer chat thread inspection, and analytics tools wrapped as native
+    LangChain StructuredTools, ready to bind directly to the Merchant Agent
     with ZERO external MCP server dependency.
     """
     return [
@@ -568,6 +791,21 @@ def get_merchant_langchain_tools() -> List[StructuredTool]:
             coroutine=merchant_lookup_order_details,
             name="merchant_lookup_order_details",
             description=merchant_lookup_order_details.__doc__,
+        ),
+        StructuredTool.from_function(
+            coroutine=merchant_get_order_history,
+            name="merchant_get_order_history",
+            description=merchant_get_order_history.__doc__,
+        ),
+        StructuredTool.from_function(
+            coroutine=merchant_get_customer_chat_threads,
+            name="merchant_get_customer_chat_threads",
+            description=merchant_get_customer_chat_threads.__doc__,
+        ),
+        StructuredTool.from_function(
+            coroutine=merchant_get_chat_thread_transcript,
+            name="merchant_get_chat_thread_transcript",
+            description=merchant_get_chat_thread_transcript.__doc__,
         ),
         StructuredTool.from_function(
             coroutine=merchant_update_product_pricing_and_margin,

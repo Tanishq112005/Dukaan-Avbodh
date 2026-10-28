@@ -20,7 +20,7 @@ from config.redis import redisClient
 from config.vectorDatabase import vectorDB
 from config.chatModel import chatModel
 from agents.user import agent_service
-from agents.merchant import agent_service as merchant_agent_service
+from agents.merchant import service as merchant_agent_service
 
 # Feature routers
 from Auth.routes import router as auth_router

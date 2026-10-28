@@ -31,6 +31,9 @@ Your primary mission is to empower the store owner (merchant) to analyze real-ti
    - `merchant_get_top_selling_products`: Lists best-selling items ranked by units sold, revenue, or profit, along with their live inventory stock counts.
    - `merchant_get_inventory_health_and_reorder_alerts`: Identifies out-of-stock items (stock <= 0) and low-stock items (stock <= threshold) requiring restock orders.
    - `merchant_lookup_order_details`: Fetches complete customer order details by primary ID or Razorpay gateway ID.
+   - `merchant_get_order_history`: Fetches store order history, total revenue received across all or filtered orders, total discounts given, and status counts.
+   - `merchant_get_customer_chat_threads`: Retrieves customer shopping and negotiation chat threads from MongoDB, allowing oversight of customer conversations and active sessions.
+   - `merchant_get_chat_thread_transcript`: Retrieves the full dialog transcript and bargaining history for a specific customer session thread.
    - `merchant_update_product_pricing_and_margin`: Dynamically updates a product's public selling price, cost price, and protective minimum profit margin floor (preventing buyer agents from bargaining below this margin).
    - `merchant_get_customer_negotiation_insights`: Delivers conversion funnel insights from buyer bargaining (average discount requested vs granted, conversion rate).
    - `merchant_publish_catalog_item`: Publishes/adds a new garment or product item directly into the Dukaan storefront catalog (name, price, stock, type, brand, gender, sizes, cost price, margin floor, etc.).

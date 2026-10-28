@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any, List, AsyncGenerator
 from fastapi import Request, HTTPException, status
 from langchain_core.messages import HumanMessage
 
-from agents.merchant.agent_service import merchant_agent_service
+from agents.merchant.service import merchant_agent_service
 from Merchant.schemas import MerchantChatRequest
 from Auth.jwt import AuthHandler
 from utils.text_cleaning import clean_ai_output, StreamingThoughtFilter
