@@ -426,6 +426,7 @@ class MerchantRepository:
             orders_placed_count = 0
             requested_sum = 0.0
             granted_sum = 0.0
+            product_discounts: Dict[str, Dict[str, Any]] = {}
 
             for t in threads:
                 st = t.get("state") or {}
@@ -443,9 +444,41 @@ class MerchantRepository:
                         if log.get("accepted"):
                             agreed_count += 1
 
+                # Aggregate per-product negotiation and agreed discount history
+                neg_prods = st.get("negotiated_products") or {}
+                if isinstance(neg_prods, dict):
+                    for pid_key, p_info in neg_prods.items():
+                        if isinstance(p_info, dict):
+                            p_name = p_info.get("product_name") or f"Product #{pid_key}"
+                            p_disc = float(p_info.get("discount_percentage", 0.0) or 0.0)
+                            if pid_key not in product_discounts:
+                                product_discounts[pid_key] = {
+                                    "product_id": p_info.get("product_id") or pid_key,
+                                    "product_name": p_name,
+                                    "times_negotiated": 0,
+                                    "total_discount_sum": 0.0,
+                                    "max_discount_given": 0.0,
+                                }
+                            product_discounts[pid_key]["times_negotiated"] += 1
+                            product_discounts[pid_key]["total_discount_sum"] += p_disc
+                            product_discounts[pid_key]["max_discount_given"] = max(
+                                product_discounts[pid_key]["max_discount_given"], p_disc
+                            )
+
             avg_req = (requested_sum / negotiation_rounds) if negotiation_rounds > 0 else 0.0
             avg_granted = (granted_sum / negotiation_rounds) if negotiation_rounds > 0 else 0.0
             conversion_rate = (orders_placed_count / total_sessions * 100) if total_sessions > 0 else 0.0
+
+            product_breakdown = []
+            for p_val in product_discounts.values():
+                times = p_val["times_negotiated"]
+                product_breakdown.append({
+                    "product_id": p_val["product_id"],
+                    "product_name": p_val["product_name"],
+                    "negotiation_count": times,
+                    "average_discount_percent": round(p_val["total_discount_sum"] / times, 1) if times > 0 else 0.0,
+                    "max_discount_percent": round(p_val["max_discount_given"], 1),
+                })
 
             return {
                 "total_chat_sessions": total_sessions,
@@ -455,6 +488,7 @@ class MerchantRepository:
                 "average_discount_granted": round(avg_granted, 1),
                 "conversion_rate": round(conversion_rate, 1),
                 "orders_placed_from_chat": orders_placed_count,
+                "product_discount_breakdown": product_breakdown,
             }
         except Exception as e:
             logger.warning("[MERCHANT REPO] Could not fetch negotiation funnel from Mongo: %s", e)
@@ -466,6 +500,7 @@ class MerchantRepository:
                 "average_discount_granted": 0.0,
                 "conversion_rate": 0.0,
                 "orders_placed_from_chat": 0,
+                "product_discount_breakdown": [],
             }
 
     # --------------------------------------------------------------------------

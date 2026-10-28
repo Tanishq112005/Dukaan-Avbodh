@@ -78,6 +78,7 @@ class NegotiationAnalytics(BaseModel):
     average_discount_granted: float = 0.0
     conversion_rate: float = 0.0
     orders_placed_from_chat: int = 0
+    product_discount_breakdown: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class MerchantDashboardAnalyticsResponse(BaseModel):

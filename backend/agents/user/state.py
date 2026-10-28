@@ -28,7 +28,10 @@ class AgentState(TypedDict, total=False):
     # Pricing & Bargaining
     current_discount_percent: float
     combo_offer: Optional[Any]
-    negotiated_products: Optional[dict]
+    negotiated_products: Optional[dict]  # product_id (str) -> {product_id, product_name, discount_percentage, discounted_price, original_price}
+    negotiation_log: Optional[List[dict]]  # Full audit history of each bargaining round
+    cart_global_discount_percent: Optional[float]  # Combined discount on top of cart
+    last_negotiated_product_id: Optional[int]
 
     # Payments & Checkout
     pending_payment_link: Optional[str]

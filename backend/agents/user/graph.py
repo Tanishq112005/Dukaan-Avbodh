@@ -3,6 +3,7 @@ import re
 import json
 import uuid
 import asyncio
+from datetime import datetime
 from typing import Any, Optional, Dict, List, Union
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import ToolMessage
@@ -116,8 +117,92 @@ def _extract_state_updates_from_tool_result(tool_name: str, parsed: dict) -> dic
         elif "suggested_products" in parsed:
             updates["suggested_products"] = parsed.get("suggested_products", [])
 
-    # 2. Pricing, Bargaining & Discounts
-    if "next_discount_percent" in parsed and parsed.get("next_discount_percent") is not None:
+    # 2. Pricing, Bargaining & Discounts (Strictly Per-Product Isolation & Combined Cart Discount)
+    is_prod_neg = (
+        tool_name == "negotiate_product_discount"
+        or (parsed.get("product_id") is not None and "next_discount_percent" in parsed)
+    )
+    is_cart_neg = (
+        tool_name in ("negotiate_discount", "evaluate_counter_offer")
+        or (not parsed.get("product_id") and "next_discount_percent" in parsed and "counter_offer_price" in parsed)
+    )
+
+    if is_prod_neg and parsed.get("product_id") is not None:
+        try:
+            pid = int(parsed["product_id"])
+            pid_str = str(pid)
+            next_disc = float(parsed.get("next_discount_percent") or 0.0)
+            c_price = float(parsed.get("counter_offer_price") or 0.0)
+            orig_price = float(parsed.get("original_price") or 0.0)
+            savings = float(parsed.get("savings_amount") or 0.0)
+            p_name = parsed.get("product_name") or f"Product #{pid}"
+
+            # Update per-product negotiated dictionary
+            curr_neg = dict(state.get("negotiated_products") or {})
+            curr_neg[pid_str] = {
+                "product_id": pid,
+                "product_name": p_name,
+                "discount_percentage": next_disc,
+                "discounted_price": c_price,
+                "counter_offer_price": c_price,
+                "original_price": orig_price,
+                "savings_amount": savings,
+                "accepted": bool(parsed.get("accepted")),
+                "updated_at": datetime.utcnow().isoformat(),
+            }
+            updates["negotiated_products"] = curr_neg
+            updates["last_negotiated_product_id"] = pid
+            updates["last_negotiated_discount_percent"] = next_disc
+
+            # Append to negotiation log for MongoDB audit persistence
+            curr_log = list(state.get("negotiation_log") or [])
+            curr_log.append({
+                "product_id": pid,
+                "product_name": p_name,
+                "original_price": orig_price,
+                "requested": float(parsed.get("requested_discount_percent") or 0.0),
+                "agent_offered": next_disc,
+                "counter_offer_price": c_price,
+                "accepted": bool(parsed.get("accepted")),
+                "scope": "product",
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+            updates["negotiation_log"] = curr_log
+        except Exception as p_neg_err:
+            pass
+
+    elif is_cart_neg:
+        try:
+            cart_disc = float(
+                parsed.get("next_discount_percent")
+                or parsed.get("counter_offer_discount_percent")
+                or parsed.get("counter_offer_percent")
+                or 0.0
+            )
+            c_price = float(parsed.get("counter_offer_price") or 0.0)
+            updates["cart_global_discount_percent"] = cart_disc
+            updates["current_discount_percent"] = cart_disc
+            if c_price > 0:
+                updates["cart_total"] = c_price
+
+            # Append to negotiation log for MongoDB audit persistence
+            curr_log = list(state.get("negotiation_log") or [])
+            curr_log.append({
+                "product_id": None,
+                "product_name": "Full Shopping Cart",
+                "original_price": float(parsed.get("total_original_price") or parsed.get("subtotal") or 0.0),
+                "requested": float(parsed.get("requested_discount_percent") or 0.0),
+                "agent_offered": cart_disc,
+                "counter_offer_price": c_price,
+                "accepted": bool(parsed.get("accepted")),
+                "scope": "cart",
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+            updates["negotiation_log"] = curr_log
+        except Exception as c_neg_err:
+            pass
+
+    elif "next_discount_percent" in parsed and parsed.get("next_discount_percent") is not None:
         updates["current_discount_percent"] = float(parsed["next_discount_percent"])
     elif "counter_offer_discount_percent" in parsed and parsed.get("counter_offer_discount_percent") is not None:
         updates["current_discount_percent"] = float(parsed["counter_offer_discount_percent"])

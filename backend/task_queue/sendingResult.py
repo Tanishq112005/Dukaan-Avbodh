@@ -61,6 +61,14 @@ class SendDataToQueue:
             saved_state["conversation_summary"] = state["conversation_summary"]
         if "important_facts" in state and state["important_facts"]:
             saved_state["important_facts"] = state["important_facts"]
+        if "negotiated_products" in state and state["negotiated_products"]:
+            saved_state["negotiated_products"] = state["negotiated_products"]
+        if "cart_global_discount_percent" in state and state["cart_global_discount_percent"] is not None:
+            saved_state["cart_global_discount_percent"] = state["cart_global_discount_percent"]
+        if "negotiation_log" in state and state["negotiation_log"]:
+            saved_state["negotiation_log"] = state["negotiation_log"]
+        if "current_discount_percent" in state and state["current_discount_percent"] is not None:
+            saved_state["current_discount_percent"] = state["current_discount_percent"]
 
         last_seq = len(saved_state["messages"])
         saved_state["last_seq"] = last_seq

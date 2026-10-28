@@ -234,7 +234,7 @@ class OrderRepository:
                 continue
             product_quantities[pid] = product_quantities.get(pid, 0) + qty
             it_disc = float(it.get("discount_percentage", 0.0) or 0.0)
-            product_discounts[pid] = max(product_discounts.get(pid, 0.0), it_disc, discount_percentage)
+            product_discounts[pid] = max(product_discounts.get(pid, 0.0), it_disc)
 
         if not product_quantities:
             raise ValueError("Invalid item quantities.")
@@ -276,8 +276,12 @@ class OrderRepository:
                         session.add(product)
 
                         from Product.models import get_base_selling_price
-                        item_disc = product_discounts.get(pid, discount_percentage)
-                        item_discount_factor = max(0.0, 1.0 - (item_disc / 100.0))
+                        it_disc = float(product_discounts.get(pid, 0.0) or 0.0)
+                        cart_disc = float(discount_percentage or 0.0)
+
+                        # Compound sequential discount: first item discount, then cart discount on top
+                        item_discount_factor = max(0.0, (1.0 - it_disc / 100.0) * (1.0 - cart_disc / 100.0))
+                        effective_disc = round(max(0.0, (1.0 - item_discount_factor) * 100.0), 2)
 
                         item_base_price = get_base_selling_price(product)
                         item_subtotal = item_base_price * requested_qty
@@ -293,7 +297,7 @@ class OrderRepository:
                             provider=provider,
                             payment_status=PaymentStatus.PENDING,
                             total_amount=item_final_amount,
-                            discount_applied=item_disc,
+                            discount_applied=effective_disc,
                         )
                         orders.append(order)
 

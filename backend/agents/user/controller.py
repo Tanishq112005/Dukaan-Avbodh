@@ -146,6 +146,9 @@ class AgentController:
 
         cached_summary = None
         cached_facts = None
+        cached_negotiated_products = None
+        cached_cart_global_discount = None
+        cached_negotiation_log = None
         try:
             from config.redis import redisClient
             r_client = redisClient.get_redis_client()
@@ -160,6 +163,12 @@ class AgentController:
                     is_authenticated = True
                 if eff_user_id <= 0 and cached_data.get("user_id"):
                     eff_user_id = int(cached_data.get("user_id"))
+                if "negotiated_products" in cached_data:
+                    cached_negotiated_products = cached_data.get("negotiated_products")
+                if "cart_global_discount_percent" in cached_data:
+                    cached_cart_global_discount = cached_data.get("cart_global_discount_percent")
+                if "negotiation_log" in cached_data:
+                    cached_negotiation_log = cached_data.get("negotiation_log")
         except Exception as cache_err:
             logger.warning("Could not read cached agent state: %s", cache_err)
 
@@ -176,6 +185,12 @@ class AgentController:
             initial_state["conversation_summary"] = cached_summary
         if cached_facts:
             initial_state["important_facts"] = cached_facts
+        if cached_negotiated_products:
+            initial_state["negotiated_products"] = cached_negotiated_products
+        if cached_cart_global_discount is not None:
+            initial_state["cart_global_discount_percent"] = cached_cart_global_discount
+        if cached_negotiation_log:
+            initial_state["negotiation_log"] = cached_negotiation_log
 
         return initial_state, cached_summary, cached_facts, eff_user_id
 
@@ -238,6 +253,9 @@ class AgentController:
                 "conversation_summary": state.get("conversation_summary") or cached_summary or "",
                 "important_facts": state.get("important_facts") or cached_facts or {},
                 "current_discount_percent": current_discount,
+                "cart_global_discount_percent": float(state.get("cart_global_discount_percent") or 0.0),
+                "negotiated_products": state.get("negotiated_products") or {},
+                "negotiation_log": state.get("negotiation_log") or [],
                 "combo_offer": combo_offer,
                 "final_response": ai_reply,
             }
@@ -278,6 +296,8 @@ class AgentController:
                 "total_cost_price": round(cost_tot, 2),
                 "final_profit": round(final_prof, 2),
                 "order_placed": bool(state.get("order_placed") or payment_link),
+                "negotiated_products": state.get("negotiated_products") or {},
+                "cart_global_discount_percent": float(state.get("cart_global_discount_percent") or 0.0),
             }
             if payment_link:
                 patch_payload["pending_payment_link"] = payment_link
@@ -429,6 +449,8 @@ class AgentController:
                             for key in (
                                 "suggested_products",
                                 "current_discount_percent",
+                                "cart_global_discount_percent",
+                                "negotiated_products",
                                 "cart_total",
                                 "cart",
                                 "combo_offer",

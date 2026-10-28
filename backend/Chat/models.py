@@ -21,17 +21,23 @@ class AppliedCampaignSnapshot(BaseModel):
 
 
 class NegotiationLog(BaseModel):
-    requested: float
-    agent_offered: float
-    accepted: bool
+    product_id: Optional[int] = None
+    product_name: Optional[str] = None
+    original_price: Optional[float] = None
+    requested: float = 0.0
+    agent_offered: float = 0.0
+    accepted: bool = False
     counter_offer_price: Optional[float] = None
     margin: Optional[float] = None
     loss_leader: bool = False
+    scope: str = "product"  # "product" or "cart"
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
 class ThreadState(BaseModel):
     current_discount_percent: float = 0.0
+    cart_global_discount_percent: float = 0.0
+    negotiated_products: Dict[str, Any] = {}
     suggested_products: List[Any] = []
     combo_offer: Optional[Dict[str, Any]] = None
     kit_products: List[Dict[str, Any]] = []

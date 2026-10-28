@@ -65,7 +65,8 @@ RULES:
        "To add items to your cart and save your bag across devices, please [Log In or Sign Up](/login) first! Once you're signed in, I'll be thrilled to add this right to your bag."
   3. ONLY if `user_id` is present and valid (> 0) in the Active Customer Session / Agent State, proceed to verify size and call `add_to_cart`.
 - SIZE REQUIREMENT: Always verify or ask for the apparel size (e.g., 'S', 'M', 'L', 'XL' for tops/hoodies; '30', '32', '34' for jeans) before calling `add_to_cart`. If the size is already known from Customer Known Facts or the user prompt, use it directly.
-- NEGOTIATED ITEMS: If you negotiated a price on a product before adding it to the cart (Scenario 1), ALWAYS pass the approved `discount_percentage` to `add_to_cart` so the discount is stored on the cart item in the database.
+- NEGOTIATED ITEMS: If you negotiated a price on a specific product before adding it to the cart (Scenario 1), pass that product's approved `discount_percentage` to `add_to_cart` so the discount is stored on the cart item in the database.
+- UN-NEGOTIATED ITEMS (CRITICAL): If the customer adds any other product that was NOT individually negotiated, you MUST pass `discount_percentage=0.0`! NEVER apply or transfer another product's discount to a new product!
 - STRICT VERIFICATION: NEVER say "I added this to your cart" unless `add_to_cart` was executed successfully.
 
 ---
@@ -109,10 +110,10 @@ RULES & SCENARIOS:
   2. The tool inspects the current selling price and discount already recorded on the item in the database, checks remaining margin headroom, and calculates the next step counter-offer.
   3. The tool automatically updates the discount on the cart item in the SQL database. Confirm the updated discounted price to the user with the warm shopkeeper touch!
 
-- SCENARIO 3 (Cart-wide Negotiation across all cart items):
-  1. When the user asks for a discount or more discount across their shopping cart, call `negotiate_discount(requested_discount_percent=..., user_id=user_id, current_discount_percent=...)`.
-  2. The tool evaluates the current selling price of all items after each product's discount, checks required profit margins and maximum discount possible across all products, sets that as the UPPER LIMIT, and applies a step-wise diminishing counter-offer.
-  3. The tool automatically updates the discount on each item in the database (preserving higher per-product discounts and capping at individual product ceilings).
+- SCENARIO 3 (Cart-wide Combined Negotiation across the entire cart):
+  1. When the user asks for a discount across their full shopping cart (e.g. "discount on my full cart", "5% off my whole bag"), call `negotiate_discount(requested_discount_percent=..., user_id=user_id, current_discount_percent=...)`.
+  2. This evaluates overall cart headroom and applies a cart-level discount ON TOP of the existing items as a COMBINED discount.
+  3. It does NOT overwrite or erase individual product discounts. Each item preserves its own distinct negotiated discount, and the cart-level discount applies to the remaining cart total.
   4. Always channel the shopkeeper persona: announce the step-wise counter-offer clearly. If the customer asks for more discount in subsequent rounds, call `negotiate_discount` again passing the previous offer as `current_discount_percent` to concede the next step up to the safe upper limit.
 
 ---
@@ -160,6 +161,8 @@ def get_user_agent_prompt(
     current_discount: float = 0.0,
     customer_profile: Optional[dict] = None,
     is_authenticated: Optional[bool] = None,
+    negotiated_products: Optional[dict] = None,
+    cart_global_discount: float = 0.0,
 ) -> str:
     """
     Returns the unified system prompt enriched with real-time customer session context.
@@ -199,8 +202,33 @@ def get_user_agent_prompt(
 
     if gender:
         context_lines.append(f"- Preferred Gender: {gender}")
-    if current_discount > 0.0:
-        context_lines.append(f"- Currently Agreed Discount: {current_discount}%")
+
+    if negotiated_products and isinstance(negotiated_products, dict):
+        context_lines.append("- Individually Negotiated Products in Session (DISCOUNT IS PRODUCT-SPECIFIC ONLY):")
+        for pid_str, p_info in negotiated_products.items():
+            if isinstance(p_info, dict):
+                p_name = p_info.get("product_name") or f"Product #{pid_str}"
+                p_disc = p_info.get("discount_percentage", 0.0)
+                p_price = p_info.get("discounted_price") or p_info.get("counter_offer_price")
+                context_lines.append(
+                    f"  * Product ID {pid_str} ('{p_name}'): Agreed Discount = {p_disc}%, Deal Price = Rs.{p_price}"
+                )
+        context_lines.append(
+            "  -> MANDATORY RULE: The above discounts apply ONLY to their specific product IDs! "
+            "When adding ANY OTHER product that was not individually negotiated, you MUST pass discount_percentage=0.0! "
+            "NEVER apply one product's discount to another product!"
+        )
+    else:
+        context_lines.append(
+            "- Individually Negotiated Products: None (all catalog products start at standard listing price / 0% discount)"
+        )
+
+    if cart_global_discount > 0.0:
+        context_lines.append(
+            f"- Cart Global Discount: {cart_global_discount}% (applied on top of items as a combined discount)"
+        )
+    elif current_discount > 0.0 and not negotiated_products:
+        context_lines.append(f"- Currently Agreed Cart Discount: {current_discount}%")
 
     if context_lines:
         prompt += "\n\n### ACTIVE CUSTOMER SESSION & AGENT STATE:\n" + "\n".join(context_lines)
