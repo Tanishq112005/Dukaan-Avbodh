@@ -5,5 +5,4 @@ __pycache__/
 *.pyo
 *.pyd
 .pytest_cache/
-test_a2a_agent.py
 mcp_debug.txt
