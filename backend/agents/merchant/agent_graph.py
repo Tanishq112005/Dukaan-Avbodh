@@ -1,55 +1,7 @@
-import os
-from langgraph.graph import StateGraph, END
-from agents.merchant.agent_state import AgentState
-from agents.merchant.agent_node import create_agent_node, create_tools_node
-from langgraph.checkpoint.mongodb import MongoDBSaver
-from pymongo import MongoClient
-import asyncio
+"""
+Backward-compatibility bridge for `agents.merchant.agent_graph`.
+Re-exports compile_agent_graph from `agents.merchant.graph`.
+"""
+from agents.merchant.graph import compile_agent_graph
 
-# --- Monkey-patch MongoDBSaver for async support ---
-async def _aget_tuple(self, config):
-    return await asyncio.to_thread(self.get_tuple, config)
-
-async def _aput(self, config, checkpoint, metadata, new_versions):
-    return await asyncio.to_thread(self.put, config, checkpoint, metadata, new_versions)
-
-async def _aput_writes(self, config, writes, task_id):
-    return await asyncio.to_thread(self.put_writes, config, writes, task_id)
-
-MongoDBSaver.aget_tuple = _aget_tuple
-MongoDBSaver.aput = _aput
-MongoDBSaver.aput_writes = _aput_writes
-# ----------------------------------------------------
-
-# --- Monkey-patch JsonPlusSerializer for Render compatibility ---
-from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
-if not hasattr(JsonPlusSerializer, "dumps"):
-    JsonPlusSerializer.dumps = JsonPlusSerializer.dumps_typed
-if not hasattr(JsonPlusSerializer, "loads"):
-    JsonPlusSerializer.loads = JsonPlusSerializer.loads_typed
-# ----------------------------------------------------
-
-def compile_agent_graph(fast_llm, tools_dict):
-    workflow = StateGraph(AgentState)
-    
-    agent_node = create_agent_node(fast_llm)
-    tools_node = create_tools_node(tools_dict)
-    
-    workflow.add_node("agent", agent_node)
-    workflow.add_node("tools", tools_node)
-
-    def should_continue(state: AgentState):
-        last_message = state["messages"][-1]
-        if last_message.tool_calls:
-            return "tools"
-        return END
-
-    workflow.set_entry_point("agent")
-    workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", END: END})
-    workflow.add_edge("tools", "agent")
-
-    mongo_uri = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-    sync_client = MongoClient(mongo_uri)
-    memory = MongoDBSaver(sync_client)
-    
-    return workflow.compile(checkpointer=memory)
+__all__ = ["compile_agent_graph"]

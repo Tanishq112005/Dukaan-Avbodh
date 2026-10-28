@@ -1,52 +1,75 @@
-import os
-import sys
+import asyncio
 import logging
 from typing import Optional, Dict, Any, List
 
 from config.chatModel import chatModel
-from agents.merchant.agent_graph import compile_agent_graph
-from Merchant.tools import get_merchant_langchain_tools
+from agents.merchant.graph import compile_agent_graph, resolve_all_merchant_tools
 
 logger = logging.getLogger(__name__)
 
-_merchant_agent = None
-_merchant_tools_by_name: Dict[str, Any] = {}
 
-
-async def init_merchant_agent():
+class MerchantAgentService:
     """
-    Initializes the single unified Merchant Agent using direct native function tool calling.
-    Completely independent of external FastMCP processes with zero network latency.
+    Service class to handle the initialization and retrieval
+    of the unified LangGraph merchant administration & analytics agent.
+    Equipped with all 7 native store tools via direct function calling.
     """
-    global _merchant_agent, _merchant_tools_by_name
 
-    print("\n" + "-" * 55)
-    print("    [MERCHANT AGENT] Loading native store tools directly...")
-    
-    # 1. Load native Python StructuredTools from Merchant domain
-    native_tools = get_merchant_langchain_tools()
-    _merchant_tools_by_name = {t.name: t for t in native_tools}
-    tool_names = ", ".join(sorted(_merchant_tools_by_name.keys()))
-    print(f"    [MERCHANT AGENT] {len(native_tools)} native tools registered: {tool_names}")
+    def __init__(self):
+        self.agent: Optional[Any] = None
+        self.tools_by_name: Dict[str, Any] = {}
 
-    # 2. Bind tools directly to LLM via native function calling
-    print("    [MERCHANT AGENT] Binding tools directly to LLM for function calling...")
-    fast_llm = chatModel.get_chat_model()
-    llm_with_tools = fast_llm.bind_tools(native_tools)
+    async def init_agent(self) -> Any:
+        """
+        Loads native merchant tools, binds them via function calling to the chat model,
+        and compiles the unified LangGraph agent.
+        """
+        logger.info("[MERCHANT AGENT] Loading native store tools directly...")
+        self.tools_by_name = resolve_all_merchant_tools()
+        tool_names = ", ".join(sorted(self.tools_by_name.keys()))
+        logger.info(f"[MERCHANT AGENT] {len(self.tools_by_name)} native tools registered: {tool_names}")
 
-    # 3. Compile the single unified LangGraph merchant agent
-    print("    [MERCHANT AGENT] Compiling unified LangGraph state graph...")
-    _merchant_agent = compile_agent_graph(llm_with_tools, _merchant_tools_by_name)
-    print("    [MERCHANT AGENT] Merchant Agent compiled successfully with MongoDB memory attached.")
-    print("-" * 55 + "\n")
-    return _merchant_agent
+        if hasattr(chatModel, "get_large_chat_model"):
+            fast_llm = chatModel.get_large_chat_model()
+        elif hasattr(chatModel, "_large_chat_model"):
+            fast_llm = chatModel._large_chat_model()
+        else:
+            fast_llm = chatModel.get_chat_model()
+        self.agent = compile_agent_graph(fast_llm, self.tools_by_name)
+        logger.info("[MERCHANT AGENT] Unified LangGraph merchant agent compiled successfully.")
+        return self.agent
+
+    async def get_agent_async(self) -> Any:
+        """Retrieves compiled agent, lazily initializing if not yet compiled."""
+        if self.agent is None:
+            await self.init_agent()
+        return self.agent
+
+    def get_agent(self) -> Any:
+        """Retrieves compiled agent synchronously, lazily initializing if needed."""
+        if self.agent is None:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    return pool.submit(asyncio.run, self.init_agent()).result()
+            else:
+                return asyncio.run(self.init_agent())
+        return self.agent
 
 
-def get_merchant_agent():
-    """Retrieves the active compiled Merchant Agent instance."""
-    global _merchant_agent
-    if _merchant_agent is None:
-        raise RuntimeError(
-            "Merchant Agent is not initialized. 'await agent_service.init_merchant_agent()' must be called on startup."
-        )
-    return _merchant_agent
+# Singleton instance
+merchant_agent_service = MerchantAgentService()
+
+
+# Backward-compatible function interfaces for main.py, Merchant.controller, etc.
+async def init_merchant_agent() -> Any:
+    return await merchant_agent_service.init_agent()
+
+
+def get_merchant_agent() -> Any:
+    return merchant_agent_service.get_agent()
