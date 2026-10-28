@@ -248,7 +248,18 @@ class MerchantAgentController:
                     if isinstance(node_output, dict):
                         if "cards" in node_output and node_output["cards"]:
                             captured_cards.extend(node_output["cards"])
-                        for k in ("current_intent", "last_tool_called", "analytics_context", "inventory_alerts", "top_selling_products", "order_lookup", "pricing_updates"):
+                        for k in (
+                            "current_intent",
+                            "last_tool_called",
+                            "analytics_context",
+                            "inventory_alerts",
+                            "top_selling_products",
+                            "order_lookup",
+                            "order_history",
+                            "chat_threads",
+                            "chat_transcript",
+                            "pricing_updates",
+                        ):
                             if k in node_output and node_output[k] is not None:
                                 captured_state[k] = node_output[k]
                     if node_name:

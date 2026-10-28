@@ -75,7 +75,7 @@ async def run_merchant_agent_tests():
 
     agent = MerchantAgent(mock_llm)
     assert isinstance(agent, IAgentInterface)
-    assert len(agent.tools) == 10, f"Expected 10 tools, got {len(agent.tools)}"
+    assert len(agent.tools) == 13, f"Expected 13 tools, got {len(agent.tools)}"
     mock_llm.bind_tools.assert_called_once()
     print(f"  -> Successfully bound {len(agent.tools)} native tools directly to LLM.")
 
@@ -253,7 +253,7 @@ async def run_merchant_agent_tests():
     # --------------------------------------------------------------------------
     print("\n[SECTION 4] Testing Graph Routing & Compilation...")
     tools_dict = resolve_all_merchant_tools()
-    assert len(tools_dict) == 10
+    assert len(tools_dict) == 13
 
     graph = compile_agent_graph(mock_llm, tools_dict)
     assert "agent" in graph.nodes

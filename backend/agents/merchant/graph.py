@@ -58,6 +58,18 @@ PRODUCT_DELETE_TOOLS = {
     "merchant_delete_product",
 }
 
+ORDER_HISTORY_TOOLS = {
+    "merchant_get_order_history",
+}
+
+CHAT_THREADS_TOOLS = {
+    "merchant_get_customer_chat_threads",
+}
+
+CHAT_TRANSCRIPT_TOOLS = {
+    "merchant_get_chat_thread_transcript",
+}
+
 
 def _extract_text(res: Any) -> str:
     """Extracts a string representation from a tool execution result."""
@@ -109,6 +121,15 @@ def _extract_state_updates_from_tool_result(tool_name: str, parsed: dict) -> dic
 
     elif tool_name in PRODUCT_INSPECT_TOOLS and parsed.get("status") == "success":
         updates["order_lookup"] = parsed.get("product")
+
+    elif tool_name in ORDER_HISTORY_TOOLS and parsed.get("status") == "success":
+        updates["order_history"] = parsed
+
+    elif tool_name in CHAT_THREADS_TOOLS and parsed.get("status") == "success":
+        updates["chat_threads"] = parsed.get("threads", [])
+
+    elif tool_name in CHAT_TRANSCRIPT_TOOLS and parsed.get("status") == "success":
+        updates["chat_transcript"] = parsed
 
     return updates
 
@@ -264,6 +285,49 @@ def _build_cards_from_tool(tool_name: str, parsed: dict, updates: dict, state: O
                 "title": f"Product #{parsed.get('product_id')} Removed",
                 "product_id": parsed.get("product_id"),
                 "message": parsed.get("message"),
+            },
+        })
+
+    elif tool_name in ORDER_HISTORY_TOOLS and parsed.get("status") == "success":
+        cards.append({
+            "id": f"order_history_{suffix}",
+            "type": "merchant_order_history",
+            "data": {
+                "title": "Store Order History & Total Received",
+                "total_orders_received": parsed.get("total_orders_received", 0),
+                "total_revenue_received_inr": parsed.get("total_revenue_received_inr", 0.0),
+                "total_discounts_given_inr": parsed.get("total_discounts_given_inr", 0.0),
+                "status_breakdown": parsed.get("status_breakdown", {}),
+                "orders": parsed.get("orders", [])[:10],
+                "filter_status": parsed.get("filter_status"),
+            },
+        })
+
+    elif tool_name in CHAT_THREADS_TOOLS and parsed.get("status") == "success":
+        cards.append({
+            "id": f"chat_threads_{suffix}",
+            "type": "merchant_chat_threads",
+            "data": {
+                "title": "Customer Shopping & Bargaining Sessions",
+                "threads_count": parsed.get("threads_count", 0),
+                "threads": parsed.get("threads", [])[:10],
+                "user_id_filter": parsed.get("user_id_filter"),
+            },
+        })
+
+    elif tool_name in CHAT_TRANSCRIPT_TOOLS and parsed.get("status") == "success":
+        cards.append({
+            "id": f"chat_transcript_{suffix}",
+            "type": "merchant_chat_transcript",
+            "data": {
+                "title": f"Session Transcript: {parsed.get('thread_id')}",
+                "thread_id": parsed.get("thread_id"),
+                "user_id": parsed.get("user_id"),
+                "message_count": parsed.get("message_count", 0),
+                "order_placed": parsed.get("order_placed", False),
+                "discount_percentage": parsed.get("discount_percentage", 0),
+                "messages": parsed.get("messages", []),
+                "negotiation_log": parsed.get("negotiation_log", []),
             },
         })
 
