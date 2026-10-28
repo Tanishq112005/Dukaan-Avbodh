@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Any, Optional, Dict
 
 from fastapi import HTTPException, status
 
@@ -136,10 +136,24 @@ class ProductController:
                 detail="Failed to fetch product"
             )
 
-    async def add_product(self, product):
+    async def add_product(self, product, **kwargs):
         try:
+            from Product.models import Product as ProductModel
+            if not isinstance(product, ProductModel):
+                if hasattr(product, "model_dump"):
+                    data = product.model_dump()
+                elif isinstance(product, dict):
+                    data = dict(product)
+                else:
+                    data = vars(product)
+                valid_fields = set(ProductModel.model_fields.keys())
+                filtered = {k: v for k, v in data.items() if k in valid_fields}
+                product_instance = ProductModel(**filtered)
+            else:
+                product_instance = product
+
             created_product = await productRepository.addProduct(
-                product=product
+                product=product_instance
             )
 
             return {
@@ -147,17 +161,17 @@ class ProductController:
                 "product": created_product
             }
 
-        except Exception:
-            logger.exception("Failed to add product")
+        except Exception as e:
+            logger.exception("Failed to add product: %s", e)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to add product"
+                detail=f"Failed to add product: {str(e)}"
             )
 
     async def update_product(
         self,
         product_id: int,
-        payload: ProductUpdate
+        payload: Any
     ):
         try:
             existing = await productRepository.get_by_id(
@@ -170,10 +184,15 @@ class ProductController:
                     detail="Product not found"
                 )
 
-            update_data = payload.model_dump(
-                exclude_unset=True,
-                exclude={"product_id"}
-            )
+            if hasattr(payload, "model_dump"):
+                update_data = payload.model_dump(
+                    exclude_unset=True,
+                    exclude={"product_id"}
+                )
+            elif isinstance(payload, dict):
+                update_data = {k: v for k, v in payload.items() if k != "product_id" and v is not None}
+            else:
+                update_data = {k: v for k, v in vars(payload).items() if k != "product_id" and v is not None}
 
             if not update_data:
                 raise HTTPException(
@@ -194,11 +213,11 @@ class ProductController:
         except HTTPException:
             raise
 
-        except Exception:
-            logger.exception("Failed to update product")
+        except Exception as e:
+            logger.exception("Failed to update product: %s", e)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update product"
+                detail=f"Failed to update product: {str(e)}"
             )
 
     async def delete_product(self, product_id: int):
