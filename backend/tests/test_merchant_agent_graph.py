@@ -247,6 +247,48 @@ async def run_merchant_agent_tests():
     assert cards[0]["data"]["product_id"] == 99
     print("  -> Product deleted card generated.")
 
+    # Order History Card
+    order_hist_payload = {
+        "status": "success",
+        "total_orders_received": 15,
+        "total_revenue_received_inr": 12850.0,
+        "total_discounts_given_inr": 850.0,
+        "status_breakdown": {"placed": 10, "completed": 5},
+        "orders": [{"order_id": 1, "total_amount_inr": 999.0}],
+    }
+    cards = _build_cards_from_tool("merchant_get_order_history", order_hist_payload, {})
+    assert len(cards) == 1
+    assert cards[0]["type"] == "merchant_order_history"
+    assert cards[0]["data"]["total_orders_received"] == 15
+    assert cards[0]["data"]["total_revenue_received_inr"] == 12850.0
+    print("  -> Order history card generated.")
+
+    # Customer Chat Threads Card
+    threads_payload = {
+        "status": "success",
+        "threads_count": 3,
+        "threads": [{"thread_id": "t1", "user_id": 10}],
+    }
+    cards = _build_cards_from_tool("merchant_get_customer_chat_threads", threads_payload, {})
+    assert len(cards) == 1
+    assert cards[0]["type"] == "merchant_chat_threads"
+    assert cards[0]["data"]["threads_count"] == 3
+    print("  -> Customer chat threads card generated.")
+
+    # Chat Transcript Card
+    transcript_payload = {
+        "status": "success",
+        "thread_id": "thread_abc",
+        "user_id": 7,
+        "message_count": 4,
+        "messages": [{"sender": "user", "message": "Can I get 10% discount?"}],
+    }
+    cards = _build_cards_from_tool("merchant_get_chat_thread_transcript", transcript_payload, {})
+    assert len(cards) == 1
+    assert cards[0]["type"] == "merchant_chat_transcript"
+    assert cards[0]["data"]["thread_id"] == "thread_abc"
+    print("  -> Chat transcript card generated.")
+
     # Card Deduplication
     duplicate_cards = [
         {"id": "c1", "type": "merchant_analytics", "data": {"gross_revenue_inr": 100}},

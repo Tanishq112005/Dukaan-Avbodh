@@ -34,6 +34,9 @@ from Merchant.tools import (
     merchant_get_top_selling_products,
     merchant_get_inventory_health_and_reorder_alerts,
     merchant_lookup_order_details,
+    merchant_get_order_history,
+    merchant_get_customer_chat_threads,
+    merchant_get_chat_thread_transcript,
     merchant_update_product_pricing_and_margin,
     merchant_get_customer_negotiation_insights,
     merchant_publish_catalog_item,
@@ -167,10 +170,22 @@ async def run_merchant_e2e_tests():
         assert res10["status"] == "error"
         assert res10["error"] == MERCHANT_ONLY_ERROR
 
-    print("  -> 100% of all 10 tools strictly blocked non-merchant callers with FORBIDDEN status!")
+        res11 = await merchant_get_order_history(caller_role=bad_role)
+        assert res11["status"] == "error"
+        assert res11["error"] == MERCHANT_ONLY_ERROR
+
+        res12 = await merchant_get_customer_chat_threads(caller_role=bad_role)
+        assert res12["status"] == "error"
+        assert res12["error"] == MERCHANT_ONLY_ERROR
+
+        res13 = await merchant_get_chat_thread_transcript(thread_id="t1", caller_role=bad_role)
+        assert res13["status"] == "error"
+        assert res13["error"] == MERCHANT_ONLY_ERROR
+
+    print("  -> 100% of all 13 tools strictly blocked non-merchant callers with FORBIDDEN status!")
 
     langchain_tools = get_merchant_langchain_tools()
-    assert len(langchain_tools) == 10
+    assert len(langchain_tools) == 13
     print(f"  -> All {len(langchain_tools)} native LangChain structured tools verified.")
 
     # --------------------------------------------------------------------------
@@ -195,6 +210,18 @@ async def run_merchant_e2e_tests():
 
     orders = await merchantController.get_all_orders(limit=10)
     print(f"  -> Orders retrieved: {len(orders)} order groups loaded")
+
+    # Direct validation of new order history & customer chat threads tools
+    order_hist = await merchant_get_order_history(caller_role="merchant", limit=10)
+    assert order_hist["status"] == "success"
+    assert "total_revenue_received_inr" in order_hist
+    assert "total_orders_received" in order_hist
+    print(f"  -> merchant_get_order_history verified: Total orders = {order_hist['total_orders_received']}, Total revenue received = INR {order_hist['total_revenue_received_inr']}")
+
+    chat_threads_res = await merchant_get_customer_chat_threads(caller_role="merchant", limit=5)
+    assert chat_threads_res["status"] == "success"
+    assert "threads_count" in chat_threads_res
+    print(f"  -> merchant_get_customer_chat_threads verified: {chat_threads_res['threads_count']} threads found")
 
     alerts = await merchantController.get_inventory_alerts(threshold=15)
     print(f"  -> Inventory alerts: {len(alerts)} items flagged for low/out-of-stock")

@@ -212,9 +212,11 @@ export const agentService = {
   },
 
   /**
-   * Fetches active negotiations for a merchant.
-   * @param {number} merchantId
-   * @returns {Promise<Array>}
+   * Sends a merchant message to the store management agent (Standard JSON).
+   * @param {Object} payload
+   * @param {string} payload.text
+   * @param {string} [payload.threadId]
+   * @returns {Promise<Object>}
    */
   async sendMerchantMessage({ text, threadId }) {
     const res = await apiClient.post("/merchant/chat", {
@@ -222,6 +224,144 @@ export const agentService = {
       thread_id: threadId ? String(threadId) : undefined,
     });
     return res.data;
+  },
+
+  /**
+   * Streams merchant chat responses in real-time via Server-Sent Events (SSE).
+   * Connects to /merchant/chat/stream endpoint.
+   * @param {Object} payload
+   * @param {string} payload.text
+   * @param {string} [payload.threadId]
+   * @param {string} [payload.accessToken]
+   * @param {Object} callbacks
+   * @param {Function} [callbacks.onToken] - Called for streaming word/character tokens
+   * @param {Function} [callbacks.onNodeUpdate] - Called for graph progress nodes (agent, tools, post_process)
+   * @param {Function} [callbacks.onToolCall] - Called when a tool invocation begins
+   * @param {Function} [callbacks.onToolResult] - Called when a tool returns data
+   * @param {Function} [callbacks.onCard] - Called for real-time Generative UI cards
+   * @param {Function} [callbacks.onComplete] - Called with the final structured JSON payload
+   * @param {Function} [callbacks.onError] - Called on network/stream errors
+   */
+  async streamMerchantMessage(
+    { text, threadId, accessToken = null },
+    { onToken, onNodeUpdate, onToolCall, onToolResult, onCard, onComplete, onError } = {}
+  ) {
+    try {
+      const headers = {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      };
+
+      const token = accessToken || getStoredToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/merchant/chat/stream`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          text: String(text),
+          thread_id: threadId ? String(threadId) : undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Merchant SSE streaming request failed with HTTP ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error("ReadableStream not supported on response body.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line || !line.startsWith("data:")) continue;
+
+          const rawData = line.replace(/^data:\s*/, "").trim();
+          if (rawData === "[DONE]") {
+            continue;
+          }
+
+          try {
+            const parsed = JSON.parse(rawData);
+
+            // 1. Streaming text tokens
+            if (parsed.type === "token" || parsed.event === "token") {
+              if (onToken) {
+                onToken(parsed.content || parsed.token || "");
+              }
+            }
+            // 2. LangGraph node lifecycle updates
+            else if (
+              parsed.type === "node_start" ||
+              parsed.type === "node_complete" ||
+              parsed.type === "node_update"
+            ) {
+              if (onNodeUpdate) {
+                onNodeUpdate(parsed.node, parsed);
+              }
+            }
+            // 3. Tool execution progress
+            else if (parsed.type === "tool_call") {
+              if (onToolCall) {
+                onToolCall(parsed.tool, parsed.args);
+              }
+            } else if (parsed.type === "tool_result") {
+              if (onToolResult) {
+                onToolResult(parsed.tool, parsed.result);
+              }
+            }
+            // 4. Generative UI cards streamed from tool execution
+            else if (parsed.type === "card" || parsed.type === "cards") {
+              if (onCard) {
+                onCard(parsed.card || parsed.cards);
+              }
+            }
+            // 5. Final structured chat reply payload
+            else if (
+              parsed.type === "merchant_chat_reply" ||
+              parsed.type === "chat_reply" ||
+              parsed.event === "complete"
+            ) {
+              if (onComplete) {
+                onComplete(parsed);
+              }
+            }
+            // 6. Server-reported error payload
+            else if (parsed.error) {
+              if (onComplete) {
+                onComplete({
+                  type: "merchant_chat_reply",
+                  message: typeof parsed.error === "string" ? parsed.error : "An error occurred.",
+                  cards: [],
+                });
+              }
+            }
+          } catch {
+            // Raw text fallback
+          }
+        }
+      }
+    } catch (err) {
+      if (onError) {
+        onError(err);
+      } else {
+        throw err;
+      }
+    }
   },
 
   async getMerchantNegotiations(merchantId) {
