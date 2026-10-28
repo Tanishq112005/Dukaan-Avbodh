@@ -12,6 +12,7 @@ import { ForgotPasswordPage } from "./features/auth/ForgotPasswordPage";
 import { MerchantDashboard } from "./features/merchant/MerchantDashboard";
 import { OrderConfirmedPage } from "./features/cart/OrderConfirmedPage";
 import { OrdersPage } from "./features/orders/OrdersPage";
+import { HealthPage } from "./features/health/HealthPage";
 import { useStore } from "./store/useStore.js";
 import { Analytics } from "@vercel/analytics/react";
 
@@ -34,6 +35,7 @@ function AppContent() {
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/order-confirmed" element={<OrderConfirmedPage />} />
           <Route path="/merchant" element={<MerchantDashboard />} />
+          <Route path="/health" element={<HealthPage />} />
         </Routes>
       </main>
       <Footer />
