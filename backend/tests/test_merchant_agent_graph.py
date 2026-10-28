@@ -75,7 +75,7 @@ async def run_merchant_agent_tests():
 
     agent = MerchantAgent(mock_llm)
     assert isinstance(agent, IAgentInterface)
-    assert len(agent.tools) == 7, f"Expected 7 tools, got {len(agent.tools)}"
+    assert len(agent.tools) == 10, f"Expected 10 tools, got {len(agent.tools)}"
     mock_llm.bind_tools.assert_called_once()
     print(f"  -> Successfully bound {len(agent.tools)} native tools directly to LLM.")
 
@@ -93,7 +93,18 @@ async def run_merchant_agent_tests():
 
     res_async = await agent.arun(state)
     assert res_async["current_intent"] == "analytics_inquiry"
-    print("  -> Sync and async agent execution correctly detects tool-driven intent.")
+
+    # Test Intent Detection for Product Management
+    ai_edit = AIMessage(content="", tool_calls=[{"name": "merchant_edit_product_details", "args": {"product_id": 1, "price": 499.0}, "id": "tc2"}])
+    assert agent._detect_intent(ai_edit) == "product_update"
+
+    ai_inspect = AIMessage(content="", tool_calls=[{"name": "merchant_get_product_details", "args": {"product_id": 1}, "id": "tc3"}])
+    assert agent._detect_intent(ai_inspect) == "product_inspection"
+
+    ai_del = AIMessage(content="", tool_calls=[{"name": "merchant_delete_product", "args": {"product_id": 1}, "id": "tc4"}])
+    assert agent._detect_intent(ai_del) == "product_deletion"
+
+    print("  -> Sync and async agent execution correctly detects tool-driven intent across all tools.")
 
     # --------------------------------------------------------------------------
     # 3. Tool Extraction & Generative UI Card Generation
@@ -190,6 +201,43 @@ async def run_merchant_agent_tests():
     assert cards[0]["type"] == "merchant_negotiation_insights"
     print("  -> Negotiation insights card generated.")
 
+    # Product Details Card
+    detail_payload = {
+        "status": "success",
+        "product_id": 1,
+        "product": {"id": 1, "name": "Classic Denim Jeans", "price": 1499.0, "stock": 25},
+    }
+    cards = _build_cards_from_tool("merchant_get_product_details", detail_payload, {})
+    assert len(cards) == 1
+    assert cards[0]["type"] == "merchant_product_details"
+    assert cards[0]["data"]["product"]["name"] == "Classic Denim Jeans"
+    print("  -> Product details card generated.")
+
+    # Product Update Card
+    update_payload = {
+        "status": "success",
+        "product_id": 1,
+        "message": "Product #1 updated successfully.",
+        "updated_fields": ["price", "stock"],
+    }
+    cards = _build_cards_from_tool("merchant_edit_product_details", update_payload, {})
+    assert len(cards) == 1
+    assert cards[0]["type"] == "merchant_product_updated"
+    assert "price" in cards[0]["data"]["updated_fields"]
+    print("  -> Product updated card generated.")
+
+    # Product Deleted Card
+    del_payload = {
+        "status": "success",
+        "product_id": 99,
+        "message": "Product #99 deleted successfully.",
+    }
+    cards = _build_cards_from_tool("merchant_delete_product", del_payload, {})
+    assert len(cards) == 1
+    assert cards[0]["type"] == "merchant_product_deleted"
+    assert cards[0]["data"]["product_id"] == 99
+    print("  -> Product deleted card generated.")
+
     # Card Deduplication
     duplicate_cards = [
         {"id": "c1", "type": "merchant_analytics", "data": {"gross_revenue_inr": 100}},
@@ -205,7 +253,7 @@ async def run_merchant_agent_tests():
     # --------------------------------------------------------------------------
     print("\n[SECTION 4] Testing Graph Routing & Compilation...")
     tools_dict = resolve_all_merchant_tools()
-    assert len(tools_dict) == 7
+    assert len(tools_dict) == 10
 
     graph = compile_agent_graph(mock_llm, tools_dict)
     assert "agent" in graph.nodes

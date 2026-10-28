@@ -42,6 +42,20 @@ NEGOTIATION_INSIGHTS_TOOLS = {
 
 CATALOG_TOOLS = {
     "merchant_publish_catalog_item",
+    "merchant_add_product",
+}
+
+PRODUCT_EDIT_TOOLS = {
+    "merchant_edit_product_details",
+    "merchant_update_product_details",
+}
+
+PRODUCT_INSPECT_TOOLS = {
+    "merchant_get_product_details",
+}
+
+PRODUCT_DELETE_TOOLS = {
+    "merchant_delete_product",
 }
 
 
@@ -89,6 +103,12 @@ def _extract_state_updates_from_tool_result(tool_name: str, parsed: dict) -> dic
 
     elif tool_name in NEGOTIATION_INSIGHTS_TOOLS and parsed.get("status") == "success":
         updates["negotiation_insights"] = parsed.get("negotiation_metrics")
+
+    elif tool_name in PRODUCT_EDIT_TOOLS and parsed.get("status") == "success":
+        updates["pricing_updates"] = parsed
+
+    elif tool_name in PRODUCT_INSPECT_TOOLS and parsed.get("status") == "success":
+        updates["order_lookup"] = parsed.get("product")
 
     return updates
 
@@ -209,6 +229,41 @@ def _build_cards_from_tool(tool_name: str, parsed: dict, updates: dict, state: O
                 "product_id": parsed.get("product_id"),
                 "message": parsed.get("message"),
                 "details": parsed.get("data"),
+            },
+        })
+
+    elif tool_name in PRODUCT_EDIT_TOOLS and parsed.get("status") == "success":
+        cards.append({
+            "id": f"product_edit_{suffix}",
+            "type": "merchant_product_updated",
+            "data": {
+                "title": f"Product #{parsed.get('product_id')} Updated",
+                "product_id": parsed.get("product_id"),
+                "message": parsed.get("message"),
+                "updated_fields": parsed.get("updated_fields", []),
+                "details": parsed.get("data"),
+            },
+        })
+
+    elif tool_name in PRODUCT_INSPECT_TOOLS and parsed.get("status") == "success":
+        cards.append({
+            "id": f"product_detail_{suffix}",
+            "type": "merchant_product_details",
+            "data": {
+                "title": f"Product #{parsed.get('product_id')} Overview",
+                "product_id": parsed.get("product_id"),
+                "product": parsed.get("product"),
+            },
+        })
+
+    elif tool_name in PRODUCT_DELETE_TOOLS and parsed.get("status") == "success":
+        cards.append({
+            "id": f"product_del_{suffix}",
+            "type": "merchant_product_deleted",
+            "data": {
+                "title": f"Product #{parsed.get('product_id')} Removed",
+                "product_id": parsed.get("product_id"),
+                "message": parsed.get("message"),
             },
         })
 

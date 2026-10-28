@@ -37,6 +37,9 @@ from Merchant.tools import (
     merchant_update_product_pricing_and_margin,
     merchant_get_customer_negotiation_insights,
     merchant_publish_catalog_item,
+    merchant_edit_product_details,
+    merchant_get_product_details,
+    merchant_delete_product,
     get_merchant_langchain_tools,
     MERCHANT_ONLY_ERROR,
 )
@@ -152,10 +155,22 @@ async def run_merchant_e2e_tests():
         assert res7["status"] == "error"
         assert res7["error"] == MERCHANT_ONLY_ERROR
 
-    print("  -> 100% of all 7 tools strictly blocked non-merchant callers with FORBIDDEN status!")
+        res8 = await merchant_edit_product_details(product_id=1, name="Hacked", caller_role=bad_role)
+        assert res8["status"] == "error"
+        assert res8["error"] == MERCHANT_ONLY_ERROR
+
+        res9 = await merchant_get_product_details(product_id=1, caller_role=bad_role)
+        assert res9["status"] == "error"
+        assert res9["error"] == MERCHANT_ONLY_ERROR
+
+        res10 = await merchant_delete_product(product_id=1, caller_role=bad_role)
+        assert res10["status"] == "error"
+        assert res10["error"] == MERCHANT_ONLY_ERROR
+
+    print("  -> 100% of all 10 tools strictly blocked non-merchant callers with FORBIDDEN status!")
 
     langchain_tools = get_merchant_langchain_tools()
-    assert len(langchain_tools) == 7
+    assert len(langchain_tools) == 10
     print(f"  -> All {len(langchain_tools)} native LangChain structured tools verified.")
 
     # --------------------------------------------------------------------------

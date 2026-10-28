@@ -307,6 +307,9 @@ async def merchant_publish_catalog_item(
     brand: str = "Dukaan",
     gender: Optional[str] = None,
     description: Optional[str] = None,
+    sizes: Optional[str] = None,
+    discount: int = 0,
+    image_url: Optional[str] = None,
     caller_role: str = "merchant",
 ) -> Dict[str, Any]:
     """
@@ -322,6 +325,9 @@ async def merchant_publish_catalog_item(
     - brand (str, Optional, default="Dukaan"): Brand label.
     - gender (str, Optional): 'Men', 'Women', or 'Unisex'.
     - description (str, Optional): Product description.
+    - sizes (str, Optional): Comma-separated sizes (e.g. 'S,M,L,XL').
+    - discount (int, Optional, default=0): Initial discount percentage (0-100).
+    - image_url (str, Optional): Product image URL.
     - caller_role (str, Required): Must strictly be 'merchant'.
     """
     if not _check_merchant_authorization(caller_role):
@@ -345,19 +351,191 @@ async def merchant_publish_catalog_item(
             brand=brand,
             cost_price=cost_price,
             description=description,
+            sizes=sizes,
+            discount=discount,
+            image_url=image_url,
             min_profit_margin_percent=min_profit_margin_percent,
         )
 
-        created = await productController.add_product(payload=payload, merchant_id=1)
+        created_res = await productController.add_product(product=payload)
+        created = created_res.get("product") if isinstance(created_res, dict) else created_res
+        prod_id = getattr(created, "id", None) or (created.get("id") if isinstance(created, dict) else None)
+        prod_name = getattr(created, "name", name) or name
+
         return {
             "status": "success",
-            "message": f"Product '{created.name}' published successfully.",
-            "product_id": created.id,
+            "message": f"Product '{prod_name}' published successfully.",
+            "product_id": prod_id,
             "data": created.model_dump() if hasattr(created, "model_dump") else created,
         }
     except Exception as e:
         logger.exception("[MERCHANT TOOL ERROR] merchant_publish_catalog_item: %s", e)
         return {"status": "error", "error": f"Failed to publish catalog item: {str(e)}"}
+
+
+# Alias for intuitive LLM tool calling
+merchant_add_product = merchant_publish_catalog_item
+
+
+@mcp.tool()
+async def merchant_edit_product_details(
+    product_id: int,
+    name: Optional[str] = None,
+    price: Optional[float] = None,
+    stock: Optional[int] = None,
+    product_type: Optional[str] = None,
+    cost_price: Optional[float] = None,
+    min_profit_margin_percent: Optional[float] = None,
+    brand: Optional[str] = None,
+    gender: Optional[str] = None,
+    description: Optional[str] = None,
+    sizes: Optional[str] = None,
+    discount: Optional[int] = None,
+    image_url: Optional[str] = None,
+    caller_role: str = "merchant",
+) -> Dict[str, Any]:
+    """
+    Edits and updates details of an existing catalog product:
+    name, retail price, stock inventory quantity, product category, cost price,
+    minimum profit margin percentage floor, brand, gender, description, sizes, discount %, and image URL.
+
+    Parameters:
+    - product_id (int, Required): Catalog product ID to update.
+    - name (str, Optional): New product name.
+    - price (float, Optional): New retail selling price in INR.
+    - stock (int, Optional): Updated stock quantity.
+    - product_type (str, Optional): Category: 't-shirt', 'short', 'shirt', 'hoodie', 'jeans'.
+    - cost_price (float, Optional): Manufacturing or wholesale procurement cost in INR.
+    - min_profit_margin_percent (float, Optional): Floor margin percentage for AI bargaining.
+    - brand (str, Optional): Brand label.
+    - gender (str, Optional): Target gender: 'Men', 'Women', or 'Unisex'.
+    - description (str, Optional): Detailed product description.
+    - sizes (str, Optional): Comma-separated sizes (e.g. 'S,M,L,XL').
+    - discount (int, Optional): Public listing discount percentage (0-100).
+    - image_url (str, Optional): URL of the product image.
+    - caller_role (str, Required): Must strictly be 'merchant'.
+    """
+    if not _check_merchant_authorization(caller_role):
+        return {"status": "error", "error": MERCHANT_ONLY_ERROR}
+
+    try:
+        update_data = {}
+        if name is not None:
+            update_data["name"] = name.strip()
+        if price is not None:
+            update_data["price"] = float(price)
+        if stock is not None:
+            update_data["stock"] = int(stock)
+        if product_type is not None:
+            clean_type = product_type.strip().lower()
+            valid_types = [t.value for t in ProductType]
+            if clean_type not in valid_types:
+                return {
+                    "status": "error",
+                    "error": f"Invalid product_type '{product_type}'. Allowed types: {valid_types}",
+                }
+            update_data["type"] = ProductType(clean_type)
+        if cost_price is not None:
+            update_data["cost_price"] = float(cost_price)
+        if min_profit_margin_percent is not None:
+            update_data["min_profit_margin_percent"] = float(min_profit_margin_percent)
+        if brand is not None:
+            update_data["brand"] = brand.strip()
+        if gender is not None:
+            update_data["gender"] = gender.strip()
+        if description is not None:
+            update_data["description"] = description.strip()
+        if sizes is not None:
+            update_data["sizes"] = sizes.strip()
+        if discount is not None:
+            update_data["discount"] = int(discount)
+        if image_url is not None:
+            update_data["image_url"] = image_url.strip()
+
+        if not update_data:
+            return {
+                "status": "error",
+                "error": "No update fields were provided. Specify at least one field to edit (name, price, stock, etc.).",
+            }
+
+        res = await productController.update_product(product_id=product_id, payload=update_data)
+        updated = res.get("product") if isinstance(res, dict) else res
+
+        return {
+            "status": "success",
+            "message": f"Product #{product_id} updated successfully.",
+            "product_id": product_id,
+            "updated_fields": list(update_data.keys()),
+            "data": updated.model_dump() if hasattr(updated, "model_dump") else updated,
+        }
+    except Exception as e:
+        logger.exception("[MERCHANT TOOL ERROR] merchant_edit_product_details: %s", e)
+        return {"status": "error", "error": f"Failed to update product #{product_id}: {str(e)}"}
+
+
+# Alias
+merchant_update_product_details = merchant_edit_product_details
+
+
+@mcp.tool()
+async def merchant_get_product_details(
+    product_id: int,
+    caller_role: str = "merchant",
+) -> Dict[str, Any]:
+    """
+    Retrieves complete details of a specific product from the catalog by its product ID:
+    name, retail price, cost price, inventory stock, profit margin floor,
+    category, brand, gender, sizes, and discount.
+
+    Parameters:
+    - product_id (int, Required): Catalog product ID.
+    - caller_role (str, Required): Must strictly be 'merchant'.
+    """
+    if not _check_merchant_authorization(caller_role):
+        return {"status": "error", "error": MERCHANT_ONLY_ERROR}
+
+    try:
+        res = await productController.get_by_id(product_id=product_id)
+        prod = res.get("product") if isinstance(res, dict) else res
+        if not prod:
+            return {"status": "not_found", "message": f"Product #{product_id} not found."}
+
+        prod_data = prod.model_dump() if hasattr(prod, "model_dump") else prod
+        return {
+            "status": "success",
+            "product_id": product_id,
+            "product": prod_data,
+        }
+    except Exception as e:
+        logger.exception("[MERCHANT TOOL ERROR] merchant_get_product_details: %s", e)
+        return {"status": "error", "error": f"Failed to retrieve product #{product_id}: {str(e)}"}
+
+
+@mcp.tool()
+async def merchant_delete_product(
+    product_id: int,
+    caller_role: str = "merchant",
+) -> Dict[str, Any]:
+    """
+    Deletes or removes a product from the storefront catalog by its product ID.
+
+    Parameters:
+    - product_id (int, Required): Catalog product ID to delete.
+    - caller_role (str, Required): Must strictly be 'merchant'.
+    """
+    if not _check_merchant_authorization(caller_role):
+        return {"status": "error", "error": MERCHANT_ONLY_ERROR}
+
+    try:
+        res = await productController.delete_product(product_id=product_id)
+        return {
+            "status": "success",
+            "message": f"Product #{product_id} deleted successfully.",
+            "product_id": product_id,
+        }
+    except Exception as e:
+        logger.exception("[MERCHANT TOOL ERROR] merchant_delete_product: %s", e)
+        return {"status": "error", "error": f"Failed to delete product #{product_id}: {str(e)}"}
 
 
 # ==============================================================================
@@ -366,8 +544,8 @@ async def merchant_publish_catalog_item(
 
 def get_merchant_langchain_tools() -> List[StructuredTool]:
     """
-    Returns all 7 merchant administration and analytics tools wrapped as native
-    LangChain StructuredTools, ready to bind directly to the Merchant Agent
+    Returns all 10 merchant administration, product management, and analytics tools
+    wrapped as native LangChain StructuredTools, ready to bind directly to the Merchant Agent
     with ZERO external MCP server dependency.
     """
     return [
@@ -405,5 +583,20 @@ def get_merchant_langchain_tools() -> List[StructuredTool]:
             coroutine=merchant_publish_catalog_item,
             name="merchant_publish_catalog_item",
             description=merchant_publish_catalog_item.__doc__,
+        ),
+        StructuredTool.from_function(
+            coroutine=merchant_edit_product_details,
+            name="merchant_edit_product_details",
+            description=merchant_edit_product_details.__doc__,
+        ),
+        StructuredTool.from_function(
+            coroutine=merchant_get_product_details,
+            name="merchant_get_product_details",
+            description=merchant_get_product_details.__doc__,
+        ),
+        StructuredTool.from_function(
+            coroutine=merchant_delete_product,
+            name="merchant_delete_product",
+            description=merchant_delete_product.__doc__,
         ),
     ]

@@ -18,6 +18,9 @@ from Merchant.tools import (
     merchant_update_product_pricing_and_margin,
     merchant_get_customer_negotiation_insights,
     merchant_publish_catalog_item,
+    merchant_edit_product_details,
+    merchant_get_product_details,
+    merchant_delete_product,
     get_merchant_langchain_tools,
     MERCHANT_ONLY_ERROR,
 )
@@ -43,6 +46,21 @@ async def run_merchant_tools_tests():
     assert unauthorized_lookup["status"] == "error"
     print("  -> Access successfully denied with FORBIDDEN message for None/unauthenticated!")
 
+    unauthorized_edit = await merchant_edit_product_details(product_id=1, name="Hacked Name", caller_role="customer")
+    assert unauthorized_edit["status"] == "error"
+    assert unauthorized_edit["error"] == MERCHANT_ONLY_ERROR
+    print("  -> Access successfully denied with FORBIDDEN message for edit_product_details!")
+
+    unauthorized_detail = await merchant_get_product_details(product_id=1, caller_role="guest")
+    assert unauthorized_detail["status"] == "error"
+    assert unauthorized_detail["error"] == MERCHANT_ONLY_ERROR
+    print("  -> Access successfully denied with FORBIDDEN message for get_product_details!")
+
+    unauthorized_del = await merchant_delete_product(product_id=1, caller_role="customer")
+    assert unauthorized_del["status"] == "error"
+    assert unauthorized_del["error"] == MERCHANT_ONLY_ERROR
+    print("  -> Access successfully denied with FORBIDDEN message for delete_product!")
+
     # 2. Test authorized merchant invocation of tools
     print("\n[2] Testing native LangChain StructuredTools export:")
     tools = get_merchant_langchain_tools()
@@ -50,7 +68,7 @@ async def run_merchant_tools_tests():
     for t in tools:
         print(f"     * {t.name}")
 
-    assert len(tools) == 7, f"Expected 7 merchant tools, found {len(tools)}"
+    assert len(tools) == 10, f"Expected 10 merchant tools, found {len(tools)}"
     print("\nALL MERCHANT TOOLS AUTHORIZATION CHECKS PASSED SUCCESSFULLY!\n")
 
 

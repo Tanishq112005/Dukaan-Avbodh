@@ -74,8 +74,14 @@ class MerchantAgent(IAgentInterface):
                 return "pricing_margin_update"
             elif "negotiation" in first_tool:
                 return "negotiation_insights"
-            elif "publish" in first_tool:
+            elif "publish" in first_tool or "add_product" in first_tool:
                 return "publish_catalog_item"
+            elif "edit" in first_tool or "update_product" in first_tool:
+                return "product_update"
+            elif "get_product" in first_tool or "product_details" in first_tool:
+                return "product_inspection"
+            elif "delete_product" in first_tool:
+                return "product_deletion"
 
         return "general_inquiry"
 
