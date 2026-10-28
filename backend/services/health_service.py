@@ -96,7 +96,7 @@ class HealthService:
             ).isoformat(),
         }
 
-    async def check_postgres(self, timeout: float = 3.0) -> Dict[str, Any]:
+    async def check_postgres(self, timeout: float = 1.5) -> Dict[str, Any]:
         """Checks PostgreSQL connectivity and measures query latency."""
         from config.database import db_connection
         from sqlalchemy import text
@@ -130,18 +130,24 @@ class HealthService:
                 "error": str(e),
             }
 
-    async def check_redis(self, timeout: float = 2.0) -> Dict[str, Any]:
+    async def check_redis(self, timeout: float = 1.5) -> Dict[str, Any]:
         """Checks Redis connectivity and measures roundtrip ping latency."""
         from config.redis import redisClient
+        import redis
 
         start_t = time.perf_counter()
         try:
-            client = redisClient.get_redis_client()
-
             def _sync_ping():
-                return client.ping()
+                r = redis.Redis.from_url(
+                    redisClient.redis_url,
+                    socket_connect_timeout=1.0,
+                    socket_timeout=1.0,
+                    retry_on_timeout=False,
+                )
+                res = r.ping()
+                r.close()
+                return res
 
-            # Execute sync redis call in thread pool to avoid blocking async event loop
             pong = await asyncio.wait_for(
                 asyncio.to_thread(_sync_ping),
                 timeout=timeout,
@@ -167,7 +173,7 @@ class HealthService:
                 "error": str(e),
             }
 
-    async def check_mongodb(self, timeout: float = 3.0) -> Dict[str, Any]:
+    async def check_mongodb(self, timeout: float = 1.5) -> Dict[str, Any]:
         """Checks MongoDB connectivity via admin ping command."""
         from config.mogodbconfig import nosql_client
 
@@ -176,7 +182,7 @@ class HealthService:
             client = nosql_client.get_client()
 
             async def _ping_mongo():
-                return await client.admin.command("ping")
+                return await client.admin.command("ping", maxTimeMS=1000)
 
             res = await asyncio.wait_for(_ping_mongo(), timeout=timeout)
             latency = (time.perf_counter() - start_t) * 1000
@@ -200,17 +206,19 @@ class HealthService:
                 "error": str(e),
             }
 
-    async def check_rabbitmq(self, timeout: float = 3.0) -> Dict[str, Any]:
+    async def check_rabbitmq(self, timeout: float = 1.5) -> Dict[str, Any]:
         """Checks RabbitMQ message broker connectivity."""
         start_t = time.perf_counter()
         try:
+            import aio_pika
             from rabbitmq.connection import RabbitMQConnection
 
             conn_mgr = RabbitMQConnection()
 
             async def _check_rabbit():
-                conn = await conn_mgr.get_async_connection()
-                return conn is not None and not conn.is_closed
+                conn = await aio_pika.connect(conn_mgr.url, timeout=1.0)
+                await conn.close()
+                return True
 
             is_connected = await asyncio.wait_for(_check_rabbit(), timeout=timeout)
             latency = (time.perf_counter() - start_t) * 1000
