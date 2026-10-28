@@ -37,6 +37,7 @@ from routes.payment_routes import router as payment_router
 from Payment.routes import router as direct_payment_router
 from routes.a2a_routes import router as a2a_router
 from routes.merchant_routes import router as merchant_router
+from routes.health_routes import router as health_router
 from Merchant.models import MerchantDiscountPolicy, DiscountPolicy
 
 app = FastAPI(title="Dukaan")
@@ -85,6 +86,7 @@ app.include_router(ai_chat_router)
 app.include_router(payment_router, prefix="/api")
 app.include_router(a2a_router)
 app.include_router(merchant_router)
+app.include_router(health_router)
 
 
 @app.on_event("startup")
