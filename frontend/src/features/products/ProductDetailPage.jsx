@@ -61,9 +61,9 @@ export function ProductDetailPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-7">
       {/* Clean Breadcrumb Navigation */}
-      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-stone-400 mb-5">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-stone-400 mb-3 sm:mb-5">
         <Link to="/" className="hover:text-stone-900 transition-colors cursor-pointer">
           Home
         </Link>
@@ -78,7 +78,7 @@ export function ProductDetailPage() {
       </nav>
 
       {/* Main Two-Column Showcase: Sticky Gallery + Refined Info */}
-      <div className="flex flex-col md:flex-row items-start gap-8 lg:gap-12">
+      <div className="flex flex-col md:flex-row items-start gap-6 sm:gap-8 lg:gap-12">
         <div className="w-full md:w-[44%] lg:w-[42%] md:sticky md:top-24 flex-shrink-0">
           <ProductGallery product={product} />
         </div>

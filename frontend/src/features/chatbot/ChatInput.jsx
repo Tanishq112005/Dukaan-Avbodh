@@ -13,7 +13,7 @@ export function ChatInput({ input, setInput, handleSend, isAiConnected, isFullSc
   ];
 
   return (
-    <div className={cn(isFullScreen ? "p-4 sm:p-6 bg-[#FBF8F3] border-t border-stone-200/80" : "p-3 pb-3.5 bg-white border-t border-stone-100")}>
+    <div className={cn(isFullScreen ? "p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-[#FBF8F3] border-t border-stone-200/80" : "p-3 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-white border-t border-stone-100")}>
       <div className={cn("space-y-2", isFullScreen ? "max-w-2xl mx-auto w-full" : "")}>
         {/* Quick Suggestion Chips */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">

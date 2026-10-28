@@ -54,19 +54,19 @@ export function Hero() {
               <span>Autumn / Winter '26 Collection</span>
             </div>
 
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-[1.05] tracking-tight uppercase text-stone-900">
+            <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-[1.08] sm:leading-[1.05] tracking-tight uppercase text-stone-900">
               Find clothes <br className="hidden sm:inline" />
               that <span className="font-serif italic font-normal lowercase tracking-normal text-[#6e1423]">match</span> your style.
             </h1>
 
-            <p className="text-stone-600 text-base sm:text-lg max-w-xl leading-relaxed font-normal">
+            <p className="text-stone-600 text-sm sm:text-lg max-w-xl leading-relaxed font-normal">
               Explore our curated designer catalogue crafted for modern elegance.
               Chat directly with our <strong>AI Stylist</strong> to curate your personalized look, check sizing, and negotiate exclusive bundle discounts.
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 pt-2">
-              <Link to="/products">
-                <Button className="rounded-full px-8 h-13 text-sm font-semibold bg-stone-900 hover:bg-[#6e1423] text-white shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-2 cursor-pointer">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-1 sm:pt-2">
+              <Link to="/products" className="w-full sm:w-auto">
+                <Button className="w-full sm:w-auto rounded-full px-8 h-12 sm:h-13 text-xs sm:text-sm font-semibold bg-stone-900 hover:bg-[#6e1423] text-white shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer">
                   <span>Shop Collection</span>
                   <ArrowRight size={16} />
                 </Button>
@@ -74,7 +74,7 @@ export function Hero() {
               <button
                 onClick={() => setIsAgentOpen(true)}
                 type="button"
-                className="rounded-full px-6 h-13 text-sm font-semibold bg-white hover:bg-stone-50 text-stone-900 border border-stone-200 shadow-xs hover:shadow-md transition-all duration-300 flex items-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto rounded-full px-6 h-12 sm:h-13 text-xs sm:text-sm font-semibold bg-white hover:bg-stone-50 text-stone-900 border border-stone-200 shadow-xs hover:shadow-md transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Sparkles size={16} className="text-[#C45C26]" />
                 <span>Chat with Stylist</span>
@@ -143,21 +143,22 @@ export function Hero() {
       </div>
 
       {/* Trust & Assurance Pillars */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-12">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 md:py-12">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {trustPillars.map((p, idx) => {
             const Icon = p.icon;
             return (
               <div
                 key={idx}
-                className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.03)] hover:shadow-md transition-shadow flex items-start gap-4"
+                className="bg-white p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-stone-200/80 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.03)] hover:shadow-md transition-shadow flex flex-col sm:flex-row items-start gap-2.5 sm:gap-4"
               >
-                <div className="p-2.5 rounded-xl bg-stone-100 text-[#6e1423] flex-shrink-0">
-                  <Icon size={20} />
+                <div className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-stone-100 text-[#6e1423] flex-shrink-0">
+                  <Icon size={18} className="sm:hidden" />
+                  <Icon size={20} className="hidden sm:block" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-sm text-stone-900">{p.title}</h4>
-                  <p className="text-xs text-stone-500 mt-1 leading-relaxed">{p.desc}</p>
+                  <h4 className="font-semibold text-xs sm:text-sm text-stone-900">{p.title}</h4>
+                  <p className="text-[11px] sm:text-xs text-stone-500 mt-0.5 sm:mt-1 leading-snug sm:leading-relaxed">{p.desc}</p>
                 </div>
               </div>
             );

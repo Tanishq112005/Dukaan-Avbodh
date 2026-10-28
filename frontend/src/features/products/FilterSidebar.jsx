@@ -20,7 +20,7 @@ export function FilterSidebar({ isMobile = false, onClose }) {
   };
 
   const content = (
-    <div className="bg-white border border-stone-200/80 rounded-2xl p-4 sm:p-5 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.04)]">
+    <div className={isMobile ? "bg-white" : "bg-white border border-stone-200/80 rounded-2xl p-4 sm:p-5 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.04)]"}>
       {/* Header */}
       <div className="flex justify-between items-center pb-3.5 border-b border-stone-100">
         <div className="flex items-center gap-2">

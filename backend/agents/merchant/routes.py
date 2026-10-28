@@ -7,7 +7,6 @@ from middleware.merchant_middleware import require_role
 from User.models import UserRole
 from Merchant.schemas import MerchantChatRequest, MerchantChatResponse
 from agents.merchant.controller import merchantAgentController
-from Merchant.database import merchantChatRepo
 
 logger = logging.getLogger(__name__)
 
@@ -79,5 +78,5 @@ async def get_merchant_chat_threads_endpoint(
 ):
     """Retrieves conversation sessions and state snapshots stored in MongoDB 'merchant_chats'."""
     merchant_id = current_user.get("user_id")
-    threads = await merchantChatRepo.get_merchant_threads(merchant_id=merchant_id, limit=limit)
+    threads = await merchantAgentController.chat_repo.get_merchant_threads(merchant_id=merchant_id, limit=limit)
     return {"threads": threads}

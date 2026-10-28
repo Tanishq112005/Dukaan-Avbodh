@@ -234,15 +234,15 @@ export function ProductInfo({ product, addToCart }) {
         <button
           onClick={handleBargainWithAi}
           type="button"
-          className="w-full py-2.5 px-3 rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50/70 via-stone-50 to-orange-50/50 hover:border-[#C45C26]/50 transition-all text-xs font-medium text-stone-800 flex items-center justify-between group cursor-pointer shadow-2xs"
+          className="w-full py-2.5 px-3 rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50/70 via-stone-50 to-orange-50/50 hover:border-[#C45C26]/50 transition-all text-xs font-medium text-stone-800 flex items-center justify-between gap-2 group cursor-pointer shadow-2xs"
         >
-          <div className="flex items-center gap-2">
-            <Sparkles size={14} className="text-[#C45C26] group-hover:rotate-12 transition-transform" />
-            <span className="font-semibold text-stone-800 group-hover:text-[#6e1423] transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles size={14} className="text-[#C45C26] flex-shrink-0 group-hover:rotate-12 transition-transform" />
+            <span className="font-semibold text-stone-800 group-hover:text-[#6e1423] transition-colors text-left text-[11px] sm:text-xs truncate sm:whitespace-normal">
               Negotiate price or ask for combo discount with AI Stylist
             </span>
           </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#6e1423] bg-white border border-[#6e1423]/20 px-2 py-0.5 rounded-md shadow-2xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#6e1423] bg-white border border-[#6e1423]/20 px-2 py-0.5 rounded-md shadow-2xs flex-shrink-0">
             Bargain
           </span>
         </button>

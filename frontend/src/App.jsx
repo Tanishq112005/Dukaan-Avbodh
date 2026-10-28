@@ -34,6 +34,8 @@ function AppContent() {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/order-confirmed" element={<OrderConfirmedPage />} />
+          <Route path="/order confirmed" element={<OrderConfirmedPage />} />
+          <Route path="/order%20confirmed" element={<OrderConfirmedPage />} />
           <Route path="/merchant" element={<MerchantDashboard />} />
           <Route path="/health" element={<HealthPage />} />
         </Routes>

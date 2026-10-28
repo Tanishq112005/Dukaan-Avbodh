@@ -117,7 +117,7 @@ export function ProductCard({
           <Link
             to={finalId ? `/product/${finalId}` : "#"}
             onClick={() => onProductClick?.(finalId)}
-            className="block text-xs sm:text-[13px] font-semibold text-stone-900 hover:text-[#6e1423] transition-colors leading-snug line-clamp-1"
+            className="block text-xs sm:text-[13px] font-semibold text-stone-900 hover:text-[#6e1423] transition-colors leading-snug line-clamp-2 min-h-[2rem] sm:min-h-[2.25rem]"
             title={name}
           >
             {name}

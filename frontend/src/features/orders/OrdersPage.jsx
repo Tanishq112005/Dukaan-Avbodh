@@ -215,8 +215,8 @@ export function OrdersPage() {
                 </div>
 
                 {/* Middle Row: Product info and pricing */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                  <div className="flex items-center gap-3 sm:gap-3.5">
                     <Link
                       to={product.id ? `/product/${product.id}` : "#"}
                       className="w-16 h-18 rounded-xl bg-stone-100 overflow-hidden flex-shrink-0 border border-stone-200 block"
@@ -236,11 +236,11 @@ export function OrdersPage() {
                       )}
                       <Link
                         to={product.id ? `/product/${product.id}` : "#"}
-                        className="text-sm font-semibold text-stone-900 hover:text-[#C45C26] transition-colors block line-clamp-1"
+                        className="text-sm font-semibold text-stone-900 hover:text-[#C45C26] transition-colors block line-clamp-2 leading-snug"
                       >
                         {product.name || `Product Item #${order.product_id}`}
                       </Link>
-                      <div className="flex items-center gap-2 text-xs text-stone-500 mt-0.5">
+                      <div className="flex items-center gap-2 text-xs text-stone-500 mt-1">
                         <span>Qty: <strong className="text-stone-800">{order.quantity || 1}</strong></span>
                         {order.discount_applied > 0 && (
                           <span className="text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.2 rounded-xs text-[10px]">
@@ -252,9 +252,9 @@ export function OrdersPage() {
                   </div>
 
                   {/* Pricing */}
-                  <div className="text-right sm:self-center">
+                  <div className="flex sm:flex-col items-baseline sm:items-end justify-between w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-0 border-stone-100">
                     <span className="text-xs text-stone-400 block font-medium">Order Total</span>
-                    <span className="font-display font-extrabold text-xl text-stone-900">
+                    <span className="font-display font-extrabold text-lg sm:text-xl text-stone-900">
                       ₹{Math.round(finalPrice).toLocaleString("en-IN")}
                     </span>
                   </div>

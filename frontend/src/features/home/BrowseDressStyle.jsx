@@ -30,24 +30,24 @@ const occasions = [
 
 export function BrowseDressStyle() {
   return (
-    <section className="py-16 md:py-24 bg-[#FBF8F3] border-t border-stone-200/80">
+    <section className="py-10 sm:py-16 md:py-24 bg-[#FBF8F3] border-t border-stone-200/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <p className="text-xs font-bold tracking-widest text-[#C45C26] uppercase mb-2">Lookbook</p>
-          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-extrabold uppercase text-stone-900 tracking-tight">
+        <div className="text-center max-w-2xl mx-auto mb-6 sm:mb-12">
+          <p className="text-xs font-bold tracking-widest text-[#C45C26] uppercase mb-1.5 sm:mb-2">Lookbook</p>
+          <h2 className="font-display text-2xl sm:text-4xl lg:text-5xl font-extrabold uppercase text-stone-900 tracking-tight">
             Shop by Occasion
           </h2>
-          <p className="text-stone-500 text-sm mt-3">
+          <p className="text-stone-500 text-xs sm:text-sm mt-2 sm:mt-3">
             Whether dressing for the boardroom, weekend lounging, or a rooftop soirée, find garments tailored to the moment.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {occasions.map((o) => (
             <Link
               key={o.name}
               to="/products"
-              className="group relative block rounded-3xl overflow-hidden aspect-[3/4] bg-stone-900 shadow-md hover:shadow-xl transition-all duration-500"
+              className="group relative block rounded-2xl sm:rounded-3xl overflow-hidden aspect-[3/4] bg-stone-900 shadow-sm sm:shadow-md hover:shadow-xl transition-all duration-500"
             >
               <img
                 src={o.img}
@@ -60,15 +60,16 @@ export function BrowseDressStyle() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent transition-opacity group-hover:from-stone-950/90" />
 
-              <div className="absolute inset-x-5 bottom-5 flex items-end justify-between">
+              <div className="absolute inset-x-3 sm:inset-x-5 bottom-3 sm:bottom-5 flex items-end justify-between">
                 <div>
-                  <h3 className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
+                  <h3 className="font-display text-sm sm:text-xl lg:text-2xl font-bold text-white tracking-tight leading-tight">
                     {o.name}
                   </h3>
-                  <p className="text-xs text-stone-300 mt-1 font-medium">{o.subtitle}</p>
+                  <p className="text-[10px] sm:text-xs text-stone-300 mt-0.5 sm:mt-1 font-medium line-clamp-1 sm:line-clamp-none">{o.subtitle}</p>
                 </div>
-                <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-md text-white flex items-center justify-center group-hover:bg-white group-hover:text-stone-900 transition-all duration-300 flex-shrink-0 ml-2">
-                  <ArrowUpRight size={18} />
+                <div className="w-6 h-6 sm:w-9 sm:h-9 rounded-full bg-white/20 backdrop-blur-md text-white flex items-center justify-center group-hover:bg-white group-hover:text-stone-900 transition-all duration-300 flex-shrink-0 ml-1.5 sm:ml-2">
+                  <ArrowUpRight size={14} className="sm:hidden" />
+                  <ArrowUpRight size={18} className="hidden sm:block" />
                 </div>
               </div>
             </Link>

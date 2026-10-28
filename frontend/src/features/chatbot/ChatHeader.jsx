@@ -7,7 +7,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
 export function ChatHeader({ isAiConnected, setIsAgentOpen, isFullScreen, setIsFullScreen, startNewChat }) {
   return (
     <div className="bg-stone-900 text-white flex-shrink-0">
-      <div className={cn("flex items-center justify-between px-4 py-3 sm:py-3.5", isFullScreen ? "max-w-4xl mx-auto w-full" : "")}>
+      <div className={cn("flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:py-3.5", isFullScreen ? "max-w-4xl mx-auto w-full" : "")}>
         <div className="flex items-center gap-2.5">
           <div className="bg-[#C45C26] p-1.5 rounded-full flex-shrink-0">
             <Bot size={16} className="text-white" />

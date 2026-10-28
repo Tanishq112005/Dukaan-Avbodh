@@ -2,7 +2,6 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, status, Request
 from fastapi.responses import StreamingResponse
-from agents.merchant.controller import merchantAgentController
 
 from middleware.merchant_middleware import require_role
 from User.models import UserRole
@@ -158,6 +157,8 @@ async def chat_with_merchant_agent(
     current_user: dict = Depends(require_role(UserRole.MERCHANT)),
 ):
     """Processes analytical and catalog management queries through the unified Merchant AI Agent."""
+    from agents.merchant.controller import merchantAgentController
+
     accept_header = request.headers.get("accept", "")
     is_stream = (
         "text/event-stream" in accept_header

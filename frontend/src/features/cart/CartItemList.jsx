@@ -29,14 +29,14 @@ export function CartItemList() {
   }
 
   return (
-    <div className="md:w-2/3 border border-stone-200/80 bg-white rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
+    <div className="w-full lg:w-2/3 border border-stone-200/80 bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-5 sm:space-y-6 shadow-xs">
       <div className="flex items-center justify-between pb-4 border-b border-stone-100">
         <h2 className="font-bold text-sm tracking-wider uppercase text-stone-900">
           Items in Bag ({cartItems.reduce((acc, i) => acc + (i.qty || 1), 0)})
         </h2>
       </div>
 
-      <div className="divide-y divide-stone-100 space-y-6">
+      <div className="divide-y divide-stone-100 space-y-5 sm:space-y-6">
         {cartItems.map((item, idx) => {
           const finalId = item.id || item.product_id;
           const discPct = Number(item.discount_percentage || 0);
@@ -48,9 +48,9 @@ export function CartItemList() {
           const formattedPrice = `₹${currentPrice.toLocaleString("en-IN")}`;
 
           return (
-            <div key={`${finalId}-${item.size || "M"}-${idx}`} className="pt-6 first:pt-0 flex gap-4 sm:gap-6">
+            <div key={`${finalId}-${item.size || "M"}-${idx}`} className="pt-5 sm:pt-6 first:pt-0 flex gap-3 sm:gap-6">
               {/* Product Thumbnail */}
-              <div className="w-22 h-26 sm:w-24 sm:h-28 bg-stone-100 rounded-2xl overflow-hidden flex-shrink-0 border border-stone-200/80">
+              <div className="w-20 h-24 sm:w-24 sm:h-28 bg-stone-100 rounded-xl sm:rounded-2xl overflow-hidden flex-shrink-0 border border-stone-200/80">
                 <img
                   src={item.image_url || `https://picsum.photos/seed/${finalId}/400/500`}
                   alt={item.name}
@@ -68,7 +68,7 @@ export function CartItemList() {
                           {item.brand}
                         </p>
                       )}
-                      <h3 className="font-semibold text-base text-stone-900 leading-snug line-clamp-1">
+                      <h3 className="font-semibold text-sm sm:text-base text-stone-900 leading-snug line-clamp-2">
                         {item.name}
                       </h3>
                     </div>
@@ -92,9 +92,9 @@ export function CartItemList() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between mt-4 pt-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-2">
                   <div className="flex items-baseline gap-2">
-                    <span className="font-bold text-lg text-stone-900">{formattedPrice}</span>
+                    <span className="font-bold text-base sm:text-lg text-stone-900">{formattedPrice}</span>
                     {discPct > 0 && origPrice > currentPrice && (
                       <span className="text-xs text-stone-400 line-through">
                         ₹{origPrice.toLocaleString("en-IN")}
@@ -108,7 +108,7 @@ export function CartItemList() {
                   </div>
 
                   {/* Quantity Stepper */}
-                  <div className="flex items-center justify-between bg-stone-100 rounded-xl px-3 py-1.5 w-26 border border-stone-200/60">
+                  <div className="flex items-center justify-between bg-stone-100 rounded-xl px-2.5 sm:px-3 py-1.5 w-24 sm:w-26 border border-stone-200/60">
                     <button
                       type="button"
                       onClick={() => updateCartQty(item.id, item.size, item.color, Math.max(1, (item.qty || 1) - 1))}

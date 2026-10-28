@@ -192,8 +192,8 @@ export function AgentWidget() {
             className={cn(
               "flex flex-col overflow-hidden bg-white",
               isFullScreen
-                ? "flex-1 w-full h-full bg-[#FBF8F3]"
-                : "w-full h-full sm:w-[440px] sm:h-[75vh] sm:rounded-[28px] sm:border sm:border-stone-200/80 sm:shadow-[0_24px_80px_-24px_rgba(20,16,12,0.45)] sm:mb-2"
+                ? "flex-1 w-full h-[100dvh] sm:h-full bg-[#FBF8F3]"
+                : "w-full h-[100dvh] sm:w-[440px] sm:h-[75vh] sm:rounded-[28px] sm:border sm:border-stone-200/80 sm:shadow-[0_24px_80px_-24px_rgba(20,16,12,0.45)] sm:mb-2"
             )}
           >
             <ChatHeader

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search as SearchIcon, ShoppingBag, User, Package, LogOut, Sparkles, X, Menu } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStore } from "../../../store/useStore.js";
@@ -87,6 +87,18 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const cartCount = cart.reduce((acc, item) => acc + item.qty, 0);
   const navigate = useNavigate();
+
+  // Lock body scroll when mobile menu drawer is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [mobileMenuOpen]);
 
   const handleLogout = () => {
     if (window.confirm("Do you want to log out?")) {

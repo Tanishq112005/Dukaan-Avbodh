@@ -24,6 +24,18 @@ export function ProductListPage() {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [sortBy, setSortBy] = useState("featured");
 
+  // Lock body scroll on mobile filter drawer open
+  useEffect(() => {
+    if (showMobileFilters) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [showMobileFilters]);
+
   useEffect(() => {
     let mounted = true;
     if (products.length === 0) {
@@ -111,10 +123,10 @@ export function ProductListPage() {
         {showMobileFilters && (
           <div className="fixed inset-0 z-50 flex md:hidden">
             <div
-              className="fixed inset-0 bg-stone-950/50 backdrop-blur-xs transition-opacity"
+              className="fixed inset-0 bg-stone-950/60 backdrop-blur-xs transition-opacity"
               onClick={() => setShowMobileFilters(false)}
             />
-            <div className="relative ml-auto w-full max-w-xs h-full bg-white shadow-2xl p-6 overflow-y-auto">
+            <div className="relative ml-auto w-[85%] max-w-xs h-full bg-white shadow-2xl p-4 sm:p-6 overflow-y-auto z-10 animate-slide-right">
               <FilterSidebar isMobile onClose={() => setShowMobileFilters(false)} />
             </div>
           </div>

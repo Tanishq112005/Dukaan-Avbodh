@@ -157,8 +157,8 @@ export function CartSummary() {
   };
 
   return (
-    <div className="md:w-1/3 border border-stone-200 bg-white rounded-[24px] p-6 h-fit shadow-sm">
-      <h2 className="text-xl font-bold mb-6 text-stone-900">Order Summary</h2>
+    <div className="w-full lg:w-1/3 border border-stone-200 bg-white rounded-2xl sm:rounded-[24px] p-5 sm:p-6 h-fit shadow-xs">
+      <h2 className="text-lg sm:text-xl font-bold mb-5 sm:mb-6 text-stone-900">Order Summary</h2>
       
       {errorMessage && (
         <div className="mb-4 p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2">
@@ -209,7 +209,7 @@ export function CartSummary() {
       )}
 
       <Button
-        className="w-full rounded-full py-6 text-base bg-stone-900 hover:bg-stone-800 text-white flex items-center justify-center gap-2"
+        className="w-full rounded-full py-5 sm:py-6 text-sm sm:text-base bg-stone-900 hover:bg-[#6e1423] text-white flex items-center justify-center gap-2 cursor-pointer transition-colors"
         onClick={handleCheckout}
         disabled={isProcessing || cartItems.length === 0}
       >
