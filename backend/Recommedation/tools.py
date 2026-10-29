@@ -2,14 +2,18 @@ import sys
 import os
 from typing import Optional, Dict, Any, List
 
-# Ensure backend/mcp directory is discoverable for importing FastMCP user server
-mcp_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "mcp"))
+# Ensure backend directory is discoverable for importing FastMCP user server
+backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if backend_path not in sys.path:
+    sys.path.insert(0, backend_path)
+
+mcp_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'mcp'))
 if mcp_path not in sys.path:
     sys.path.insert(0, mcp_path)
 
 try:
     import mcp as _official_mcp
-    if hasattr(_official_mcp, "__path__") and mcp_path not in _official_mcp.__path__:
+    if hasattr(_official_mcp, '__path__') and mcp_path not in _official_mcp.__path__:
         _official_mcp.__path__.append(mcp_path)
 except Exception:
     pass
@@ -20,15 +24,13 @@ except Exception:
     try:
         from user.server import mcp
     except Exception:
-        try:
-            from mcp_server_user.server import mcp
-        except Exception:
-            class DummyMCP:
-                def tool(self, *args, **kwargs):
-                    return lambda fn: fn
-                def resource(self, *args, **kwargs):
-                    return lambda fn: fn
-            mcp = DummyMCP()
+        class DummyMCP:
+            def tool(self, *args, **kwargs):
+                return lambda fn: fn
+            def resource(self, *args, **kwargs):
+                return lambda fn: fn
+        mcp = DummyMCP()
+
 from Product.models import Product, ProductType
 from Recommedation.controller import recommedationController
 from UserEvents.models import EventType
