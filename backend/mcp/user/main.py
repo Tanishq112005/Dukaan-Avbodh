@@ -13,5 +13,6 @@ from mcp.user.server import mcp, load_user_tools
 
 if __name__ == "__main__":
     load_user_tools()
-    print("[READY] Starting User FastMCP Server on http://127.0.0.1:8001 (SSE)")
-    mcp.run(transport="sse", port=8001)
+    port = int(os.environ.get("PORT", 8001))
+    print(f"[READY] Starting User FastMCP Server on 0.0.0.0:{port} (SSE)")
+    mcp.run(transport="sse", host="0.0.0.0", port=port)

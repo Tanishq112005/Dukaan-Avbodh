@@ -13,5 +13,6 @@ from mcp.merchant.server import mcp, load_merchant_tools
 
 if __name__ == "__main__":
     load_merchant_tools()
-    print("[READY] Starting Merchant FastMCP Server on http://127.0.0.1:8002 (SSE)")
-    mcp.run(transport="sse", port=8002)
+    port = int(os.environ.get("PORT", 8002))
+    print(f"[READY] Starting Merchant FastMCP Server on 0.0.0.0:{port} (SSE)")
+    mcp.run(transport="sse", host="0.0.0.0", port=port)

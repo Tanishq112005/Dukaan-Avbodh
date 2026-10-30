@@ -257,6 +257,9 @@ if __name__ == "__main__":
         sys.path.insert(0, backend_root)
 
     from task_queue.connection import QueueConsumerManager
+    from worker.main import start_render_health_server
+
+    start_render_health_server()
 
     print("=" * 60)
     print("Dukaan Probability Scoring Worker")

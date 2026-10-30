@@ -13,7 +13,35 @@ from config.redis import redisClient
 from worker.event_consumer import event_consumer
 
 
+def start_render_health_server():
+    """Satisfies Render Web Service port scanning when worker is hosted on free tier."""
+    port_str = os.environ.get("PORT")
+    if not port_str:
+        return
+    try:
+        port = int(port_str)
+        from http.server import HTTPServer, BaseHTTPRequestHandler
+
+        class HealthHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"Unified Background Worker is Running")
+
+            def log_message(self, *args):
+                pass  # Suppress noisy healthcheck logs
+
+        server = HTTPServer(("0.0.0.0", port), HealthHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        print(f"[Render] Health check listener running on 0.0.0.0:{port}")
+    except Exception as e:
+        print(f"[Render] Warning: Could not start health check listener: {e}")
+
+
 if __name__ == "__main__":
+    start_render_health_server()
+
     print("=" * 60)
     print("Dukaan Unified Background Worker")
     print("=" * 60)
