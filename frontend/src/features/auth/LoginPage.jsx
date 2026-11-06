@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useStore } from "../../store/useStore";
 import { Input } from "../../components/ui/input";
 import { AuthForm } from "./AuthForm";
@@ -14,6 +14,8 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login, thread_id } = useStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectUrl = searchParams.get("redirect");
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -33,7 +35,9 @@ export function LoginPage() {
         data.access_token
       );
 
-      if (data.role === "merchant") {
+      if (redirectUrl) {
+        navigate(redirectUrl);
+      } else if (data.role === "merchant") {
         navigate("/merchant");
       } else {
         navigate("/");

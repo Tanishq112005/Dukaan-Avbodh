@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "../../store/useStore";
 import { Input } from "../../components/ui/input";
 import { AuthForm } from "./AuthForm";
@@ -27,6 +27,8 @@ export function SignupPage() {
 
   const { login, thread_id } = useStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectUrl = searchParams.get("redirect");
 
   // 5-minute countdown timer effect during OTP stage
   useEffect(() => {
@@ -151,7 +153,9 @@ export function SignupPage() {
         data.access_token
       );
 
-      if (data.role === "merchant") {
+      if (redirectUrl) {
+        navigate(redirectUrl);
+      } else if (data.role === "merchant") {
         navigate("/merchant");
       } else {
         navigate("/");

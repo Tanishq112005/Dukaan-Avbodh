@@ -9,6 +9,7 @@ import { CartPage } from "./features/cart/CartPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { SignupPage } from "./features/auth/SignupPage";
 import { ForgotPasswordPage } from "./features/auth/ForgotPasswordPage";
+import { AgentAuthorizePage } from "./features/auth/AgentAuthorizePage";
 import { MerchantDashboard } from "./features/merchant/MerchantDashboard";
 import { OrderConfirmedPage } from "./features/cart/OrderConfirmedPage";
 import { OrdersPage } from "./features/orders/OrdersPage";
@@ -29,6 +30,8 @@ function AppContent() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/auth/authorize" element={<AgentAuthorizePage />} />
+          <Route path="/agent-authorize" element={<AgentAuthorizePage />} />
           <Route path="/products" element={<ProductListPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />

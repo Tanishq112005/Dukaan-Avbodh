@@ -176,6 +176,37 @@ export const authService = {
     const res = await apiClient.get("/auth/status", config);
     return res.data;
   },
+  /**
+   * Fetches AI Agent authorization session details.
+   */
+  async getAgentSession(sessionId) {
+    const res = await apiClient.get(`/auth/agent/session/${encodeURIComponent(sessionId)}`);
+    return res.data;
+  },
+
+  /**
+   * Approves the AI Agent authorization session with current user's credentials.
+   */
+  async approveAgentSession(sessionId) {
+    const res = await apiClient.post(`/auth/agent/session/${encodeURIComponent(sessionId)}/approve`);
+    return res.data;
+  },
+
+  /**
+   * Rejects the AI Agent authorization session.
+   */
+  async rejectAgentSession(sessionId) {
+    const res = await apiClient.post(`/auth/agent/session/${encodeURIComponent(sessionId)}/reject`);
+    return res.data;
+  },
+
+  /**
+   * Checks status of an agent authorization session.
+   */
+  async getAgentSessionStatus(sessionId) {
+    const res = await apiClient.get(`/auth/agent/session/${encodeURIComponent(sessionId)}/status`);
+    return res.data;
+  },
 };
 
 export default authService;
