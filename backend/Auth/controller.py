@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 from typing import Optional, Dict, Any
@@ -501,13 +502,17 @@ class AuthController:
         }
 
     async def check_status(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        frontend_url = os.getenv("FRONTEND_URL", "https://dukaan-avbodh.vercel.app").rstrip("/")
+        login_url = f"{frontend_url}/login"
+        signup_url = f"{frontend_url}/signup"
+
         if not user_id or user_id <= 0:
             return {
                 "is_authenticated": False,
                 "user_id": None,
                 "role": "guest",
-                "login_url": "/login",
-                "signup_url": "/signup",
+                "login_url": login_url,
+                "signup_url": signup_url,
                 "message": "Guest browsing session",
             }
 
@@ -517,8 +522,8 @@ class AuthController:
                 "is_authenticated": False,
                 "user_id": user_id,
                 "role": "guest",
-                "login_url": "/login",
-                "signup_url": "/signup",
+                "login_url": login_url,
+                "signup_url": signup_url,
                 "message": "Guest shopper. Please log in or sign up to save your cart and access exclusive discounts.",
             }
 
