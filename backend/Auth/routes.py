@@ -10,6 +10,7 @@ from .schemas import (
     ForgotPasswordRequest,
     VerifyForgotPasswordOtpRequest,
     ResetPasswordRequest,
+    CreateAgentSessionRequest,
 )
 from .controller import authController
 from middleware.auth_middleware import auth_middleware
@@ -93,3 +94,43 @@ async def update_my_profile(
 @router.get("/status")
 async def check_status(user_id: Optional[int] = Query(None)):
     return await authController.check_status(user_id)
+
+
+# -----------------------------------------------------------------------------
+# AI Agent Authorization Endpoints (OAuth / Consent Screen)
+# -----------------------------------------------------------------------------
+
+@router.post("/agent/session", status_code=status.HTTP_201_CREATED, summary="Initiate AI Agent Auth Session")
+async def create_agent_session(payload: CreateAgentSessionRequest):
+    """Initiates an AI agent authentication session and returns a secure authorization URL."""
+    return await authController.create_agent_session(payload)
+
+
+@router.get("/agent/session/{session_id}", summary="Get Agent Auth Session Details")
+async def get_agent_session(session_id: str):
+    """Fetches session metadata (agent name, permissions, code) for the web consent screen."""
+    return await authController.get_agent_session(session_id)
+
+
+@router.post("/agent/session/{session_id}/approve", summary="Approve Agent Auth Session")
+async def approve_agent_session(
+    session_id: str,
+    current_user: dict = Depends(auth_middleware),
+):
+    """
+    Called by the Dukaan web consent screen when the logged-in user clicks 'Approve'.
+    Links the user account to the agent session without revealing credentials to LLMs.
+    """
+    return await authController.approve_agent_session(session_id, current_user["user_id"])
+
+
+@router.post("/agent/session/{session_id}/reject", summary="Reject Agent Auth Session")
+async def reject_agent_session(session_id: str):
+    """Marks an agent session as rejected."""
+    return await authController.reject_agent_session(session_id)
+
+
+@router.get("/agent/session/{session_id}/status", summary="Check Agent Session Status")
+async def get_agent_session_status(session_id: str):
+    """Polled by external agents or MCP tools to verify if user has completed web authorization."""
+    return await authController.get_agent_session_status(session_id)

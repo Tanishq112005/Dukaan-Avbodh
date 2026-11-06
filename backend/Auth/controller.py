@@ -13,9 +13,11 @@ from .schemas import (
     ForgotPasswordRequest,
     VerifyForgotPasswordOtpRequest,
     ResetPasswordRequest,
+    CreateAgentSessionRequest,
 )
 from .jwt import AuthHandler
 from .otp import otpService, generate_otp
+from .agent_auth import agentAuthService
 from rabbitmq.producer import rabbitProducer
 from User.models import User, UserRole
 from User.database import userRepository
@@ -528,6 +530,85 @@ class AuthController:
             "address": user.address,
             "role": user.role.value if hasattr(user.role, "value") else str(user.role),
             "message": f"Welcome back, {user.name}!",
+        }
+
+    async def create_agent_session(self, payload: CreateAgentSessionRequest) -> JSONResponse:
+        session = agentAuthService.create_session(
+            agent_name=payload.agent_name or "AI Shopping Assistant",
+            scopes=payload.scopes,
+            custom_base_url=payload.custom_base_url,
+        )
+        return JSONResponse(status_code=status.HTTP_201_CREATED, content=session)
+
+    async def get_agent_session(self, session_id: str) -> Dict[str, Any]:
+        session = agentAuthService.get_session(session_id)
+        if not session:
+            session = agentAuthService.get_session_by_code(session_id)
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Authorization session not found or expired.",
+            )
+        return {
+            "session_id": session.get("session_id"),
+            "code": session.get("code"),
+            "agent_name": session.get("agent_name"),
+            "scopes": session.get("scopes", []),
+            "status": session.get("status"),
+            "created_at": session.get("created_at"),
+            "expires_at": session.get("expires_at"),
+            "user_name": session.get("user_name"),
+        }
+
+    async def approve_agent_session(self, session_id: str, current_user_id: int) -> JSONResponse:
+        user = await userRepository.get_by_id(current_user_id)
+        if not user or not is_real_user(user):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Must be logged in with a valid account to authorize agents.",
+            )
+        role_str = user.role.value if hasattr(user.role, "value") else str(user.role or "customer")
+        res = agentAuthService.approve_session(
+            session_id=session_id,
+            user_id=user.id,
+            user_name=user.name,
+            user_email=user.email,
+            user_role=role_str,
+        )
+        if not res.get("success"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=res.get("error", "Failed to approve session."),
+            )
+        return JSONResponse(status_code=status.HTTP_200_OK, content=res)
+
+    async def reject_agent_session(self, session_id: str) -> JSONResponse:
+        res = agentAuthService.reject_session(session_id)
+        if not res.get("success"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=res.get("error", "Failed to reject session."),
+            )
+        return JSONResponse(status_code=status.HTTP_200_OK, content=res)
+
+    async def get_agent_session_status(self, session_id: str) -> Dict[str, Any]:
+        session = agentAuthService.get_session(session_id)
+        if not session:
+            session = agentAuthService.get_session_by_code(session_id)
+        if not session:
+            return {"status": "not_found", "is_authenticated": False}
+        if session.get("status") == "approved":
+            return {
+                "status": "approved",
+                "is_authenticated": True,
+                "user_id": session.get("user_id"),
+                "user_name": session.get("user_name"),
+                "user_email": session.get("user_email"),
+                "access_token": session.get("access_token"),
+            }
+        return {
+            "status": session.get("status"),
+            "is_authenticated": False,
         }
 
 
