@@ -36,6 +36,7 @@ except Exception:
 
 from Auth.controller import authController, is_real_user
 from Auth.schemas import UpdateProfileRequest
+from Auth.agent_auth import agentAuthService
 from User.database import userRepository
 
 logger = logging.getLogger(__name__)
@@ -226,8 +227,8 @@ async def check_auth_status(
         return {
             "is_authenticated": False,
             "user_id": user_id,
-            "login_url": "/login",
-            "signup_url": "/signup",
+            "login_url": 'https://dukaan-avbodh.vercel.app/login',
+             "signup_url": 'https://dukaan-avbodh.vercel.app/signup',
             "error": str(e),
         }
 
@@ -235,35 +236,134 @@ async def check_auth_status(
 @mcp.tool()
 async def request_login(
     action_reason: str = "save items to your cart across devices and unlock VIP deals",
+    agent_name: str = "AI Shopping Assistant",
 ) -> Dict[str, Any]:
     """
     Generates a conversational authentication nudge providing direct login and registration links
-    and automatically renders an interactive card with Log In and Sign Up buttons in the chat UI.
-
-    Parameters:
-    - action_reason (str, Optional): Reason why login is recommended (e.g. 'checkout', 'save cart across devices', 'view order history', 'track orders', 'VIP discount').
-
-    LLM Usage & Instructions:
-    1. Call this tool when an unauthenticated guest attempts an action that requires a registered account.
-    2. Calling this tool automatically displays an interactive card with dedicated 'Log In' (/login) and 'Sign Up' (/signup) buttons.
-    3. Share the login link formatted as markdown [Log In or Sign Up](/login) in your conversational response.
+    with an automated zero-credential agent authorization session for external AI agents.
     """
+    try:
+        session = agentAuthService.create_session(agent_name=agent_name)
+        auth_url = session["auth_url"]
+        session_id = session["session_id"]
+        code = session["code"]
+    except Exception as e:
+        logger.warning("Could not create agent session in request_login: %s", e)
+        auth_url = 'https://dukaan-avbodh.vercel.app/login'
+        session_id = None
+        code = None
+
     return {
         "success": True,
         "action": "request_login",
         "requires_login": True,
         "title": "Sign In to Dukaan",
-        "login_url": 'https://dukaan-avbodh.vercel.app/login',
+        "session_id": session_id,
+        "verification_code": code,
+        "auth_url": auth_url,
+        "login_url": auth_url,
         "signup_url": 'https://dukaan-avbodh.vercel.app/signup',
         "action_reason": action_reason,
         "reason": f"Please sign in or create an account to {action_reason}.",
-        "message": f"To {action_reason}, please sign in or create an account.",
+        "message": f"To {action_reason}, please sign in or authorize access at {auth_url}.",
         "benefits": [
             "Sync your shopping bag across all devices",
             "Track live order shipments & delivery updates",
             "Unlock member-exclusive bargaining discounts",
         ],
     }
+
+
+@mcp.tool()
+async def initiate_agent_login(
+    agent_name: str = "AI Shopping Assistant",
+) -> Dict[str, Any]:
+    """
+    Initiates a zero-credential authorization session for an AI Agent (ChatGPT, Claude, Custom Agent).
+    Returns a secure Dukaan authorization URL where the shopper logs in directly on the website.
+    """
+    try:
+        session = agentAuthService.create_session(agent_name=agent_name)
+        return {
+            "success": True,
+            "session_id": session["session_id"],
+            "verification_code": session["code"],
+            "auth_url": session["auth_url"],
+            "expires_in_seconds": session["expires_in"],
+            "message": (
+                f"Please approve access by visiting {session['auth_url']}. "
+                f"Verify that the confirmation code matches: {session['code']}."
+            ),
+            "instructions": (
+                "Share the auth_url with the user. Do not ask for their password. "
+                "After the user confirms they approved the request, call 'check_agent_login_status' with this session_id."
+            ),
+        }
+    except Exception as e:
+        logger.exception("initiate_agent_login tool error: %s", e)
+        return {
+            "success": False,
+            "error": f"Failed to initiate agent login: {str(e)}",
+            "fallback_login_url": "https://dukaan-avbodh.vercel.app/login",
+        }
+
+
+@mcp.tool()
+async def check_agent_login_status(
+    session_id: str,
+) -> Dict[str, Any]:
+    """
+    Checks whether the shopper has completed and approved the agent authorization on the Dukaan website.
+    """
+    try:
+        session = agentAuthService.get_session(session_id)
+        if not session:
+            session = agentAuthService.get_session_by_code(session_id)
+        if not session:
+            return {
+                "success": False,
+                "is_authenticated": False,
+                "status": "not_found",
+                "error": "Session ID not found or has expired. Please initiate a new login.",
+            }
+
+        status = session.get("status")
+        if status == "approved":
+            return {
+                "success": True,
+                "is_authenticated": True,
+                "status": "approved",
+                "session_id": session.get("session_id"),
+                "user_id": session.get("user_id"),
+                "user_name": session.get("user_name"),
+                "user_email": session.get("user_email"),
+                "access_token": session.get("access_token"),
+                "message": f"Successfully authenticated as {session.get('user_name')} (User ID: {session.get('user_id')}).",
+            }
+
+        if status == "rejected":
+            return {
+                "success": False,
+                "is_authenticated": False,
+                "status": "rejected",
+                "message": "The shopper rejected the authorization request on the website.",
+            }
+
+        return {
+            "success": True,
+            "is_authenticated": False,
+            "status": "pending",
+            "session_id": session.get("session_id"),
+            "verification_code": session.get("code"),
+            "message": "Authorization is still pending. The user has not yet clicked 'Approve' on the website.",
+        }
+    except Exception as e:
+        logger.exception("check_agent_login_status tool error: %s", e)
+        return {
+            "success": False,
+            "is_authenticated": False,
+            "error": str(e),
+        }
 
 
 # ==============================================================================
@@ -295,5 +395,15 @@ def get_auth_langchain_tools() -> List[StructuredTool]:
             coroutine=request_login,
             name="request_login",
             description=request_login.__doc__,
+        ),
+        StructuredTool.from_function(
+            coroutine=initiate_agent_login,
+            name="initiate_agent_login",
+            description=initiate_agent_login.__doc__,
+        ),
+        StructuredTool.from_function(
+            coroutine=check_agent_login_status,
+            name="check_agent_login_status",
+            description=check_agent_login_status.__doc__,
         ),
     ]
